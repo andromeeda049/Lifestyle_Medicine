@@ -1,0 +1,8 @@
+{
+  "name": "เวชศาสตร์วิถีชีวิต (Lifestyle Medicine)",
+  "description": "เวชศาสตร์วิถีชีวิต (Lifestyle Medicine)",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

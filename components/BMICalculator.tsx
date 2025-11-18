@@ -1,0 +1,367 @@
+import React, { useState, useMemo, useContext } from 'react';
+import { AppContext } from '../context/AppContext';
+import { BMIHistoryEntry } from '../types';
+import { TrashIcon, ShareIcon } from './icons';
+
+const getBmiCategory = (bmi: number): { category: string; color: string } => {
+    if (bmi < 18.5) return { category: 'น้ำหนักน้อยกว่าเกณฑ์', color: 'text-blue-500 dark:text-blue-400' };
+    if (bmi < 23) return { category: 'สมส่วน', color: 'text-green-500 dark:text-green-400' };
+    if (bmi < 25) return { category: 'น้ำหนักเกิน', color: 'text-yellow-500 dark:text-yellow-400' };
+    if (bmi < 30) return { category: 'โรคอ้วนระดับที่ 1', color: 'text-orange-500 dark:text-orange-400' };
+    return { category: 'โรคอ้วนระดับที่ 2', color: 'text-red-500 dark:text-red-400' };
+};
+
+// --- BMI History Chart Component ---
+interface TooltipData {
+  x: number;
+  y: number;
+  value: number;
+  date: string;
+}
+
+const BMIHistoryChart: React.FC<{ data: BMIHistoryEntry[] }> = ({ data }) => {
+  const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+  const { theme } = useContext(AppContext);
+
+  const chartParams = useMemo(() => {
+    if (data.length < 2) return null;
+
+    const chartData = [...data].reverse();
+    const width = 500;
+    const height = 200;
+    const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const bmiValues = chartData.map(d => d.value);
+    const minBmi = Math.min(...bmiValues);
+    const maxBmi = Math.max(...bmiValues);
+    
+    const yDomain = [Math.floor(minBmi - 1), Math.ceil(maxBmi + 1)];
+    
+    const xScale = (index: number) => (index / (chartData.length - 1)) * innerWidth;
+    const yScale = (bmi: number) => innerHeight - ((bmi - yDomain[0]) / (yDomain[1] - yDomain[0])) * innerHeight;
+
+    const linePath = chartData
+      .map((d, i) => `${i === 0 ? 'M' : 'L'}${xScale(i)},${yScale(d.value)}`)
+      .join(' ');
+      
+    const points = chartData.map((d, i) => ({
+      x: xScale(i),
+      y: yScale(d.value),
+      value: d.value,
+      date: new Date(d.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+    }));
+
+    const yAxisLabels = [];
+    const numTicks = 5;
+    const tickStep = (yDomain[1] - yDomain[0]) / (numTicks - 1);
+    for (let i = 0; i < numTicks; i++) {
+        const value = yDomain[0] + (i * tickStep);
+        yAxisLabels.push({
+            y: yScale(value),
+            label: value.toFixed(0),
+        });
+    }
+
+    const xAxisLabels = [
+        { x: xScale(0), label: points[0].date },
+        { x: xScale(chartData.length - 1), label: points[points.length - 1].date }
+    ];
+     if (points.length > 2) {
+      const midIndex = Math.floor(points.length / 2);
+      xAxisLabels.splice(1, 0, { x: xScale(midIndex), label: points[midIndex].date });
+    }
+
+    return { width, height, margin, innerWidth, innerHeight, linePath, points, yAxisLabels, xAxisLabels };
+  }, [data]);
+
+  if (!chartParams) return null;
+
+  const { width, height, margin, innerHeight, linePath, points, yAxisLabels, xAxisLabels } = chartParams;
+  
+  return (
+    <div className="relative -mx-4 -my-2 sm:-mx-6 sm:-my-4">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" aria-labelledby="chart-title" role="img">
+        <title id="chart-title">กราฟแสดงแนวโน้มค่า BMI</title>
+        <g transform={`translate(${margin.left}, ${margin.top})`}>
+          {yAxisLabels.map((tick, i) => (
+            <g key={i} transform={`translate(0, ${tick.y})`} className="text-xs text-gray-500 dark:text-gray-400">
+              <line x2={chartParams.innerWidth} className="stroke-gray-200 dark:stroke-gray-700" strokeDasharray="2,2" />
+              <text x="-10" dy="0.32em" textAnchor="end" className="fill-current">
+                {tick.label}
+              </text>
+            </g>
+          ))}
+
+          {xAxisLabels.map((tick, i) => (
+              <text key={i} x={tick.x} y={innerHeight + 25} textAnchor="middle" className="text-xs fill-gray-500 dark:fill-gray-400">
+                  {tick.label}
+              </text>
+          ))}
+
+          <path d={linePath} fill="none" className="stroke-red-500 dark:stroke-red-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+          {points.map((point, i) => (
+            <circle
+              key={i}
+              cx={point.x}
+              cy={point.y}
+              r="4"
+              className="fill-red-500 dark:fill-red-400 stroke-white dark:stroke-gray-800 cursor-pointer transition-transform duration-200 hover:scale-150"
+              strokeWidth="2"
+              onMouseEnter={() => setTooltip(point)}
+              onMouseLeave={() => setTooltip(null)}
+            />
+          ))}
+
+          {tooltip && (
+            <g transform={`translate(${tooltip.x}, ${tooltip.y})`} className="pointer-events-none transition-opacity duration-200" style={{ opacity: 1 }}>
+              <g transform="translate(0, -12)">
+                <rect x="-32" y="-28" width="64" height="24" rx="4" className="fill-gray-800 dark:fill-gray-900 opacity-80" />
+                <text x="0" y="-16" textAnchor="middle" className="fill-white font-semibold text-xs">
+                  {`BMI: ${tooltip.value.toFixed(2)}`}
+                </text>
+              </g>
+            </g>
+          )}
+        </g>
+      </svg>
+    </div>
+  );
+};
+// --- End of Chart Component ---
+
+
+const MAX_HISTORY_ITEMS = 10;
+
+const BMICalculator: React.FC = () => {
+  const { bmiHistory: history, setBmiHistory: setHistory, userProfile, clearBmiHistory } = useContext(AppContext);
+
+  const [height, setHeight] = useState<string>(userProfile.height || '');
+  const [weight, setWeight] = useState<string>(userProfile.weight || '');
+  const [bmi, setBmi] = useState<number | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
+
+  const calculateBmi = () => {
+    const h = parseFloat(height);
+    const w = parseFloat(weight);
+    if (h > 0 && w > 0) {
+      const heightInMeters = h / 100;
+      const bmiValue = w / (heightInMeters * heightInMeters);
+      setBmi(bmiValue);
+
+      const { category } = getBmiCategory(bmiValue);
+      const newEntry: BMIHistoryEntry = {
+        value: bmiValue,
+        category: category,
+        date: new Date().toISOString(),
+      };
+      setHistory(prevHistory => [newEntry, ...prevHistory].slice(0, MAX_HISTORY_ITEMS));
+    }
+  };
+  
+  const bmiResult = useMemo(() => {
+    if (bmi === null) return null;
+    const { category, color } = getBmiCategory(bmi);
+    return {
+      value: bmi.toFixed(2),
+      category,
+      color,
+    };
+  }, [bmi]);
+
+  const handleShare = async () => {
+    if (!bmiResult) return;
+
+    const shareText = `ค่า BMI ของฉันคือ ${bmiResult.value} (จัดอยู่ในเกณฑ์: ${bmiResult.category})\n\nคำนวณโดย "ศูนย์โภชนาการอัจฉริยะ"`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'ผลการคำนวณ BMI ของฉัน',
+          text: shareText,
+        });
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('Error sharing:', error);
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setCopyStatus('copied');
+        setTimeout(() => setCopyStatus('idle'), 2500);
+      } catch (error) {
+        console.error('Failed to copy:', error);
+        alert('ไม่สามารถคัดลอกผลลัพธ์ได้');
+      }
+    }
+  };
+
+  const handleClearHistory = () => {
+    setShowConfirmDialog(true);
+  }
+
+  const confirmClearHistory = () => {
+    clearBmiHistory();
+    setShowConfirmDialog(false);
+  };
+
+  const cancelClearHistory = () => {
+    setShowConfirmDialog(false);
+  };
+
+  return (
+    <>
+      <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full transform transition-all duration-300">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">คำนวณค่าดัชนีมวลกาย (BMI)</h2>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="height" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ส่วนสูง (ซม.)</label>
+            <input
+              type="number"
+              id="height"
+              value={height}
+              onChange={(e) => setHeight(e.target.value)}
+              placeholder="เช่น 175"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+            />
+          </div>
+          <div>
+            <label htmlFor="weight" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">น้ำหนัก (กก.)</label>
+            <input
+              type="number"
+              id="weight"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder="เช่น 68"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+            />
+          </div>
+          <button
+            onClick={calculateBmi}
+            className="w-full bg-red-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 dark:focus:ring-red-800 transition-all duration-300 transform hover:scale-105"
+          >
+            คำนวณ
+          </button>
+        </div>
+        {bmiResult && (
+          <div className="mt-8 text-center bg-gray-100 dark:bg-gray-700 p-6 rounded-lg animate-fade-in">
+            <p className="text-lg text-gray-600 dark:text-gray-300">ค่า BMI ของคุณคือ</p>
+            <p className={`text-5xl font-bold my-2 ${bmiResult.color}`}>{bmiResult.value}</p>
+            <p className={`text-xl font-semibold ${bmiResult.color}`}>{bmiResult.category}</p>
+            <button
+                onClick={handleShare}
+                className="mt-4 inline-flex items-center justify-center gap-2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800 transition-all duration-300"
+                aria-label="แชร์ผลการคำนวณ BMI"
+              >
+              <ShareIcon className="w-5 h-5" />
+              {copyStatus === 'copied' ? 'คัดลอกแล้ว!' : 'แชร์ผลลัพธ์'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full mt-8">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white">BMI คืออะไร และเกณฑ์วัดเป็นอย่างไร?</h3>
+            <span className="transition group-open:rotate-180">
+              <svg fill="none" height="24" shapeRendering="geometricPrecision" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="24" className="text-gray-600 dark:text-gray-300"><path d="M6 9l6 6 6-6"></path></svg>
+            </span>
+          </summary>
+          <div className="mt-4 text-gray-600 dark:text-gray-300 space-y-4 prose prose-sm max-w-none">
+            <p>
+              <strong>ดัชนีมวลกาย (Body Mass Index - BMI)</strong> คือค่าที่ใช้ประเมินภาวะน้ำหนักของร่างกายโดยคำนวณจากน้ำหนักและส่วนสูง เพื่อเป็นตัวชี้วัดเบื้องต้นว่าน้ำหนักของคุณอยู่ในเกณฑ์ที่เหมาะสมหรือไม่ อย่างไรก็ตาม ค่า BMI ไม่สามารถแยกแยะระหว่างมวลไขมันและมวลกล้ามเนื้อได้
+            </p>
+            <p>
+              สำหรับคนเอเชีย มีการปรับเกณฑ์ BMI เพื่อให้เหมาะสมกับโครงสร้างร่างกาย ดังนี้:
+            </p>
+            <ul className="space-y-2 list-disc pl-5">
+              <li><strong className="text-blue-500 dark:text-blue-400">น้อยกว่า 18.5:</strong> น้ำหนักน้อยกว่าเกณฑ์</li>
+              <li><strong className="text-green-500 dark:text-green-400">18.5 - 22.9:</strong> สมส่วน, สุขภาพดี</li>
+              <li><strong className="text-yellow-500 dark:text-yellow-400">23.0 - 24.9:</strong> น้ำหนักเกิน</li>
+              <li><strong className="text-orange-500 dark:text-orange-400">25.0 - 29.9:</strong> โรคอ้วนระดับที่ 1</li>
+              <li><strong className="text-red-500 dark:text-red-400">30.0 ขึ้นไป:</strong> โรคอ้วนระดับที่ 2 (มีความเสี่ยงสูงต่อการเกิดโรค)</li>
+            </ul>
+             <p className="text-xs !mt-4">*ค่าเกณฑ์เหล่านี้ใช้สำหรับผู้ใหญ่ที่มีอายุ 20 ปีขึ้นไป</p>
+          </div>
+        </details>
+      </div>
+
+      {history.length > 1 && (
+        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full mt-8 animate-fade-in">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">แนวโน้ม BMI</h3>
+            <BMIHistoryChart data={history} />
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full mt-8 animate-fade-in">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">ประวัติการคำนวณ</h3>
+                <button 
+                    onClick={handleClearHistory} 
+                    className="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 flex items-center gap-1 transition-colors"
+                    aria-label="ล้างประวัติการคำนวณ BMI"
+                >
+                    <TrashIcon className="w-4 h-4" />
+                    ล้างประวัติ
+                </button>
+            </div>
+            <ul className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {history.map((entry, index) => {
+                    const { color } = getBmiCategory(entry.value);
+                    return (
+                        <li key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                            <div>
+                                <p className={`font-bold text-lg ${color}`}>{entry.value.toFixed(2)}</p>
+                                <p className={`text-sm ${color}`}>{entry.category}</p>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(entry.date).toLocaleDateString('th-TH')}</p>
+                        </li>
+                    )
+                })}
+            </ul>
+        </div>
+      )}
+      {showConfirmDialog && (
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300 animate-fade-in"
+            onClick={cancelClearHistory}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-dialog-title-bmi"
+        >
+            <div 
+                className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4 transform transition-all duration-300 scale-95 animate-scale-in"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 id="confirm-dialog-title-bmi" className="text-xl font-bold text-gray-800 dark:text-white">ยืนยันการล้างประวัติ</h3>
+                <p className="mt-2 text-gray-600 dark:text-gray-300">
+                    คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการคำนวณทั้งหมด?
+                </p>
+                <div className="mt-6 flex justify-end gap-3">
+                    <button
+                        onClick={cancelClearHistory}
+                        className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
+                    >
+                        ยกเลิก
+                    </button>
+                    <button
+                        onClick={confirmClearHistory}
+                        className="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                    >
+                        ยืนยัน
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default BMICalculator;
