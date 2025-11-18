@@ -136,62 +136,73 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 }, [scriptUrl, currentUser, setCurrentUser, _setUserProfile]);
 
   const setBmiHistory = useCallback((value: React.SetStateAction<BMIHistoryEntry[]>) => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
     const newHistory = value instanceof Function ? value(bmiHistory) : value;
     _setBmiHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'bmiHistory', newHistory, currentUser);
+    // Allow UI updates for everyone, but only sync to sheet if not admin (or let backend handle logic)
+    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
+        saveDataToSheet(scriptUrl, 'bmiHistory', newHistory, currentUser);
+    }
   }, [scriptUrl, _setBmiHistory, bmiHistory, currentUser]);
   
   const setTdeeHistory = useCallback((value: React.SetStateAction<TDEEHistoryEntry[]>) => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
     const newHistory = value instanceof Function ? value(tdeeHistory) : value;
     _setTdeeHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'tdeeHistory', newHistory, currentUser);
+    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
+        saveDataToSheet(scriptUrl, 'tdeeHistory', newHistory, currentUser);
+    }
   }, [scriptUrl, _setTdeeHistory, tdeeHistory, currentUser]);
 
   const setFoodHistory = useCallback((value: React.SetStateAction<FoodHistoryEntry[]>) => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
     const newHistory = value instanceof Function ? value(foodHistory) : value;
     _setFoodHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'foodHistory', newHistory, currentUser);
+    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
+        saveDataToSheet(scriptUrl, 'foodHistory', newHistory, currentUser);
+    }
   }, [scriptUrl, _setFoodHistory, foodHistory, currentUser]);
   
   const setPlannerHistory = useCallback((value: React.SetStateAction<PlannerHistoryEntry[]>) => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
     const newHistory = value instanceof Function ? value(plannerHistory) : value;
     _setPlannerHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'plannerHistory', newHistory, currentUser);
+    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
+        saveDataToSheet(scriptUrl, 'plannerHistory', newHistory, currentUser);
+    }
   }, [scriptUrl, _setPlannerHistory, plannerHistory, currentUser]);
 
   const setWaterHistory = useCallback((value: React.SetStateAction<WaterHistoryEntry[]>) => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
     const newHistory = value instanceof Function ? value(waterHistory) : value;
     _setWaterHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0) saveDataToSheet(scriptUrl, 'waterHistory', newHistory, currentUser);
+    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
+        saveDataToSheet(scriptUrl, 'waterHistory', newHistory, currentUser);
+    }
   }, [scriptUrl, _setWaterHistory, waterHistory, currentUser]);
 
   const clearBmiHistory = useCallback(() => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
     _setBmiHistory([]);
-    if (scriptUrl) clearHistoryInSheet(scriptUrl, 'bmiHistory', currentUser);
+    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'bmiHistory', currentUser);
   }, [scriptUrl, _setBmiHistory, currentUser]);
   
   const clearTdeeHistory = useCallback(() => {
-     if (!currentUser || currentUser.role === 'admin') return;
+     if (!currentUser) return;
     _setTdeeHistory([]);
-    if (scriptUrl) clearHistoryInSheet(scriptUrl, 'tdeeHistory', currentUser);
+    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'tdeeHistory', currentUser);
   }, [scriptUrl, _setTdeeHistory, currentUser]);
   
   const clearFoodHistory = useCallback(() => {
-     if (!currentUser || currentUser.role === 'admin') return;
+     if (!currentUser) return;
     _setFoodHistory([]);
-    if (scriptUrl) clearHistoryInSheet(scriptUrl, 'foodHistory', currentUser);
+    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'foodHistory', currentUser);
   }, [scriptUrl, _setFoodHistory, currentUser]);
 
   const clearWaterHistory = useCallback(() => {
-    if (!currentUser || currentUser.role === 'admin') return;
+    if (!currentUser) return;
     _setWaterHistory([]);
-    if (scriptUrl) clearHistoryInSheet(scriptUrl, 'waterHistory', currentUser);
+    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'waterHistory', currentUser);
  }, [scriptUrl, _setWaterHistory, currentUser]);
 
 
