@@ -1,5 +1,5 @@
 
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import BMICalculator from './components/BMICalculator';
 import TDEECalculator from './components/TDEECalculator';
 import FoodAnalyzer from './components/FoodAnalyzer';
@@ -22,19 +22,24 @@ import AboutApp from './components/AboutApp';
 import EvaluationForm from './components/EvaluationForm';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User } from './types';
-import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon } from './components/icons';
+import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon } from './components/icons';
 import { saveDataToSheet } from './services/googleSheetService';
 
 const AppContent: React.FC = () => {
-  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile } = useContext(AppContext);
+  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
   
    useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -48,6 +53,7 @@ const AppContent: React.FC = () => {
   const navigate = (view: AppView) => {
     setActiveView(view);
     setIsMenuOpen(false);
+    setIsNotificationOpen(false);
   };
 
   const renderView = () => {
@@ -196,10 +202,87 @@ const AppContent: React.FC = () => {
     </aside>
   );
 
+  // Daily Task Logic
+  const pendingTasks = useMemo(() => {
+      if (!currentUser || currentUser.role !== 'user') return [];
+      
+      const isToday = (dateString: string) => {
+        const d = new Date(dateString);
+        const today = new Date();
+        return d.getDate() === today.getDate() &&
+               d.getMonth() === today.getMonth() &&
+               d.getFullYear() === today.getFullYear();
+      };
+
+      const tasks = [];
+      if (!waterHistory.some(h => isToday(h.date))) tasks.push({ id: 'water', label: 'ดื่มน้ำ', view: 'water' as AppView, icon: <WaterDropIcon className="w-4 h-4 text-blue-500"/> });
+      // Replace Food Analysis with Calorie Tracker
+      if (!calorieHistory.some(h => isToday(h.date))) tasks.push({ id: 'calorie', label: 'บันทึกแคลอรี่', view: 'calorieTracker' as AppView, icon: <BeakerIcon className="w-4 h-4 text-orange-500"/> });
+      if (!activityHistory.some(h => isToday(h.date))) tasks.push({ id: 'activity', label: 'ออกกำลังกาย', view: 'activityTracker' as AppView, icon: <BoltIcon className="w-4 h-4 text-yellow-500"/> });
+      if (!moodHistory.some(h => isToday(h.date)) && !sleepHistory.some(h => isToday(h.date))) {
+           tasks.push({ id: 'wellness', label: 'เช็คอินสุขภาพ', view: 'wellness' as AppView, icon: <HeartIcon className="w-4 h-4 text-rose-500"/> });
+      }
+
+      return tasks;
+  }, [waterHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, currentUser]);
+
+  const NotificationBell = () => {
+      const count = pendingTasks.length;
+      
+      return (
+          <div className="relative" ref={notificationRef}>
+              <button 
+                  onClick={() => setIsNotificationOpen(prev => !prev)}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors relative"
+              >
+                  <BellIcon className="w-6 h-6" />
+                  {count > 0 && (
+                      <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-gray-800 animate-pulse">
+                          {count}
+                      </span>
+                  )}
+              </button>
+
+              {isNotificationOpen && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 origin-top-right z-50 animate-fade-in-down">
+                      <div className="p-4 border-b dark:border-gray-700 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-t-xl">
+                          <h3 className="text-white font-bold">ภารกิจพิชิตสุขภาพประจำวัน</h3>
+                          <p className="text-teal-100 text-xs mt-1">ทำภารกิจให้ครบเพื่อสุขภาพที่ดีและรับ XP!</p>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                          {count === 0 ? (
+                              <div className="p-6 text-center text-gray-500">
+                                  <p className="text-2xl mb-2">🎉</p>
+                                  <p>ยอดเยี่ยม! คุณทำภารกิจครบแล้ว</p>
+                              </div>
+                          ) : (
+                              <div className="p-2">
+                                  {pendingTasks.map(task => (
+                                      <button 
+                                          key={task.id}
+                                          onClick={() => navigate(task.view)}
+                                          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors group"
+                                      >
+                                          <div className="flex items-center gap-3">
+                                              <div className="bg-gray-100 dark:bg-gray-900 p-2 rounded-full">{task.icon}</div>
+                                              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{task.label}</span>
+                                          </div>
+                                          <span className="text-xs text-teal-600 font-semibold group-hover:underline">ทำเลย →</span>
+                                      </button>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              )}
+          </div>
+      );
+  };
+
   const ProfileMenu = () => {
     if (!currentUser) return null;
     
-    const isBase64Image = currentUser.profilePicture.startsWith('data:image/');
+    const isImage = currentUser.profilePicture.startsWith('data:image/') || currentUser.profilePicture.startsWith('http');
     const currentLevel = userProfile?.level || 1;
     const currentXP = userProfile?.xp || 0;
 
@@ -207,7 +290,7 @@ const AppContent: React.FC = () => {
         <div className="relative" ref={profileMenuRef}>
             <button onClick={() => setIsProfileMenuOpen(prev => !prev)} className="flex items-center gap-2 p-1 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 relative">
                 <div className={`w-9 h-9 rounded-full border-2 ${currentUser.role === 'admin' ? 'border-red-500' : 'border-teal-500'} flex items-center justify-center bg-gray-200 dark:bg-gray-700 overflow-hidden`}>
-                    {isBase64Image ? (
+                    {isImage ? (
                         <img src={currentUser.profilePicture} alt="Profile" className="w-full h-full object-cover"/>
                     ) : (
                         <span className="text-xl">{currentUser.profilePicture}</span>
@@ -289,7 +372,8 @@ const AppContent: React.FC = () => {
                     <h1 className="text-xl font-bold text-gray-800 dark:text-white truncate">{viewTitles[activeView]}</h1>
                   </div>
 
-                  <div className="flex-1 flex justify-end">
+                  <div className="flex-1 flex justify-end items-center gap-2">
+                    {currentUser?.role === 'user' && <NotificationBell />}
                     {currentUser && <ProfileMenu />}
                   </div>
               </div>

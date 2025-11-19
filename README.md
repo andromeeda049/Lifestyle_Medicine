@@ -1,7 +1,7 @@
 
-# การเชื่อมต่อศูนย์โภชนาการอัจฉริยะกับ Google Sheets (เวอร์ชันสมบูรณ์ + Gamification + Evaluation)
+# การเชื่อมต่อ Smart Lifestyle Wellness กับ Google Sheets (เวอร์ชันสมบูรณ์ที่สุด)
 
-คู่มือนี้จะแนะนำวิธีการใช้ Google Sheets เป็นฐานข้อมูลส่วนตัวสำหรับแอปพลิเคชัน เพื่อบันทึกและซิงค์ข้อมูลสุขภาพทั้งหมดของคุณ รวมถึงระบบ Level, Badges และการประเมินผล
+คู่มือนี้จะแนะนำวิธีการใช้ Google Sheets เป็นฐานข้อมูลส่วนตัวสำหรับแอปพลิเคชัน เพื่อบันทึกและซิงค์ข้อมูลสุขภาพทั้งหมด รวมถึงระบบสมาชิก (Registration), Gamification, และการประเมินผล
 
 ## ขั้นตอนการตั้งค่า
 
@@ -9,12 +9,11 @@
 
 ### ขั้นตอนที่ 1: ปรับโครงสร้าง Google Sheet
 
-1.  ไปที่ [sheets.new](https://sheets.new) เพื่อสร้าง Google Sheet ใหม่ และตั้งชื่อไฟล์ตามที่คุณต้องการ
-2.  ลบชีตเริ่มต้น (`Sheet1`) หรือเปลี่ยนชื่อเป็น `Profile`
-3.  **สร้างชีตย่อย (Tabs)** ที่ด้านล่างและตั้งชื่อให้ตรงตามนี้ **(สำคัญมาก: ชื่อต้องตรงทุกตัวอักษร)**
-4.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ในแถวแรก (Row 1) ให้ตรงตามนี้ทุกประการ:
+1.  ไปที่ [sheets.new](https://sheets.new) เพื่อสร้าง Google Sheet ใหม่
+2.  **สร้างชีตย่อย (Tabs)** ทั้งหมด 14 ชีต และตั้งชื่อให้ตรงตามนี้เป๊ะๆ
+3.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ใน **แถวที่ 1 (Row 1)** ดังนี้:
 
-    *   **ชีตที่ 1: `Profile`** (A1-O1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`
+    *   **ชีตที่ 1: `Profile`** (A1-R1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`
     *   **ชีตที่ 2: `BMIHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `bmi`, `category`
     *   **ชีตที่ 3: `TDEEHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `tdee`, `bmr`
     *   **ชีตที่ 4: `FoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `description`, `calories`, `analysis_json`
@@ -23,10 +22,10 @@
     *   **ชีตที่ 7: `WaterHistory`** (A1-E1): `timestamp`, `username`, `displayName`, `profilePicture`, `amount`
     *   **ชีตที่ 8: `CalorieHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `name`, `calories`
     *   **ชีตที่ 9: `ActivityHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `name`, `caloriesBurned`
-    *   **ชีตที่ 10: `SleepHistory`** (A1-H1): `timestamp`, `username`, `displayName`, `profilePicture`, `bedTime`, `wakeTime`, `duration`, `quality`
-    *   **ชีตที่ 11: `MoodHistory`** (A1-H1): `timestamp`, `username`, `displayName`, `profilePicture`, `emoji`, `stressLevel`, `gratitude`
-    *   **ชีตที่ 12: `HabitHistory`** (A1-H1): `timestamp`, `username`, `displayName`, `profilePicture`, `type`, `amount`, `isClean`
-    *   **ชีตที่ 13: `SocialHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `interaction`, `feeling`
+    *   **ชีตที่ 10: `SleepHistory`** (A1-I1): `timestamp`, `username`, `displayName`, `profilePicture`, `bedTime`, `wakeTime`, `duration`, `quality`, `hygieneChecklist`
+    *   **ชีตที่ 11: `MoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `emoji`, `stressLevel`, `gratitude`
+    *   **ชีตที่ 12: `HabitHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `type`, `amount`, `isClean`
+    *   **ชีตที่ 13: `SocialHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `interaction`, `feeling`
     *   **ชีตที่ 14: `EvaluationHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `role`, `satisfaction_json`, `outcome_json`
 
 
@@ -64,6 +63,7 @@ const ADMIN_KEY = "ADMIN1234!";
 
 function doGet(e) {
   try {
+    // Admin: Get All Data
     if (e.parameter.action === 'getAllData' && e.parameter.adminKey === ADMIN_KEY) {
        const allData = {};
        for (const key in SHEET_NAMES) {
@@ -83,6 +83,7 @@ function doGet(e) {
        });
     }
 
+    // User: Get User Data
     const username = e.parameter.username;
     if (!username) throw new Error("Username parameter is required.");
 
@@ -99,7 +100,6 @@ function doGet(e) {
       moodHistory: getAllHistoryForUser(SHEET_NAMES.MOOD, username),
       habitHistory: getAllHistoryForUser(SHEET_NAMES.HABIT, username),
       socialHistory: getAllHistoryForUser(SHEET_NAMES.SOCIAL, username),
-      // evaluations usually write-only for users, but fetching is fine if needed
     };
     return createSuccessResponse(userData);
   } catch (error) {
@@ -112,11 +112,16 @@ function doPost(e) {
     const request = JSON.parse(e.postData.contents);
     const { action, type, payload, user } = request;
     
-    if (!user || !user.username) throw new Error("User information is missing.");
-    if (user.role === 'admin' && type !== 'profile' && type !== 'loginLog') {
-        return createSuccessResponse({ status: "Admin history-saving action ignored."});
+    if (action === 'verifyUser') {
+        return handleVerifyUser(request.email, request.password);
     }
 
+    if (action === 'register') {
+        return handleRegisterUser(user, request.password);
+    }
+    
+    if (!user || !user.username) throw new Error("User information is missing.");
+    
     switch (action) {
       case 'save': return handleSave(type, payload, user);
       case 'clear': return handleClear(type, user);
@@ -125,6 +130,63 @@ function doPost(e) {
   } catch (error) {
     return createErrorResponse(error);
   }
+}
+
+function handleRegisterUser(user, password) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
+    const data = sheet.getDataRange().getValues();
+    
+    // Check if email already exists (Column 16 = Index 15)
+    const emailIndex = 15; 
+    const usernameIndex = 1;
+
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][usernameIndex] === user.username) {
+             return createErrorResponse({ message: "Username already exists" });
+        }
+        if (user.email && data[i][emailIndex] === user.email) {
+             return createErrorResponse({ message: "Email already registered" });
+        }
+    }
+    
+    // Append new user
+    const newRow = [
+        new Date(), user.username, user.displayName, user.profilePicture,
+        '', '', '', '', '', '', '', // Gender, Age... Activity (Empty initially)
+        user.role,
+        0, 1, '["novice"]', // XP, Level, Badges
+        user.email || '',
+        password || '', // Store password
+        '' // healthCondition (Empty initially)
+    ];
+    
+    sheet.appendRow(newRow);
+    return createSuccessResponse({ status: "User registered successfully" });
+}
+
+function handleVerifyUser(email, password) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
+    const data = sheet.getDataRange().getValues();
+    const emailIndex = 15;
+    const passwordIndex = 16;
+    
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][emailIndex] === email) {
+            if (String(data[i][passwordIndex]) === String(password)) {
+                 const user = {
+                     username: data[i][1],
+                     displayName: data[i][2],
+                     profilePicture: data[i][3],
+                     role: data[i][11] || 'user',
+                     email: data[i][15]
+                 };
+                 return createSuccessResponse(user);
+            } else {
+                 return createErrorResponse({ message: "Incorrect password" });
+            }
+        }
+    }
+    return createErrorResponse({ message: "User not found" });
 }
 
 function handleSave(type, payload, user) {
@@ -140,19 +202,19 @@ function handleSave(type, payload, user) {
   if (!sheet) throw new Error(`Sheet not found for type: ${type}`);
   
   let newRow;
-  // For array payloads (history), we usually take the first item as the 'new' one to append
   const item = Array.isArray(payload) ? payload[0] : null;
-
   const commonPrefix = [new Date(), user.username, user.displayName, user.profilePicture];
 
   switch (type) {
     case 'profile':
-      // Save XP, Level, Badges as JSON string
       const badgesJson = JSON.stringify(payload.badges || []);
+      // Ensure healthCondition is saved (index 17)
       newRow = [ 
           ...commonPrefix, 
           payload.gender, payload.age, payload.weight, payload.height, payload.waist, payload.hip, payload.activityLevel, user.role,
-          payload.xp || 0, payload.level || 1, badgesJson
+          payload.xp || 0, payload.level || 1, badgesJson,
+          user.email || '', '', // password empty on update
+          payload.healthCondition || '' 
       ];
       break;
     case 'bmiHistory': newRow = [ ...commonPrefix, item.value, item.category ]; break;
@@ -162,13 +224,14 @@ function handleSave(type, payload, user) {
     case 'waterHistory': newRow = [ ...commonPrefix, item.amount ]; break;
     case 'calorieHistory': newRow = [ ...commonPrefix, item.name, item.calories ]; break;
     case 'activityHistory': newRow = [ ...commonPrefix, item.name, item.caloriesBurned ]; break;
-    case 'sleepHistory': newRow = [ ...commonPrefix, item.bedTime, item.wakeTime, item.duration, item.quality ]; break;
+    case 'sleepHistory': 
+        // Include hygieneChecklist at the end
+        newRow = [ ...commonPrefix, item.bedTime, item.wakeTime, item.duration, item.quality, JSON.stringify(item.hygieneChecklist || []) ]; 
+        break;
     case 'moodHistory': newRow = [ ...commonPrefix, item.moodEmoji, item.stressLevel, item.gratitude ]; break;
     case 'habitHistory': newRow = [ ...commonPrefix, item.type, item.amount, item.isClean ]; break;
     case 'socialHistory': newRow = [ ...commonPrefix, item.interaction, item.feeling ]; break;
     case 'evaluationHistory': 
-        // Evaluations: no profile picture in prefix as per sheet structure definition in instruction A1-F1
-        // A1: timestamp, B1: username, C1: displayName, D1: role, E1: satisfaction_json, F1: outcome_json
         newRow = [ new Date(), user.username, user.displayName, user.role, JSON.stringify(item.satisfaction), JSON.stringify(item.outcomes) ];
         break;
     case 'loginLog':
@@ -202,9 +265,10 @@ function getLatestProfileForUser(username) {
   const userData = allData.filter(row => row[1] === username); 
   if (userData.length === 0) return null;
   const lastEntry = userData[userData.length - 1];
+  // Map index 17 to healthCondition
   return { 
       gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7], waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10],
-      xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14]
+      xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14], email: lastEntry[15], healthCondition: lastEntry[17]
   };
 }
 
@@ -223,7 +287,7 @@ function getAllHistoryForUser(sheetName, username) {
         case SHEET_NAMES.WATER: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), amount: row[4] }));
         case SHEET_NAMES.CALORIE: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), name: row[4], calories: row[5] }));
         case SHEET_NAMES.ACTIVITY: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), name: row[4], caloriesBurned: row[5] }));
-        case SHEET_NAMES.SLEEP: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), bedTime: row[4], wakeTime: row[5], duration: row[6], quality: row[7] }));
+        case SHEET_NAMES.SLEEP: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), bedTime: row[4], wakeTime: row[5], duration: row[6], quality: row[7], hygieneChecklist: JSON.parse(row[8] || "[]") }));
         case SHEET_NAMES.MOOD: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), moodEmoji: row[4], stressLevel: row[5], gratitude: row[6] }));
         case SHEET_NAMES.HABIT: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), type: row[4], amount: row[5], isClean: row[6] }));
         case SHEET_NAMES.SOCIAL: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), interaction: row[4], feeling: row[5] }));
@@ -269,22 +333,19 @@ function createSuccessResponse(data) {
 
 function createErrorResponse(error) {
   Logger.log(error);
-  return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message }))
+  return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message || error }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 // --- END OF Code.gs ---
 ```
 
-3.  กดที่ไอคอนรูปแผ่นดิสก์ (💾) เพื่อ **บันทึกโปรเจกต์**
+### ขั้นตอนที่ 4: Deploy ใหม่ (สำคัญที่สุด!)
 
-### ขั้นตอนที่ 4: ทำให้สคริปต์ใช้งานได้อีกครั้ง (สำคัญมาก!)
-
-1.  ที่มุมบนขวาของหน้าจอ กดปุ่มสีน้ำเงิน `ทำให้ใช้งานได้ (Deploy)` > `การทำให้ใช้งานได้รายการใหม่ (New deployment)`
-2.  คลิกไอคอนฟันเฟือง (⚙️) และเลือกประเภทเป็น `เว็บแอป (Web app)`
-3.  ตั้งค่า "ผู้ที่เข้าถึงได้" เป็น **`ทุกคน (Anyone)`**
-4.  กดปุ่ม `ทำให้ใช้งานได้ (Deploy)`
-5.  **ให้สิทธิ์การเข้าถึง (Authorize access)** ตามขั้นตอน
-6.  คัดลอก **URL ของเว็บแอป** อันใหม่ และนำไปวางในช่องตั้งค่าในแอปพลิเคชัน
-
-**เรียบร้อย!** ตอนนี้แอปของคุณรองรับฟีเจอร์ใหม่ทั้งหมดแล้ว
+1.  กดปุ่มสีน้ำเงิน **`ทำให้ใช้งานได้ (Deploy)`** > **`การทำให้ใช้งานได้รายการใหม่ (New deployment)`**
+2.  เลือกประเภท: **เว็บแอป (Web app)**
+3.  การตั้งค่า:
+    *   **ผู้ดำเนินการ:** *ฉัน (Me)*
+    *   **ผู้ที่เข้าถึงได้:** ***ทุกคน (Anyone)***  <-- **ต้องเลือกอันนี้เท่านั้น**
+4.  กด `ทำให้ใช้งานได้ (Deploy)` และ **ให้สิทธิ์การเข้าถึง (Authorize)**
+5.  คัดลอก **URL** ใหม่ที่ได้ ไปอัปเดตในหน้า **ตั้งค่า (Settings)** ของแอปพลิเคชัน

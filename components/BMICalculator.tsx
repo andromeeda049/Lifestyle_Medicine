@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { BMIHistoryEntry } from '../types';
@@ -175,7 +176,7 @@ const BMICalculator: React.FC = () => {
   const handleShare = async () => {
     if (!bmiResult) return;
 
-    const shareText = `ค่า BMI ของฉันคือ ${bmiResult.value} (จัดอยู่ในเกณฑ์: ${bmiResult.category})\n\nคำนวณโดย "ศูนย์โภชนาการอัจฉริยะ"`;
+    const shareText = `ค่า BMI ของฉันคือ ${bmiResult.value} (จัดอยู่ในเกณฑ์: ${bmiResult.category})\n\nคำนวณโดย "Smart Lifestyle Wellness"`;
 
     if (navigator.share) {
       try {

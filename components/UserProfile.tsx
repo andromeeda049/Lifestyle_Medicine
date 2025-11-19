@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, ACHIEVEMENTS } from '../constants';
@@ -69,7 +70,7 @@ const UserProfile: React.FC = () => {
         setTimeout(() => setSaved(false), 3000);
     };
     
-    const isBase64Image = profilePicture.startsWith('data:image/');
+    const isImage = profilePicture.startsWith('data:image/') || profilePicture.startsWith('http');
     const badges = userProfile.badges || [];
 
     return (
@@ -124,10 +125,10 @@ const UserProfile: React.FC = () => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">รูปโปรไฟล์</label>
                             <div className="flex items-center gap-4">
-                                {isBase64Image ? (
+                                {isImage ? (
                                     <img src={profilePicture} alt="Profile preview" className="w-16 h-16 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"/>
                                 ) : (
-                                    <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600">
+                                    <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 overflow-hidden">
                                         <span className="text-3xl">{profilePicture}</span>
                                     </div>
                                 )}

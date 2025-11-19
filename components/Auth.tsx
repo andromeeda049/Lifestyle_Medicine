@@ -1,6 +1,9 @@
+
 import React, { useState, useContext, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
+import { GoogleIcon, LineIcon } from './icons';
+import { registerUser, verifyUser } from '../services/googleSheetService';
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
@@ -55,92 +58,198 @@ const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
 };
 
 
-const UserLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
-    const [displayName, setDisplayName] = useState('');
-    const [profilePicture, setProfilePicture] = useState(getRandomEmoji());
-    const [error, setError] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleRandomizeEmoji = () => setProfilePicture(getRandomEmoji());
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') setProfilePicture(reader.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
+    const { scriptUrl } = useContext(AppContext);
+    const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
     
-    const isBase64Image = profilePicture.startsWith('data:image/');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [displayName, setDisplayName] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSocialLogin = (provider: 'google' | 'line') => {
+        // In a real implementation, this would redirect to OAuth provider.
+        // For this demo/architecture, we simulate success but warn about API keys.
+        const providerName = provider === 'google' ? 'Google' : 'LINE';
+        const mockUser: User = {
+            username: `${provider}_user_${Date.now()}`,
+            displayName: `${providerName} User`,
+            profilePicture: provider === 'google' ? 'https://lh3.googleusercontent.com/a/default-user=s96-c' : 'https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg',
+            role: 'user',
+            authProvider: provider
+        };
+        
+        // In a real app, we would verify the token with GAS backend here.
+        // For now, we just alert and log them in (simulating success).
+        alert(`เชื่อมต่อกับ ${providerName} สำเร็จ (Simulation)\n\nหมายเหตุ: ในการใช้งานจริง จำเป็นต้องตั้งค่า Client ID/Channel ID ในโค้ด`);
+        onLogin(mockUser);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (displayName.trim().length < 2) {
-            setError('ชื่อต้องมีความยาวอย่างน้อย 2 ตัวอักษร');
+        setError('');
+
+        if (!scriptUrl) {
+            setError('ไม่พบ URL การเชื่อมต่อ Google Sheets กรุณาตั้งค่าในโหมด Admin ก่อน หรือใช้โหมด Guest');
             return;
         }
-        setError('');
-        onLogin({
-            username: `user_${Date.now()}`,
-            displayName: displayName.trim(),
-            profilePicture: profilePicture,
-            role: 'user',
-        });
+
+        setLoading(true);
+
+        if (authMode === 'register') {
+            // REGISTER LOGIC
+            if (password !== confirmPassword) {
+                setError('รหัสผ่านไม่ตรงกัน');
+                setLoading(false);
+                return;
+            }
+            if (displayName.trim().length < 2) {
+                setError('ชื่อต้องมีความยาวอย่างน้อย 2 ตัวอักษร');
+                setLoading(false);
+                return;
+            }
+
+            const newUser: User = {
+                username: `user_${Date.now()}`,
+                displayName: displayName.trim(),
+                profilePicture: getRandomEmoji(),
+                role: 'user',
+                email: email,
+                authProvider: 'email'
+            };
+
+            const result = await registerUser(scriptUrl, newUser, password);
+            
+            if (result.success) {
+                onLogin(newUser);
+            } else {
+                setError(result.message || 'ลงทะเบียนไม่สำเร็จ');
+            }
+
+        } else {
+            // LOGIN LOGIC
+            const result = await verifyUser(scriptUrl, email, password);
+            
+            if (result.success && result.user) {
+                onLogin(result.user);
+            } else {
+                setError(result.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+            }
+        }
+        setLoading(false);
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
-            <div className="flex flex-col items-center gap-4">
-                <div className="relative">
-                    {isBase64Image ? (
-                        <img src={profilePicture} alt="Profile preview" className="w-28 h-28 rounded-full object-cover border-4 border-gray-200 dark:border-gray-700 shadow-md"/>
-                    ) : (
-                        <div className="w-28 h-28 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 border-4 border-gray-200 dark:border-gray-700 shadow-md">
-                            <span className="text-6xl">{profilePicture}</span>
-                        </div>
-                    )}
-                </div>
-                <div className="flex gap-2">
-                   <button type="button" onClick={handleRandomizeEmoji} className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">สุ่ม Emoji</button>
-                   <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">อัปโหลด</button>
-                   <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
-                </div>
+        <div className="space-y-6 animate-fade-in">
+             <div className="flex border-b dark:border-gray-700 mb-4">
+                <button 
+                    onClick={() => { setAuthMode('login'); setError(''); }} 
+                    className={`flex-1 pb-2 text-sm font-semibold text-center transition-colors ${authMode === 'login' ? 'border-b-2 border-teal-500 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                    เข้าสู่ระบบ
+                </button>
+                <button 
+                    onClick={() => { setAuthMode('register'); setError(''); }} 
+                    className={`flex-1 pb-2 text-sm font-semibold text-center transition-colors ${authMode === 'register' ? 'border-b-2 border-teal-500 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                    สมัครสมาชิก
+                </button>
             </div>
 
-            <div>
-                <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
-                   ตั้งชื่อของคุณ
-                </label>
-                <input
-                    type="text"
-                    id="displayName"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="เช่น สมชาย สุขภาพดี"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
-                    required
-                />
+            <div className="flex gap-3 justify-center">
+                 <button 
+                    type="button"
+                    onClick={() => handleSocialLogin('line')}
+                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#05b64d] transition-colors gap-2"
+                >
+                    <LineIcon className="w-6 h-6 fill-current text-white" />
+                    <span className="text-sm">Log in with LINE</span>
+                </button>
+                <button 
+                    type="button"
+                    onClick={() => handleSocialLogin('google')}
+                    className="flex items-center justify-center w-full bg-white dark:bg-gray-100 text-gray-700 font-bold py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors gap-2"
+                >
+                    <GoogleIcon className="w-5 h-5" />
+                    <span className="text-sm">Log in with Google</span>
+                </button>
             </div>
-            
-            {error && <p className="text-red-500 text-sm">{error}</p>}
 
-            <button
-                type="submit"
-                className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800 transition-all duration-300 transform hover:scale-105"
-            >
-                สร้างโปรไฟล์และเริ่มต้นใช้งาน
-            </button>
-        </form>
+            <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">Or with Email</span>
+                <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {authMode === 'register' && (
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อที่แสดง (Display Name)</label>
+                        <input
+                            type="text"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
+                            placeholder="ชื่อของคุณ"
+                            required={authMode === 'register'}
+                        />
+                    </div>
+                )}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อีเมล</label>
+                    <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
+                        placeholder="name@example.com"
+                        required
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">รหัสผ่าน</label>
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
+                        placeholder="********"
+                        required
+                    />
+                </div>
+                {authMode === 'register' && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ยืนยันรหัสผ่าน</label>
+                        <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
+                            placeholder="********"
+                            required={authMode === 'register'}
+                        />
+                    </div>
+                )}
+
+                {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                    {loading ? 'กำลังดำเนินการ...' : (authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก')}
+                </button>
+            </form>
+        </div>
     );
 };
 
 const AdminLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [adminKey, setAdminKey] = useState('');
     const [error, setError] = useState('');
-    // Updated to match the README.md script
     const SUPER_ADMIN_KEY = "ADMIN1234!";
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -193,34 +302,59 @@ const AdminLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
 
 const Auth: React.FC = () => {
     const { login } = useContext(AppContext);
-    const [mode, setMode] = useState<'guest' | 'user' | 'admin'>('guest');
+    const [mode, setMode] = useState<'guest' | 'user' | 'admin'>('user');
     
     const getWelcomeMessage = () => {
         switch(mode) {
             case 'guest': return 'เข้าสู่ระบบเพื่อทดลองใช้งาน';
-            case 'user': return 'สร้างโปรไฟล์เพื่อบันทึกข้อมูล';
+            case 'user': return 'ยินดีต้อนรับกลับสู่สุขภาพที่ดี';
             case 'admin': return 'ลงชื่อเข้าใช้สำหรับผู้ดูแลระบบ';
-            default: return 'เลือกวิธีการเข้าสู่ระบบ';
+            default: return '';
         }
     }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-sky-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900 p-4">
             <div className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl animate-fade-in-down">
-                <h1 className="text-3xl font-bold text-teal-600 dark:text-teal-400 text-center">ยินดีต้อนรับ!</h1>
-                <p className="text-gray-600 dark:text-gray-300 mt-2 mb-6 text-center">
-                   {getWelcomeMessage()}
-                </p>
-
-                <div className="flex justify-center border-b dark:border-gray-700 mb-6">
-                    <button onClick={() => setMode('guest')} className={`px-4 sm:px-6 py-2 font-semibold text-sm sm:text-base ${mode === 'guest' ? 'border-b-2 border-gray-500 text-gray-700 dark:text-gray-200' : 'text-gray-500'}`}>ผู้เยี่ยมชม</button>
-                    <button onClick={() => setMode('user')} className={`px-4 sm:px-6 py-2 font-semibold text-sm sm:text-base ${mode === 'user' ? 'border-b-2 border-teal-500 text-teal-600 dark:text-teal-400' : 'text-gray-500'}`}>ผู้ใช้งาน</button>
-                    <button onClick={() => setMode('admin')} className={`px-4 sm:px-6 py-2 font-semibold text-sm sm:text-base ${mode === 'admin' ? 'border-b-2 border-red-500 text-red-600 dark:text-red-400' : 'text-gray-500'}`}>ผู้ดูแลระบบ</button>
+                <div className="text-center mb-6">
+                    {/* Logo or Icon could go here */}
+                    <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-teal-400 to-blue-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                        <span className="text-4xl">🥗</span>
+                    </div>
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Smart Lifestyle Wellness นวัตกรรมสุขภาพวิถีชีวิต</h1>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{getWelcomeMessage()}</p>
                 </div>
                 
                 {mode === 'guest' && <GuestLogin onLogin={login} />}
-                {mode === 'user' && <UserLogin onLogin={login} />}
+                {mode === 'user' && <UserAuth onLogin={login} />}
                 {mode === 'admin' && <AdminLogin onLogin={login} />}
+
+                {/* Footer Links for switching modes */}
+                <div className="mt-8 text-center space-y-2 border-t dark:border-gray-700 pt-4">
+                    {mode === 'user' ? (
+                        <div className="flex flex-col gap-2">
+                            <button 
+                                onClick={() => setMode('guest')} 
+                                className="text-xs text-gray-500 hover:text-teal-600 dark:text-gray-400 dark:hover:text-teal-400 underline transition-colors"
+                            >
+                                ทดลองใช้งาน (Guest Mode)
+                            </button>
+                            <button 
+                                onClick={() => setMode('admin')} 
+                                className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                            >
+                                สำหรับผู้ดูแลระบบ
+                            </button>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={() => setMode('user')} 
+                            className="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
+                        >
+                            ← กลับไปหน้าเข้าสู่ระบบหลัก
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

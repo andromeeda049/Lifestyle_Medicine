@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { AppView } from '../types';
@@ -146,7 +147,7 @@ const Dashboard: React.FC = () => {
     shareText += `💪 แคลอรี่ที่เผาผลาญ: ${caloriesBurnedToday.toLocaleString()} kcal\n`;
     shareText += `💧 น้ำดื่มวันนี้: ${waterIntakeToday} / ${waterGoal} ml\n`;
     
-    shareText += `\nสรุปโดย "ศูนย์โภชนาการอัจฉริยะ"`;
+    shareText += `\nสรุปโดย "Smart Lifestyle Wellness"`;
 
     if (navigator.share) {
         try {

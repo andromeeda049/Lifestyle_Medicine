@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback, useContext } from 'react';
 import { analyzeFoodFromImage, analyzeFoodFromText, getLocalFoodSuggestions } from '../services/geminiService';
 import { NutrientInfo, FoodHistoryEntry, LocalFoodSuggestion } from '../types';
@@ -267,7 +268,7 @@ const FoodAnalyzer: React.FC = () => {
     shareText += `พลังงาน: ${result.calories.toFixed(0)} kcal\n`;
     shareText += `Risk Level: ${result.lifestyleAnalysis?.overallRisk || 'N/A'}\n\n`;
     shareText += `ผลกระทบสุขภาพ: ${result.healthImpact}\n\n`;
-    shareText += `วิเคราะห์โดย "ศูนย์โภชนาการอัจฉริยะ"`;
+    shareText += `วิเคราะห์โดย "Smart Lifestyle Wellness"`;
     
     if (navigator.share) {
       try { 

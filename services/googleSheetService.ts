@@ -61,6 +61,7 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 waist: String(data.profile.waist || ''),
                 hip: String(data.profile.hip || ''),
                 activityLevel: Number(data.profile.activityLevel),
+                healthCondition: String(data.profile.healthCondition || 'ไม่มีโรคประจำตัว'), // Fetch health condition
                 xp: Number(data.profile.xp || 0),
                 level: Number(data.profile.level || 1),
                 badges: parsedBadges
@@ -168,5 +169,55 @@ export const clearHistoryInSheet = async (scriptUrl: string, type: string, user:
             console.error(`Error clearing ${type} in Google Sheet:`, error);
         }
         return false;
+    }
+};
+
+// Register User (Send Email/Password to GAS)
+export const registerUser = async (scriptUrl: string, user: User, password?: string): Promise<{success: boolean, message: string}> => {
+    if (!scriptUrl) return { success: false, message: 'Script URL missing' };
+    try {
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify({ 
+                action: 'register', 
+                user: user,
+                password: password // Security Note: In production, use a real backend auth service. Sending password to GAS is for demo/prototype.
+            }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            mode: 'cors',
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            return { success: true, message: 'Registration successful' };
+        } else {
+            return { success: false, message: result.message || 'Registration failed' };
+        }
+    } catch (error: any) {
+        return { success: false, message: error.message || 'Connection error' };
+    }
+};
+
+// Verify User Login (Check Email/Password)
+export const verifyUser = async (scriptUrl: string, email: string, password?: string): Promise<{success: boolean, user?: User, message?: string}> => {
+    if (!scriptUrl) return { success: false, message: 'Script URL missing' };
+    try {
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify({ 
+                action: 'verifyUser', 
+                email: email,
+                password: password
+            }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            mode: 'cors',
+        });
+        const result = await response.json();
+        if (result.status === 'success' && result.data) {
+            return { success: true, user: result.data };
+        } else {
+            return { success: false, message: result.message || 'Invalid credentials' };
+        }
+    } catch (error: any) {
+        return { success: false, message: error.message || 'Connection error' };
     }
 };

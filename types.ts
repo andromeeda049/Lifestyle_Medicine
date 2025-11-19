@@ -37,6 +37,8 @@ export interface User {
   displayName: string;
   profilePicture: string;
   role: 'user' | 'admin' | 'guest';
+  email?: string;
+  authProvider?: 'email' | 'google' | 'line';
 }
 
 export interface PillarScore {
@@ -68,6 +70,7 @@ export interface UserProfile {
   xp?: number; // Gamification XP
   level?: number; // Gamification Level
   badges?: string[]; // List of unlocked achievement IDs
+  email?: string; // Added for sync
 }
 
 export interface UserGamification {

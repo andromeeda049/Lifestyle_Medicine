@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useContext } from 'react';
 import { ACTIVITY_LEVELS } from '../constants';
 import { AppContext } from '../context/AppContext';
@@ -171,7 +172,7 @@ const TDEECalculator: React.FC = () => {
   const handleShare = async () => {
     if (tdee === null || bmr === null) return;
 
-    const shareText = `ผลการคำนวณพลังงานของฉัน:\n\n- พลังงานพื้นฐาน (BMR): ${Math.round(bmr)} kcal\n- พลังงานที่ต้องการต่อวัน (TDEE): ${Math.round(tdee)} kcal/วัน\n\nคำนวณโดย "ศูนย์โภชนาการอัจฉริยะ"`;
+    const shareText = `ผลการคำนวณพลังงานของฉัน:\n\n- พลังงานพื้นฐาน (BMR): ${Math.round(bmr)} kcal\n- พลังงานที่ต้องการต่อวัน (TDEE): ${Math.round(tdee)} kcal/วัน\n\nคำนวณโดย "Smart Lifestyle Wellness"`;
 
     if (navigator.share) {
       try {
