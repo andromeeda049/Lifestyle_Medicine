@@ -1,4 +1,4 @@
-import { UserProfile, BMIHistoryEntry, TDEEHistoryEntry, FoodHistoryEntry, PlannerHistoryEntry, WaterHistoryEntry, User } from '../types';
+import { UserProfile, BMIHistoryEntry, TDEEHistoryEntry, FoodHistoryEntry, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, User } from '../types';
 
 interface AllData {
     profile: UserProfile | null;
@@ -7,6 +7,8 @@ interface AllData {
     foodHistory: FoodHistoryEntry[];
     plannerHistory: PlannerHistoryEntry[];
     waterHistory: WaterHistoryEntry[];
+    calorieHistory: CalorieHistoryEntry[];
+    activityHistory: ActivityHistoryEntry[];
 }
 
 export interface AllAdminData {
@@ -16,6 +18,8 @@ export interface AllAdminData {
     foodHistory: any[];
     plannerHistory: any[];
     waterHistory: any[];
+    calorieHistory: any[];
+    activityHistory: any[];
     loginLogs: any[];
 }
 
@@ -54,6 +58,8 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 foodHistory: (data.foodHistory || []).sort(sortByDateDesc),
                 plannerHistory: (data.plannerHistory || []).sort(sortByDateDesc),
                 waterHistory: (data.waterHistory || []).sort(sortByDateDesc),
+                calorieHistory: (data.calorieHistory || []).sort(sortByDateDesc),
+                activityHistory: (data.activityHistory || []).sort(sortByDateDesc),
             };
         }
         console.error("Error fetching data from sheet:", result.message);
@@ -120,7 +126,7 @@ export const saveDataToSheet = async (scriptUrl: string, type: string, payload: 
 };
 
 // ล้างประวัติใน Google Sheet
-export const clearHistoryInSheet = async (scriptUrl: string, type: 'bmiHistory' | 'tdeeHistory' | 'foodHistory' | 'waterHistory', user: User): Promise<boolean> => {
+export const clearHistoryInSheet = async (scriptUrl: string, type: 'bmiHistory' | 'tdeeHistory' | 'foodHistory' | 'waterHistory' | 'calorieHistory' | 'activityHistory', user: User): Promise<boolean> => {
     if (!scriptUrl || !user) return false;
     try {
         const response = await fetch(scriptUrl, {

@@ -145,7 +145,7 @@ const PersonalizedPlanner: React.FC = () => {
 
     const FormView = () => (
         <div className="max-w-lg mx-auto bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg space-y-4 animate-fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2 text-center">Lifestyle Planner</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2 text-center">แผนไลฟ์สไตล์ (Lifestyle Planner)</h2>
             <p className="text-center text-gray-600 dark:text-gray-300 -mt-2 mb-4">
                 วางแผนอาหารและกิจกรรมตามเป้าหมาย Lifestyle Medicine
             </p>
@@ -361,7 +361,12 @@ const PersonalizedPlanner: React.FC = () => {
                                                         <br/>
                                                         <span className="text-xs text-gray-500 dark:text-gray-400">({act.benefit})</span>
                                                     </td>
-                                                    <td className="p-3 border-b dark:border-gray-600 text-right">{act.duration}</td>
+                                                    <td className="p-3 border-b dark:border-gray-600 text-right">
+                                                        {act.duration}
+                                                        {act.caloriesBurned != null && (
+                                                            <div className="text-xs text-purple-500">~{act.caloriesBurned.toFixed(0)} kcal</div>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             ))}
 

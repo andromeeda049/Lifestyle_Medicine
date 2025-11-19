@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, User, AppContextType } from '../types';
+import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, User, AppContextType } from '../types';
 import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS } from '../constants';
 import { fetchAllDataFromSheet, saveDataToSheet, clearHistoryInSheet } from '../services/googleSheetService';
 
@@ -41,6 +41,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [foodHistory, _setFoodHistory] = useLocalStorage<FoodHistoryEntry[]>('foodHistory', []);
   const [plannerHistory, _setPlannerHistory] = useLocalStorage<PlannerHistoryEntry[]>('plannerHistory', []);
   const [waterHistory, _setWaterHistory] = useLocalStorage<WaterHistoryEntry[]>('waterHistory', []);
+  const [calorieHistory, _setCalorieHistory] = useLocalStorage<CalorieHistoryEntry[]>('calorieHistory', []);
+  const [activityHistory, _setActivityHistory] = useLocalStorage<ActivityHistoryEntry[]>('activityHistory', []);
   const [waterGoal, setWaterGoal] = useLocalStorage<number>('waterGoal', 2000);
   const [latestFoodAnalysis, setLatestFoodAnalysis] = useLocalStorage<NutrientInfo | null>('latestFoodAnalysis', null);
   const [userProfile, _setUserProfile] = useLocalStorage<UserProfile>('userProfile', defaultProfile);
@@ -76,6 +78,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     _setFoodHistory([]);
     _setPlannerHistory([]);
     _setWaterHistory([]);
+    _setCalorieHistory([]);
+    _setActivityHistory([]);
     setLatestFoodAnalysis(null);
     setActiveView('home');
 
@@ -109,6 +113,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           _setFoodHistory(fetchedData.foodHistory);
           _setPlannerHistory(fetchedData.plannerHistory);
           _setWaterHistory(fetchedData.waterHistory);
+          _setCalorieHistory(fetchedData.calorieHistory);
+          _setActivityHistory(fetchedData.activityHistory);
         }
         setIsDataSynced(true);
       }
@@ -181,6 +187,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [scriptUrl, _setWaterHistory, waterHistory, currentUser]);
 
+  const setCalorieHistory = useCallback((value: React.SetStateAction<CalorieHistoryEntry[]>) => {
+    if (!currentUser) return;
+    const newHistory = value instanceof Function ? value(calorieHistory) : value;
+    _setCalorieHistory(newHistory);
+    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
+        saveDataToSheet(scriptUrl, 'calorieHistory', newHistory, currentUser);
+    }
+  }, [scriptUrl, _setCalorieHistory, calorieHistory, currentUser]);
+
+  const setActivityHistory = useCallback((value: React.SetStateAction<ActivityHistoryEntry[]>) => {
+    if (!currentUser) return;
+    const newHistory = value instanceof Function ? value(activityHistory) : value;
+    _setActivityHistory(newHistory);
+    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
+        saveDataToSheet(scriptUrl, 'activityHistory', newHistory, currentUser);
+    }
+  }, [scriptUrl, _setActivityHistory, activityHistory, currentUser]);
+
   const clearBmiHistory = useCallback(() => {
     if (!currentUser) return;
     _setBmiHistory([]);
@@ -204,6 +228,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     _setWaterHistory([]);
     if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'waterHistory', currentUser);
  }, [scriptUrl, _setWaterHistory, currentUser]);
+ 
+  const clearCalorieHistory = useCallback(() => {
+    if (!currentUser) return;
+    _setCalorieHistory([]);
+    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'calorieHistory', currentUser);
+  }, [scriptUrl, _setCalorieHistory, currentUser]);
+
+  const clearActivityHistory = useCallback(() => {
+    if (!currentUser) return;
+    _setActivityHistory([]);
+    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'activityHistory', currentUser);
+  }, [scriptUrl, _setActivityHistory, currentUser]);
 
 
   return (
@@ -216,6 +252,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         foodHistory, setFoodHistory,
         plannerHistory, setPlannerHistory,
         waterHistory, setWaterHistory,
+        calorieHistory, setCalorieHistory,
+        activityHistory, setActivityHistory,
         waterGoal, setWaterGoal,
         latestFoodAnalysis, setLatestFoodAnalysis,
         userProfile, setUserProfile,
@@ -226,6 +264,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clearTdeeHistory,
         clearFoodHistory,
         clearWaterHistory,
+        clearCalorieHistory,
+        clearActivityHistory,
     }}>
       {children}
     </AppContext.Provider>

@@ -159,3 +159,15 @@ export const ClipboardDocumentCheckIcon = ({ className }: { className?: string }
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
+
+export const BeakerIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.037-.502.068-.75.097h-1.5c-.331 0-.648-.046-.956-.129a2.25 2.25 0 00-1.843 2.058v8.434c0 .621.448 1.154 1.054 1.267l1.791.398m10.209-9.103c.251-.037.502-.068.75-.097h1.5c.331 0 .648.046.956.129a2.25 2.25 0 011.843 2.058v8.434c0 .621-.448 1.154-1.054 1.267l-1.791.398m-7.5-1.125h.375c.621 0 1.125.504 1.125 1.125v.375c0 .621-.504 1.125-1.125 1.125h-.375c-.621 0-1.125-.504-1.125-1.125v-.375c0-.621.504-1.125 1.125-1.125z" />
+    </svg>
+);
+
+export const BoltIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+    </svg>
+);

@@ -1,7 +1,7 @@
 import React, { useContext, useState, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { AppView } from '../types';
-import { ScaleIcon, FireIcon, CameraIcon, ShareIcon, WaterDropIcon } from './icons';
+import { ScaleIcon, FireIcon, CameraIcon, ShareIcon, WaterDropIcon, BeakerIcon, BoltIcon } from './icons';
 import { PILLAR_LABELS } from '../constants';
 
 const getBmiCategory = (bmi: number): { category: string; color: string } => {
@@ -83,14 +83,14 @@ const RadarChart: React.FC<{ scores: { [key: string]: number } }> = ({ scores })
                     return <circle key={i} cx={x} cy={y} r="3" fill="#14b8a6" />;
                 })}
             </svg>
-            <p className="text-xs text-gray-400 mt-2">* อ้างอิงจากการประเมินตนเองในหน้าโปรไฟล์</p>
+            <p className="text-xs text-gray-400 mt-2">* อ้างอิงจากการประเมินตนเอง</p>
         </div>
     );
 };
 
 
 const Dashboard: React.FC = () => {
-  const { setActiveView, bmiHistory, tdeeHistory, latestFoodAnalysis, waterHistory, waterGoal, userProfile } = useContext(AppContext);
+  const { setActiveView, bmiHistory, tdeeHistory, latestFoodAnalysis, waterHistory, waterGoal, calorieHistory, activityHistory, userProfile } = useContext(AppContext);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
   // Explicitly sort history to ensure [0] is the absolute latest by date
@@ -104,51 +104,51 @@ const Dashboard: React.FC = () => {
 
   const latestBmi = sortedBmiHistory[0];
   const latestTdee = sortedTdeeHistory[0];
+  const tdeeGoal = latestTdee ? Math.round(latestTdee.value) : 2000;
 
   const bmiInfo = latestBmi ? getBmiCategory(latestBmi.value) : null;
+  
+  const isToday = (someDate: Date) => {
+    const today = new Date();
+    return someDate.getDate() === today.getDate() &&
+        someDate.getMonth() === today.getMonth() &&
+        someDate.getFullYear() === today.getFullYear();
+  };
 
-  // Water calculation: Use explicit Date object comparison for robustness
   const waterIntakeToday = useMemo(() => {
-    const now = new Date();
     return waterHistory
-        .filter(entry => {
-            const entryDate = new Date(entry.date);
-            return entryDate.getDate() === now.getDate() &&
-                   entryDate.getMonth() === now.getMonth() &&
-                   entryDate.getFullYear() === now.getFullYear();
-        })
+        .filter(entry => isToday(new Date(entry.date)))
         .reduce((sum, entry) => sum + entry.amount, 0);
   }, [waterHistory]);
+
+  const caloriesToday = useMemo(() => {
+    return calorieHistory
+        .filter(entry => isToday(new Date(entry.date)))
+        .reduce((sum, entry) => sum + entry.calories, 0);
+  }, [calorieHistory]);
+
+  const caloriesBurnedToday = useMemo(() => {
+    return activityHistory
+        .filter(entry => isToday(new Date(entry.date)))
+        .reduce((sum, entry) => sum + entry.caloriesBurned, 0);
+  }, [activityHistory]);
 
   const handleShareSummary = async () => {
     let shareText = "ภาพรวมสุขภาพของฉัน:\n\n";
 
     if (latestBmi && bmiInfo) {
         shareText += `📊 BMI: ${latestBmi.value.toFixed(2)} (${bmiInfo.category})\n`;
-    } else {
-        shareText += `📊 BMI: ยังไม่มีข้อมูล\n`;
     }
-
-    if (latestTdee) {
-        shareText += `🔥 TDEE: ${latestTdee.value.toLocaleString('en-US', { maximumFractionDigits: 0 })} kcal/วัน\n`;
-    } else {
-        shareText += `🔥 TDEE: ยังไม่มีข้อมูล\n`;
-    }
-    
-    if (latestFoodAnalysis) {
-        shareText += `🥗 มื้อล่าสุด: ${latestFoodAnalysis.description} (~${latestFoodAnalysis.calories.toFixed(0)} kcal)\n`
-    }
-    
+    shareText += `🔥 แคลอรี่ที่ต้องการ: ${tdeeGoal.toLocaleString()} kcal/วัน\n`;
+    shareText += `🥗 แคลอรี่ที่บริโภค: ${caloriesToday.toLocaleString()} kcal\n`;
+    shareText += `💪 แคลอรี่ที่เผาผลาญ: ${caloriesBurnedToday.toLocaleString()} kcal\n`;
     shareText += `💧 น้ำดื่มวันนี้: ${waterIntakeToday} / ${waterGoal} ml\n`;
-
+    
     shareText += `\nสรุปโดย "ศูนย์โภชนาการอัจฉริยะ"`;
 
     if (navigator.share) {
         try {
-            await navigator.share({
-                title: 'ภาพรวมสุขภาพของฉัน',
-                text: shareText,
-            });
+            await navigator.share({ title: 'ภาพรวมสุขภาพของฉัน', text: shareText });
         } catch (error) {
             if (!(error instanceof DOMException && error.name === 'AbortError')) {
               console.error('Error sharing summary:', error);
@@ -198,46 +198,35 @@ const Dashboard: React.FC = () => {
                          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
                              กราฟนี้แสดงภาพรวมสุขภาพของคุณใน 6 มิติ หากกราฟเอียงไปด้านใดด้านหนึ่ง แสดงว่าคุณอาจต้องปรับสมดุลในด้านอื่นๆ เพื่อสุขภาพที่ดีแบบองค์รวม
                          </p>
-                         <button onClick={() => setActiveView('profile')} className="mt-4 text-sm text-teal-600 underline">อัปเดตการประเมิน</button>
+                         <button onClick={() => setActiveView('assessment')} className="mt-4 text-sm text-teal-600 underline">อัปเดตการประเมิน</button>
                      </div>
                  </div>
              ) : (
                  <div className="text-center py-8">
                      <p className="text-gray-600 dark:text-gray-300 mb-4">เริ่มสร้างแผนภูมิสุขภาพของคุณด้วยการประเมิน Lifestyle Balance</p>
-                     <button onClick={() => setActiveView('profile')} className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600">ทำแบบประเมิน 6 เสาหลัก</button>
+                     <button onClick={() => setActiveView('assessment')} className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600">ทำแบบประเมิน 6 เสาหลัก</button>
                  </div>
              )}
         </div>
 
-        <div className="relative">
-            <Card title="ดัชนีมวลกาย (BMI)" icon={<ScaleIcon className="w-8 h-8"/>} onClick={() => setActiveView('bmi')} color="border-red-500">
-                {latestBmi ? (
-                    <div className="text-center">
-                        <p className={`text-5xl font-bold my-2 ${bmiInfo?.color}`}>{latestBmi.value.toFixed(2)}</p>
-                        <p className={`text-xl font-semibold ${bmiInfo?.color}`}>{bmiInfo?.category}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                            บันทึกเมื่อ: {new Date(latestBmi.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card title="แคลอรี่วันนี้" icon={<BeakerIcon className="w-8 h-8"/>} onClick={() => setActiveView('calorieTracker')} color="border-orange-500">
+                <div className="text-center">
+                    <p className={`text-5xl font-bold my-2 ${caloriesToday > tdeeGoal ? 'text-red-500' : 'text-orange-500'}`}>{caloriesToday.toLocaleString()}</p>
+                    <p className="text-md font-semibold text-gray-600 dark:text-gray-300">/ {tdeeGoal.toLocaleString()} kcal</p>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mt-3">
+                        <div className={`h-2.5 rounded-full transition-all duration-500 ${caloriesToday > tdeeGoal ? 'bg-red-500' : 'bg-orange-500'}`} style={{ width: `${Math.min(100, (caloriesToday/tdeeGoal)*100)}%` }}></div>
                     </div>
-                ) : (
-                    <p className="text-center text-gray-600 dark:text-gray-300 py-8">ยังไม่มีข้อมูล BMI เริ่มคำนวณเพื่อดูผลลัพธ์ของคุณที่นี่</p>
-                )}
+                </div>
+            </Card>
+
+            <Card title="กิจกรรมวันนี้" icon={<BoltIcon className="w-8 h-8"/>} onClick={() => setActiveView('activityTracker')} color="border-yellow-500">
+                <div className="text-center">
+                    <p className="text-5xl font-bold my-2 text-yellow-500">{caloriesBurnedToday.toLocaleString()}</p>
+                    <p className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">แคลอรี่ที่เผาผลาญ</p>
+                </div>
             </Card>
         </div>
-
-        <Card title="การเผาผลาญพลังงาน (TDEE)" icon={<FireIcon className="w-8 h-8"/>} onClick={() => setActiveView('tdee')} color="border-sky-500">
-            {latestTdee ? (
-                 <div className="text-center">
-                    <p className="text-5xl font-bold my-2 text-sky-600 dark:text-sky-400">{latestTdee.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
-                    <p className="text-xl font-semibold text-sky-600 dark:text-sky-400">กิโลแคลอรี่/วัน</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                         บันทึกเมื่อ: {new Date(latestTdee.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </p>
-                </div>
-            ) : (
-                <p className="text-center text-gray-600 dark:text-gray-300 py-8">ยังไม่มีข้อมูล TDEE เริ่มคำนวณเพื่อวางแผนพลังงานของคุณ</p>
-            )}
-        </Card>
 
         <Card title="บันทึกการดื่มน้ำ" icon={<WaterDropIcon className="w-8 h-8"/>} onClick={() => setActiveView('water')} color="border-blue-500">
             <div className="text-center">
@@ -249,32 +238,39 @@ const Dashboard: React.FC = () => {
             </div>
         </Card>
 
-        <Card title="มื้ออาหารล่าสุด" icon={<CameraIcon className="w-8 h-8"/>} onClick={() => setActiveView('food')} color="border-purple-500">
-             {latestFoodAnalysis ? (
-                 <div className="text-center">
-                    <p className="text-lg font-semibold text-gray-800 dark:text-white truncate" title={latestFoodAnalysis.description}>{latestFoodAnalysis.description}</p>
-                    <p className="text-4xl font-bold my-1 text-purple-600 dark:text-purple-400">{latestFoodAnalysis.calories.toFixed(0)}</p>
-                    <p className="text-lg font-semibold text-purple-600 dark:text-purple-400">กิโลแคลอรี่</p>
-                </div>
-            ) : (
-                <p className="text-center text-gray-600 dark:text-gray-300 py-8">
-                    ใช้ AI วิเคราะห์ 6 มิติสุขภาพจากภาพถ่ายอาหารของคุณ
-                </p>
-            )}
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <Card title="ดัชนีมวลกาย (BMI)" icon={<ScaleIcon className="w-8 h-8"/>} onClick={() => setActiveView('bmi')} color="border-red-500">
+                {latestBmi ? (
+                    <div className="text-center">
+                        <p className={`text-5xl font-bold my-2 ${bmiInfo?.color}`}>{latestBmi.value.toFixed(2)}</p>
+                        <p className={`text-xl font-semibold ${bmiInfo?.color}`}>{bmiInfo?.category}</p>
+                    </div>
+                ) : (
+                    <p className="text-center text-gray-600 dark:text-gray-300 py-8">ยังไม่มีข้อมูล</p>
+                )}
+            </Card>
+
+            <Card title="การเผาผลาญ (TDEE)" icon={<FireIcon className="w-8 h-8"/>} onClick={() => setActiveView('tdee')} color="border-sky-500">
+                {latestTdee ? (
+                     <div className="text-center">
+                        <p className="text-5xl font-bold my-2 text-sky-600 dark:text-sky-400">{latestTdee.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}</p>
+                        <p className="text-xl font-semibold text-sky-600 dark:text-sky-400">kcal/วัน</p>
+                    </div>
+                ) : (
+                    <p className="text-center text-gray-600 dark:text-gray-300 py-8">ยังไม่มีข้อมูล</p>
+                )}
+            </Card>
+        </div>
         
-        {(latestBmi || latestTdee || latestFoodAnalysis || waterIntakeToday > 0) && (
-             <div className="flex justify-center">
-                <button
-                    onClick={handleShareSummary}
-                    className="inline-flex items-center justify-center gap-2 bg-green-500 text-white font-bold py-3 px-6 rounded-full hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800 transition-all duration-300 transform hover:scale-105"
-                    aria-label="แชร์ภาพรวมสุขภาพ"
-                >
-                    <ShareIcon className="w-5 h-5" />
-                    {copyStatus === 'copied' ? 'คัดลอกแล้ว!' : 'แชร์ภาพรวม'}
-                </button>
-            </div>
-        )}
+        <div className="flex justify-center pt-4">
+            <button
+                onClick={handleShareSummary}
+                className="inline-flex items-center justify-center gap-2 bg-green-500 text-white font-bold py-3 px-6 rounded-full hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800 transition-all duration-300 transform hover:scale-105"
+            >
+                <ShareIcon className="w-5 h-5" />
+                {copyStatus === 'copied' ? 'คัดลอกแล้ว!' : 'แชร์ภาพรวม'}
+            </button>
+        </div>
     </div>
   );
 };

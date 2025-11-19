@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { AppView } from '../types';
 import { AppContext } from '../context/AppContext';
-import { ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, CogIcon, WaterDropIcon, ClipboardDocumentCheckIcon } from './icons';
+import { ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, CogIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon } from './icons';
 
 const menuItems = [
   { 
@@ -15,8 +15,8 @@ const menuItems = [
   },
   { 
     view: 'dashboard' as AppView, 
-    title: 'แดชบอร์ด', 
-    description: 'สรุปข้อมูลสุขภาพของคุณ', 
+    title: 'แดชบอร์ดสุขภาพ', 
+    description: 'สรุปภาพรวมสุขภาพ 6 มิติ', 
     icon: <SquaresIcon className="w-10 h-10" />, 
     color: 'text-sky-500',
     bgColor: 'bg-sky-50 dark:bg-sky-900/50',
@@ -25,29 +25,29 @@ const menuItems = [
   { 
     view: 'assessment' as AppView, 
     title: 'ประเมิน 6 เสาหลัก', 
-    description: 'Lifestyle Balance Check', 
+    description: 'ตรวจสอบสมดุลไลฟ์สไตล์', 
     icon: <ClipboardDocumentCheckIcon className="w-10 h-10" />, 
     color: 'text-teal-500',
     bgColor: 'bg-teal-50 dark:bg-teal-900/50',
     borderColor: 'hover:border-teal-500'
   },
   { 
-    view: 'planner' as AppView, 
-    title: 'นักวางแผนโภชนาการ', 
-    description: 'สร้างแผนอาหาร 7 วัน', 
-    icon: <ClipboardListIcon className="w-10 h-10" />, 
-    color: 'text-emerald-500',
-    bgColor: 'bg-emerald-50 dark:bg-emerald-900/50',
-    borderColor: 'hover:border-emerald-500'
+    view: 'calorieTracker' as AppView, 
+    title: 'บันทึกแคลอรี่', 
+    description: 'ติดตามพลังงานที่บริโภค', 
+    icon: <BeakerIcon className="w-10 h-10" />, 
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-50 dark:bg-orange-900/50',
+    borderColor: 'hover:border-orange-500'
   },
   { 
-    view: 'food' as AppView, 
-    title: 'วิเคราะห์อาหาร', 
-    description: 'ประเมินแคลอรี่จากรูปภาพ', 
-    icon: <CameraIcon className="w-10 h-10" />, 
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-50 dark:bg-purple-900/50',
-    borderColor: 'hover:border-purple-500'
+    view: 'activityTracker' as AppView, 
+    title: 'บันทึกกิจกรรม', 
+    description: 'ติดตามพลังงานที่เผาผลาญ', 
+    icon: <BoltIcon className="w-10 h-10" />, 
+    color: 'text-yellow-500',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/50',
+    borderColor: 'hover:border-yellow-500'
   },
   { 
     view: 'water' as AppView, 
@@ -58,18 +58,39 @@ const menuItems = [
     bgColor: 'bg-blue-50 dark:bg-blue-900/50',
     borderColor: 'hover:border-blue-500'
   },
+  { 
+    view: 'planner' as AppView, 
+    title: 'แผนไลฟ์สไตล์ (AI)', 
+    description: 'สร้างแผนอาหารและกิจกรรม', 
+    icon: <ClipboardListIcon className="w-10 h-10" />, 
+    color: 'text-emerald-500',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-900/50',
+    borderColor: 'hover:border-emerald-500',
+    isAi: true
+  },
+  { 
+    view: 'food' as AppView, 
+    title: 'วิเคราะห์อาหาร (AI)', 
+    description: 'ประเมินผลกระทบต่อสุขภาพ', 
+    icon: <CameraIcon className="w-10 h-10" />, 
+    color: 'text-purple-500',
+    bgColor: 'bg-purple-50 dark:bg-purple-900/50',
+    borderColor: 'hover:border-purple-500',
+    isAi: true
+  },
    { 
     view: 'coach' as AppView, 
-    title: 'โค้ช AI', 
-    description: 'รับคำแนะนำสุขภาพส่วนตัว', 
+    title: 'โค้ชสุขภาพ (AI)', 
+    description: 'รับคำแนะนำเฉพาะบุคคล', 
     icon: <SparklesIcon className="w-10 h-10" />, 
     color: 'text-indigo-500',
     bgColor: 'bg-indigo-50 dark:bg-indigo-900/50',
-    borderColor: 'hover:border-indigo-500'
+    borderColor: 'hover:border-indigo-500',
+    isAi: true
   },
   { 
     view: 'literacy' as AppView, 
-    title: 'ความรู้โภชนาการ', 
+    title: 'ความรู้ LM', 
     description: 'อ่านบทความสุขภาพ', 
     icon: <BookOpenIcon className="w-10 h-10" />, 
     color: 'text-rose-500',
@@ -78,7 +99,7 @@ const menuItems = [
   },
   { 
     view: 'bmi' as AppView, 
-    title: 'คำนวณ BMI', 
+    title: 'เครื่องมือ BMI', 
     description: 'วัดดัชนีมวลกาย', 
     icon: <ScaleIcon className="w-10 h-10" />, 
     color: 'text-red-500',
@@ -87,21 +108,12 @@ const menuItems = [
   },
   { 
     view: 'tdee' as AppView, 
-    title: 'คำนวณ TDEE', 
+    title: 'เครื่องมือ TDEE', 
     description: 'การเผาผลาญพลังงาน', 
     icon: <FireIcon className="w-10 h-10" />, 
     color: 'text-orange-500',
     bgColor: 'bg-orange-50 dark:bg-orange-900/50',
     borderColor: 'hover:border-orange-500'
-  },
-  { 
-    view: 'settings' as AppView, 
-    title: 'ตั้งค่า', 
-    description: 'เชื่อมต่อกับ Google Sheets', 
-    icon: <CogIcon className="w-10 h-10" />, 
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100 dark:bg-gray-700/50',
-    borderColor: 'hover:border-gray-500'
   },
 ];
 
@@ -116,10 +128,15 @@ const HomeMenu: React.FC = () => {
           className={`group bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg w-full text-left transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-b-4 border-transparent ${item.borderColor}`}
         >
           <div className="flex items-center gap-4">
-              <div className={`p-4 rounded-xl ${item.bgColor}`}>
+              <div className={`p-4 rounded-xl ${item.bgColor} relative`}>
                 <div className={`transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
                     {item.icon}
                 </div>
+                {(item as any).isAi && (
+                    <span className="absolute -top-2 -right-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse border border-white dark:border-gray-800">
+                        AI
+                    </span>
+                )}
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-800 dark:text-white">{item.title}</h3>

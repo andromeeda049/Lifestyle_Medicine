@@ -73,3 +73,21 @@ export const PILLAR_LABELS = {
     substance: 'เลี่ยงสารอันตราย',
     social: 'ความสัมพันธ์'
 };
+
+export const COMMON_MEALS = [
+    { name: 'กาแฟดำ', calories: 5 },
+    { name: 'ไข่ต้ม (1 ฟอง)', calories: 80 },
+    { name: 'สลัดผัก (ไม่รวมน้ำสลัด)', calories: 100 },
+    { name: 'ข้าวกะเพราไก่', calories: 550 },
+    { name: 'ก๋วยเตี๋ยวเรือ', calories: 350 },
+    { name: 'อกไก่ย่าง (100g)', calories: 165 },
+];
+
+export const COMMON_ACTIVITIES = [
+    { name: 'เดิน (30 นาที)', caloriesBurned: 120 },
+    { name: 'วิ่งเหยาะๆ (30 นาที)', caloriesBurned: 250 },
+    { name: 'ทำงานบ้าน (30 นาที)', caloriesBurned: 150 },
+    { name: 'ปั่นจักรยาน (30 นาที)', caloriesBurned: 220 },
+    { name: 'โยคะ (30 นาที)', caloriesBurned: 100 },
+    { name: 'ยกเวท (30 นาที)', caloriesBurned: 200 },
+];

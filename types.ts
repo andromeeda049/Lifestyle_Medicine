@@ -29,7 +29,7 @@ export interface NutrientInfo {
   items: FoodItem[];
 }
 
-export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment';
+export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment' | 'calorieTracker' | 'activityTracker';
 export type Theme = 'light' | 'dark';
 
 export interface User {
@@ -108,6 +108,7 @@ export interface LifestyleActivity {
   activity: string;
   duration: string;
   benefit: string; // e.g., "Reduces stress", "Improves sleep"
+  caloriesBurned?: number;
 }
 
 export interface MealPlanDay {
@@ -141,6 +142,20 @@ export interface WaterHistoryEntry {
     amount: number; // ml
 }
 
+export interface CalorieHistoryEntry {
+    id: string;
+    date: string;
+    name: string;
+    calories: number;
+}
+
+export interface ActivityHistoryEntry {
+    id: string;
+    date: string;
+    name: string;
+    caloriesBurned: number;
+}
+
 export type SpecialistId = 'general' | 'nutritionist' | 'trainer' | 'psychologist' | 'sleep_expert' | 'ncd_doctor';
 
 export interface AppContextType {
@@ -161,6 +176,10 @@ export interface AppContextType {
   setPlannerHistory: React.Dispatch<React.SetStateAction<PlannerHistoryEntry[]>>;
   waterHistory: WaterHistoryEntry[];
   setWaterHistory: React.Dispatch<React.SetStateAction<WaterHistoryEntry[]>>;
+  calorieHistory: CalorieHistoryEntry[];
+  setCalorieHistory: React.Dispatch<React.SetStateAction<CalorieHistoryEntry[]>>;
+  activityHistory: ActivityHistoryEntry[];
+  setActivityHistory: React.Dispatch<React.SetStateAction<ActivityHistoryEntry[]>>;
   waterGoal: number;
   setWaterGoal: React.Dispatch<React.SetStateAction<number>>;
   latestFoodAnalysis: NutrientInfo | null;
@@ -176,4 +195,6 @@ export interface AppContextType {
   clearTdeeHistory: () => void;
   clearFoodHistory: () => void;
   clearWaterHistory: () => void;
+  clearCalorieHistory: () => void;
+  clearActivityHistory: () => void;
 }

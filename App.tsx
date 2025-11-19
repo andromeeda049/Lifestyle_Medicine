@@ -13,9 +13,11 @@ import Auth from './components/Auth';
 import AdminDashboard from './components/AdminDashboard';
 import WaterTracker from './components/WaterTracker';
 import LifestyleAssessment from './components/LifestyleAssessment';
+import CalorieTracker from './components/CalorieTracker';
+import ActivityTracker from './components/ActivityTracker';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User } from './types';
-import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon } from './components/icons';
+import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon } from './components/icons';
 import { saveDataToSheet } from './services/googleSheetService';
 
 const AppContent: React.FC = () => {
@@ -67,6 +69,10 @@ const AppContent: React.FC = () => {
         return <NutritionLiteracy />;
       case 'water':
         return <WaterTracker />;
+      case 'calorieTracker':
+        return <CalorieTracker />;
+      case 'activityTracker':
+        return <ActivityTracker />;
       case 'settings':
         return currentUser?.role === 'admin' ? <Settings /> : <HomeMenu />;
       case 'adminDashboard':
@@ -79,15 +85,17 @@ const AppContent: React.FC = () => {
   const viewTitles: { [key in AppView]?: string } = {
     home: 'หน้าแรก',
     profile: 'ข้อมูลส่วนตัว',
-    dashboard: 'แดชบอร์ด',
+    dashboard: 'แดชบอร์ดสุขภาพ',
     assessment: 'ประเมิน 6 เสาหลัก',
-    planner: 'นักวางแผนโภชนาการ',
-    bmi: 'คำนวณ BMI',
-    tdee: 'คำนวณ TDEE',
-    food: 'วิเคราะห์อาหาร',
-    coach: 'โค้ช AI',
-    literacy: 'ความรู้โภชนาการ',
+    planner: 'แผนไลฟ์สไตล์',
+    bmi: 'เครื่องคำนวณ BMI',
+    tdee: 'เครื่องคำนวณ TDEE',
+    food: 'วิเคราะห์อาหาร (AI)',
+    coach: 'โค้ชสุขภาพ (AI)',
+    literacy: 'ความรู้เวชศาสตร์วิถีชีวิต',
     water: 'บันทึกการดื่มน้ำ',
+    calorieTracker: 'บันทึกแคลอรี่',
+    activityTracker: 'บันทึกกิจกรรม',
     settings: 'ตั้งค่า',
     adminDashboard: 'จัดการผู้ใช้',
   };
@@ -131,18 +139,22 @@ const AppContent: React.FC = () => {
           {currentUser?.role === 'user' && (
             <>
               <NavLink view="profile" label="ข้อมูลส่วนตัว" icon={<UserCircleIcon className="w-6 h-6" />} />
-              <NavLink view="dashboard" label="แดชบอร์ด" icon={<SquaresIcon className="w-6 h-6" />} />
+              <NavLink view="dashboard" label="แดชบอร์ดสุขภาพ" icon={<SquaresIcon className="w-6 h-6" />} />
               <NavLink view="assessment" label="ประเมิน 6 เสาหลัก" icon={<ClipboardDocumentCheckIcon className="w-6 h-6" />} />
             </>
           )}
-          <NavLink view="planner" label="นักวางแผนโภชนาการ" icon={<ClipboardListIcon className="w-6 h-6" />} />
-          <NavLink view="food" label="วิเคราะห์อาหาร" icon={<CameraIcon className="w-6 h-6" />} />
+           <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
+          <NavLink view="calorieTracker" label="บันทึกแคลอรี่" icon={<BeakerIcon className="w-6 h-6" />} />
+          <NavLink view="activityTracker" label="บันทึกกิจกรรม" icon={<BoltIcon className="w-6 h-6" />} />
           <NavLink view="water" label="บันทึกการดื่มน้ำ" icon={<WaterDropIcon className="w-6 h-6" />} />
-          <NavLink view="coach" label="โค้ช AI" icon={<SparklesIcon className="w-6 h-6" />} />
-          <NavLink view="literacy" label="ความรู้โภชนาการ" icon={<BookOpenIcon className="w-6 h-6" />} />
+           <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
+          <NavLink view="planner" label="แผนไลฟ์สไตล์" icon={<ClipboardListIcon className="w-6 h-6" />} />
+          <NavLink view="food" label="วิเคราะห์อาหาร (AI)" icon={<CameraIcon className="w-6 h-6" />} />
+          <NavLink view="coach" label="โค้ชสุขภาพ (AI)" icon={<SparklesIcon className="w-6 h-6" />} />
+          <NavLink view="literacy" label="ความรู้ LM" icon={<BookOpenIcon className="w-6 h-6" />} />
           <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
-          <NavLink view="bmi" label="คำนวณ BMI" icon={<ScaleIcon className="w-6 h-6" />} />
-          <NavLink view="tdee" label="คำนวณ TDEE" icon={<FireIcon className="w-6 h-6" />} />
+          <NavLink view="bmi" label="เครื่องมือ BMI" icon={<ScaleIcon className="w-6 h-6" />} />
+          <NavLink view="tdee" label="เครื่องมือ TDEE" icon={<FireIcon className="w-6 h-6" />} />
           
           {currentUser?.role === 'admin' && (
               <>

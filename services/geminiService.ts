@@ -196,9 +196,10 @@ const activitySchema = {
     properties: {
         activity: { type: Type.STRING, description: "กิจกรรมแนะนำ (เช่น เดินเร็ว, สมาธิ)" },
         duration: { type: Type.STRING, description: "ระยะเวลา (เช่น 30 นาที)" },
-        benefit: { type: Type.STRING, description: "ประโยชน์ต่อเป้าหมายสุขภาพ" }
+        benefit: { type: Type.STRING, description: "ประโยชน์ต่อเป้าหมายสุขภาพ" },
+        caloriesBurned: { type: Type.NUMBER, description: "จำนวนแคลอรี่ที่เผาผลาญโดยประมาณจากกิจกรรมนี้" },
     },
-    required: ['activity', 'duration', 'benefit']
+    required: ['activity', 'duration', 'benefit', 'caloriesBurned']
 };
 
 const mealPlanSchema = {
@@ -252,7 +253,7 @@ You are a Lifestyle Medicine Planner. Create a 7-day "Local Ingredient" Meal & A
 
 **Requirements:**
 1. Meals: Use local ingredients, easy to cook.
-2. Activities: Suggest 1-2 activities per day (Exercise, Stress Relief, Social) aligning with the goal.
+2. Activities: Suggest 1-2 activities per day (Exercise, Stress Relief, Social) aligning with the goal. **Estimate and include the calories burned (caloriesBurned) for each activity.**
 3. Return JSON.
 `;
 
