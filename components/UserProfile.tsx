@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
-import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS } from '../constants';
+import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, ACHIEVEMENTS } from '../constants';
 import { UserProfile as UserProfileType } from '../types';
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
@@ -55,8 +55,14 @@ const UserProfile: React.FC = () => {
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        // Preserve existing pillar scores when saving profile data
-        const updatedProfile = { ...healthData, pillarScores: userProfile.pillarScores };
+        // Preserve existing pillar scores and gamification data when saving profile data
+        const updatedProfile = { 
+            ...healthData, 
+            pillarScores: userProfile.pillarScores,
+            xp: userProfile.xp,
+            level: userProfile.level,
+            badges: userProfile.badges
+        };
         setUserProfile(updatedProfile, { displayName, profilePicture });
         setSaved(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -64,6 +70,7 @@ const UserProfile: React.FC = () => {
     };
     
     const isBase64Image = profilePicture.startsWith('data:image/');
+    const badges = userProfile.badges || [];
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full transform transition-all duration-300">
@@ -74,6 +81,24 @@ const UserProfile: React.FC = () => {
                     <p className="font-bold">บันทึกข้อมูลสำเร็จ!</p>
                 </div>
             )}
+            
+             {/* Achievements Section */}
+             <div className="p-4 border dark:border-gray-700 rounded-lg mb-8 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-gray-700 dark:to-gray-700">
+                <h3 className="text-lg font-bold text-indigo-800 dark:text-indigo-200 mb-4">เหรียญรางวัลที่ได้รับ ({badges.length})</h3>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                    {ACHIEVEMENTS.map(achievement => {
+                        const isUnlocked = badges.includes(achievement.id);
+                        return (
+                            <div key={achievement.id} className={`flex flex-col items-center text-center p-2 rounded-lg transition-all ${isUnlocked ? 'opacity-100 scale-105' : 'opacity-40 grayscale'}`}>
+                                <div className="text-3xl mb-1 bg-white dark:bg-gray-600 rounded-full w-12 h-12 flex items-center justify-center shadow-sm">
+                                    {achievement.icon}
+                                </div>
+                                <p className="text-xs font-bold text-gray-700 dark:text-gray-200">{achievement.name}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
 
             <form onSubmit={handleSave} className="space-y-8">
                 {/* Account Management Section */}

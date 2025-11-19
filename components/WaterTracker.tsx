@@ -2,11 +2,12 @@ import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { WaterHistoryEntry } from '../types';
 import { TrashIcon, WaterDropIcon, ShareIcon } from './icons';
+import { XP_VALUES } from '../constants';
 
 const MAX_HISTORY_ITEMS = 50; // Keep a bit more history for charts
 
 const WaterTracker: React.FC = () => {
-    const { waterHistory, setWaterHistory, waterGoal, setWaterGoal, clearWaterHistory } = useContext(AppContext);
+    const { waterHistory, setWaterHistory, waterGoal, setWaterGoal, clearWaterHistory, gainXP } = useContext(AppContext);
     const [customAmount, setCustomAmount] = useState('');
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -37,6 +38,7 @@ const WaterTracker: React.FC = () => {
             amount: amount
         };
         setWaterHistory(prev => [newEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
+        gainXP(XP_VALUES.WATER);
     };
 
     const handleCustomAdd = (e: React.FormEvent) => {
@@ -163,7 +165,7 @@ const WaterTracker: React.FC = () => {
                                 placeholder="ระบุจำนวน (ml)" 
                                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500"
                             />
-                            <button type="submit" disabled={!customAmount} className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-600 disabled:bg-gray-400 transition-colors">+</button>
+                            <button type="button" className="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-600 transition-colors" onClick={handleCustomAdd}>+</button>
                         </form>
 
                         <div className="mt-2">

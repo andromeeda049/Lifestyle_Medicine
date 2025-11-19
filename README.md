@@ -1,6 +1,7 @@
-# การเชื่อมต่อศูนย์โภชนาการอัจฉริยะกับ Google Sheets (เวอร์ชันสมบูรณ์)
 
-คู่มือนี้จะแนะนำวิธีการใช้ Google Sheets เป็นฐานข้อมูลส่วนตัวสำหรับแอปพลิเคชัน เพื่อบันทึกและซิงค์ข้อมูลสุขภาพทั้งหมดของคุณ
+# การเชื่อมต่อศูนย์โภชนาการอัจฉริยะกับ Google Sheets (เวอร์ชันสมบูรณ์ + Gamification + Evaluation)
+
+คู่มือนี้จะแนะนำวิธีการใช้ Google Sheets เป็นฐานข้อมูลส่วนตัวสำหรับแอปพลิเคชัน เพื่อบันทึกและซิงค์ข้อมูลสุขภาพทั้งหมดของคุณ รวมถึงระบบ Level, Badges และการประเมินผล
 
 ## ขั้นตอนการตั้งค่า
 
@@ -13,15 +14,20 @@
 3.  **สร้างชีตย่อย (Tabs)** ที่ด้านล่างและตั้งชื่อให้ตรงตามนี้ **(สำคัญมาก: ชื่อต้องตรงทุกตัวอักษร)**
 4.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ในแถวแรก (Row 1) ให้ตรงตามนี้ทุกประการ:
 
-    *   **ชีตที่ 1: `Profile`** (A1-L1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`
+    *   **ชีตที่ 1: `Profile`** (A1-O1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`
     *   **ชีตที่ 2: `BMIHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `bmi`, `category`
     *   **ชีตที่ 3: `TDEEHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `tdee`, `bmr`
     *   **ชีตที่ 4: `FoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `description`, `calories`, `analysis_json`
     *   **ชีตที่ 5: `PlannerHistory`** (A1-H1): `timestamp`, `username`, `displayName`, `profilePicture`, `cuisine`, `diet`, `tdee_goal`, `plan_json`
     *   **ชีตที่ 6: `LoginLogs`** (A1-D1): `timestamp`, `username`, `displayName`, `role`
     *   **ชีตที่ 7: `WaterHistory`** (A1-E1): `timestamp`, `username`, `displayName`, `profilePicture`, `amount`
-    *   **ชีตที่ 8: `CalorieHistory` (ใหม่!)** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `name`, `calories`
-    *   **ชีตที่ 9: `ActivityHistory` (ใหม่!)** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `name`, `caloriesBurned`
+    *   **ชีตที่ 8: `CalorieHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `name`, `calories`
+    *   **ชีตที่ 9: `ActivityHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `name`, `caloriesBurned`
+    *   **ชีตที่ 10: `SleepHistory`** (A1-H1): `timestamp`, `username`, `displayName`, `profilePicture`, `bedTime`, `wakeTime`, `duration`, `quality`
+    *   **ชีตที่ 11: `MoodHistory`** (A1-H1): `timestamp`, `username`, `displayName`, `profilePicture`, `emoji`, `stressLevel`, `gratitude`
+    *   **ชีตที่ 12: `HabitHistory`** (A1-H1): `timestamp`, `username`, `displayName`, `profilePicture`, `type`, `amount`, `isClean`
+    *   **ชีตที่ 13: `SocialHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `interaction`, `feeling`
+    *   **ชีตที่ 14: `EvaluationHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `role`, `satisfaction_json`, `outcome_json`
 
 
 ### ขั้นตอนที่ 2: เปิด Apps Script Editor
@@ -45,7 +51,12 @@ const SHEET_NAMES = {
   WATER: "WaterHistory",
   CALORIE: "CalorieHistory",
   ACTIVITY: "ActivityHistory",
-  LOGIN_LOGS: "LoginLogs"
+  LOGIN_LOGS: "LoginLogs",
+  SLEEP: "SleepHistory",
+  MOOD: "MoodHistory",
+  HABIT: "HabitHistory",
+  SOCIAL: "SocialHistory",
+  EVALUATION: "EvaluationHistory"
 };
 
 // !!! สำคัญ: ตั้งค่า Admin Key ของคุณที่นี่ !!!
@@ -54,18 +65,22 @@ const ADMIN_KEY = "ADMIN1234!";
 function doGet(e) {
   try {
     if (e.parameter.action === 'getAllData' && e.parameter.adminKey === ADMIN_KEY) {
-       const allData = {
-          profiles: getAllRowsAsObjects(SHEET_NAMES.PROFILE),
-          bmiHistory: getAllRowsAsObjects(SHEET_NAMES.BMI),
-          tdeeHistory: getAllRowsAsObjects(SHEET_NAMES.TDEE),
-          foodHistory: getAllRowsAsObjects(SHEET_NAMES.FOOD),
-          plannerHistory: getAllRowsAsObjects(SHEET_NAMES.PLANNER),
-          waterHistory: getAllRowsAsObjects(SHEET_NAMES.WATER),
-          calorieHistory: getAllRowsAsObjects(SHEET_NAMES.CALORIE),
-          activityHistory: getAllRowsAsObjects(SHEET_NAMES.ACTIVITY),
-          loginLogs: getAllRowsAsObjects(SHEET_NAMES.LOGIN_LOGS)
-       };
-       return createSuccessResponse(allData);
+       const allData = {};
+       for (const key in SHEET_NAMES) {
+           allData[key] = getAllRowsAsObjects(SHEET_NAMES[key]);
+       }
+       return createSuccessResponse({ 
+           profiles: allData.PROFILE,
+           bmiHistory: allData.BMI,
+           tdeeHistory: allData.TDEE,
+           foodHistory: allData.FOOD,
+           plannerHistory: allData.PLANNER,
+           waterHistory: allData.WATER,
+           calorieHistory: allData.CALORIE,
+           activityHistory: allData.ACTIVITY,
+           loginLogs: allData.LOGIN_LOGS,
+           evaluationHistory: allData.EVALUATION
+       });
     }
 
     const username = e.parameter.username;
@@ -80,6 +95,11 @@ function doGet(e) {
       waterHistory: getAllHistoryForUser(SHEET_NAMES.WATER, username),
       calorieHistory: getAllHistoryForUser(SHEET_NAMES.CALORIE, username),
       activityHistory: getAllHistoryForUser(SHEET_NAMES.ACTIVITY, username),
+      sleepHistory: getAllHistoryForUser(SHEET_NAMES.SLEEP, username),
+      moodHistory: getAllHistoryForUser(SHEET_NAMES.MOOD, username),
+      habitHistory: getAllHistoryForUser(SHEET_NAMES.HABIT, username),
+      socialHistory: getAllHistoryForUser(SHEET_NAMES.SOCIAL, username),
+      // evaluations usually write-only for users, but fetching is fine if needed
     };
     return createSuccessResponse(userData);
   } catch (error) {
@@ -111,46 +131,45 @@ function handleSave(type, payload, user) {
   const sheetNameMap = {
     profile: SHEET_NAMES.PROFILE, bmiHistory: SHEET_NAMES.BMI, tdeeHistory: SHEET_NAMES.TDEE,
     foodHistory: SHEET_NAMES.FOOD, plannerHistory: SHEET_NAMES.PLANNER, waterHistory: SHEET_NAMES.WATER,
-    calorieHistory: SHEET_NAMES.CALORIE, activityHistory: SHEET_NAMES.ACTIVITY, loginLog: SHEET_NAMES.LOGIN_LOGS
+    calorieHistory: SHEET_NAMES.CALORIE, activityHistory: SHEET_NAMES.ACTIVITY, loginLog: SHEET_NAMES.LOGIN_LOGS,
+    sleepHistory: SHEET_NAMES.SLEEP, moodHistory: SHEET_NAMES.MOOD, habitHistory: SHEET_NAMES.HABIT, socialHistory: SHEET_NAMES.SOCIAL,
+    evaluationHistory: SHEET_NAMES.EVALUATION
   };
   
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetNameMap[type]);
   if (!sheet) throw new Error(`Sheet not found for type: ${type}`);
   
   let newRow;
-  const lastItem = Array.isArray(payload) ? payload[0] : null;
+  // For array payloads (history), we usually take the first item as the 'new' one to append
+  const item = Array.isArray(payload) ? payload[0] : null;
+
+  const commonPrefix = [new Date(), user.username, user.displayName, user.profilePicture];
 
   switch (type) {
     case 'profile':
-      newRow = [ new Date(), user.username, user.displayName, user.profilePicture, payload.gender, payload.age, payload.weight, payload.height, payload.waist, payload.hip, payload.activityLevel, user.role ];
+      // Save XP, Level, Badges as JSON string
+      const badgesJson = JSON.stringify(payload.badges || []);
+      newRow = [ 
+          ...commonPrefix, 
+          payload.gender, payload.age, payload.weight, payload.height, payload.waist, payload.hip, payload.activityLevel, user.role,
+          payload.xp || 0, payload.level || 1, badgesJson
+      ];
       break;
-    case 'bmiHistory':
-      if (!lastItem) return createSuccessResponse({ status: "No new BMI data."});
-      newRow = [ new Date(), user.username, user.displayName, user.profilePicture, lastItem.value, lastItem.category ];
-      break;
-    case 'tdeeHistory':
-      if (!lastItem) return createSuccessResponse({ status: "No new TDEE data."});
-      newRow = [ new Date(), user.username, user.displayName, user.profilePicture, lastItem.value, lastItem.bmr ];
-      break;
-    case 'foodHistory':
-      if (!lastItem) return createSuccessResponse({ status: "No new Food data."});
-      newRow = [ new Date(), user.username, user.displayName, user.profilePicture, lastItem.analysis.description, lastItem.analysis.calories, JSON.stringify(lastItem.analysis) ];
-      break;
-    case 'plannerHistory':
-       if (!lastItem) return createSuccessResponse({ status: "No new Planner data."});
-       newRow = [ new Date(), user.username, user.displayName, user.profilePicture, lastItem.cuisine, lastItem.diet, lastItem.tdee, JSON.stringify(lastItem.plan) ];
-       break;
-    case 'waterHistory':
-       if (!lastItem) return createSuccessResponse({ status: "No new Water data."});
-       newRow = [ new Date(), user.username, user.displayName, user.profilePicture, lastItem.amount ];
-       break;
-    case 'calorieHistory':
-        if (!lastItem) return createSuccessResponse({ status: "No new Calorie data." });
-        newRow = [ new Date(), user.username, user.displayName, user.profilePicture, lastItem.name, lastItem.calories ];
-        break;
-    case 'activityHistory':
-        if (!lastItem) return createSuccessResponse({ status: "No new Activity data." });
-        newRow = [ new Date(), user.username, user.displayName, user.profilePicture, lastItem.name, lastItem.caloriesBurned ];
+    case 'bmiHistory': newRow = [ ...commonPrefix, item.value, item.category ]; break;
+    case 'tdeeHistory': newRow = [ ...commonPrefix, item.value, item.bmr ]; break;
+    case 'foodHistory': newRow = [ ...commonPrefix, item.analysis.description, item.analysis.calories, JSON.stringify(item.analysis) ]; break;
+    case 'plannerHistory': newRow = [ ...commonPrefix, item.cuisine, item.diet, item.tdee, JSON.stringify(item.plan) ]; break;
+    case 'waterHistory': newRow = [ ...commonPrefix, item.amount ]; break;
+    case 'calorieHistory': newRow = [ ...commonPrefix, item.name, item.calories ]; break;
+    case 'activityHistory': newRow = [ ...commonPrefix, item.name, item.caloriesBurned ]; break;
+    case 'sleepHistory': newRow = [ ...commonPrefix, item.bedTime, item.wakeTime, item.duration, item.quality ]; break;
+    case 'moodHistory': newRow = [ ...commonPrefix, item.moodEmoji, item.stressLevel, item.gratitude ]; break;
+    case 'habitHistory': newRow = [ ...commonPrefix, item.type, item.amount, item.isClean ]; break;
+    case 'socialHistory': newRow = [ ...commonPrefix, item.interaction, item.feeling ]; break;
+    case 'evaluationHistory': 
+        // Evaluations: no profile picture in prefix as per sheet structure definition in instruction A1-F1
+        // A1: timestamp, B1: username, C1: displayName, D1: role, E1: satisfaction_json, F1: outcome_json
+        newRow = [ new Date(), user.username, user.displayName, user.role, JSON.stringify(item.satisfaction), JSON.stringify(item.outcomes) ];
         break;
     case 'loginLog':
        newRow = [ new Date(), user.username, user.displayName, user.role ];
@@ -167,6 +186,7 @@ function handleClear(type, user) {
   const sheetNameMap = {
     bmiHistory: SHEET_NAMES.BMI, tdeeHistory: SHEET_NAMES.TDEE, foodHistory: SHEET_NAMES.FOOD,
     waterHistory: SHEET_NAMES.WATER, calorieHistory: SHEET_NAMES.CALORIE, activityHistory: SHEET_NAMES.ACTIVITY,
+    sleepHistory: SHEET_NAMES.SLEEP, moodHistory: SHEET_NAMES.MOOD, habitHistory: SHEET_NAMES.HABIT, socialHistory: SHEET_NAMES.SOCIAL
   };
   const sheetName = sheetNameMap[type];
   if (!sheetName) throw new Error(`Unknown data type for clear: ${type}`);
@@ -182,7 +202,10 @@ function getLatestProfileForUser(username) {
   const userData = allData.filter(row => row[1] === username); 
   if (userData.length === 0) return null;
   const lastEntry = userData[userData.length - 1];
-  return { gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7], waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10] };
+  return { 
+      gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7], waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10],
+      xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14]
+  };
 }
 
 function getAllHistoryForUser(sheetName, username) {
@@ -200,6 +223,10 @@ function getAllHistoryForUser(sheetName, username) {
         case SHEET_NAMES.WATER: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), amount: row[4] }));
         case SHEET_NAMES.CALORIE: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), name: row[4], calories: row[5] }));
         case SHEET_NAMES.ACTIVITY: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), name: row[4], caloriesBurned: row[5] }));
+        case SHEET_NAMES.SLEEP: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), bedTime: row[4], wakeTime: row[5], duration: row[6], quality: row[7] }));
+        case SHEET_NAMES.MOOD: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), moodEmoji: row[4], stressLevel: row[5], gratitude: row[6] }));
+        case SHEET_NAMES.HABIT: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), type: row[4], amount: row[5], isClean: row[6] }));
+        case SHEET_NAMES.SOCIAL: return userData.map(row => ({ date: row[0], id: new Date(row[0]).toISOString(), interaction: row[4], feeling: row[5] }));
         default: return [];
     }
   } catch(e) {

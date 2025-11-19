@@ -1,4 +1,5 @@
-import { UserProfile, BMIHistoryEntry, TDEEHistoryEntry, FoodHistoryEntry, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, User } from '../types';
+
+import { UserProfile, BMIHistoryEntry, TDEEHistoryEntry, FoodHistoryEntry, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, User } from '../types';
 
 interface AllData {
     profile: UserProfile | null;
@@ -9,6 +10,11 @@ interface AllData {
     waterHistory: WaterHistoryEntry[];
     calorieHistory: CalorieHistoryEntry[];
     activityHistory: ActivityHistoryEntry[];
+    sleepHistory: SleepEntry[];
+    moodHistory: MoodEntry[];
+    habitHistory: HabitEntry[];
+    socialHistory: SocialEntry[];
+    evaluationHistory: EvaluationEntry[];
 }
 
 export interface AllAdminData {
@@ -21,6 +27,7 @@ export interface AllAdminData {
     calorieHistory: any[];
     activityHistory: any[];
     loginLogs: any[];
+    evaluationHistory: any[];
 }
 
 // ดึงข้อมูลทั้งหมดจาก Google Sheet (สำหรับ User)
@@ -38,6 +45,14 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
         const result = await response.json();
         if (result.status === 'success') {
              const data = result.data;
+             
+             let parsedBadges = [];
+             try {
+                parsedBadges = data.profile && data.profile.badges ? JSON.parse(data.profile.badges) : ['novice'];
+             } catch (e) {
+                parsedBadges = ['novice'];
+             }
+
              const sanitizedProfile = data.profile ? {
                 ...data.profile,
                 age: String(data.profile.age || ''),
@@ -46,6 +61,9 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 waist: String(data.profile.waist || ''),
                 hip: String(data.profile.hip || ''),
                 activityLevel: Number(data.profile.activityLevel),
+                xp: Number(data.profile.xp || 0),
+                level: Number(data.profile.level || 1),
+                badges: parsedBadges
             } : null;
 
             // Helper sort function: Newest first
@@ -60,6 +78,11 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 waterHistory: (data.waterHistory || []).sort(sortByDateDesc),
                 calorieHistory: (data.calorieHistory || []).sort(sortByDateDesc),
                 activityHistory: (data.activityHistory || []).sort(sortByDateDesc),
+                sleepHistory: (data.sleepHistory || []).sort(sortByDateDesc),
+                moodHistory: (data.moodHistory || []).sort(sortByDateDesc),
+                habitHistory: (data.habitHistory || []).sort(sortByDateDesc),
+                socialHistory: (data.socialHistory || []).sort(sortByDateDesc),
+                evaluationHistory: (data.evaluationHistory || []).sort(sortByDateDesc),
             };
         }
         console.error("Error fetching data from sheet:", result.message);
@@ -126,7 +149,7 @@ export const saveDataToSheet = async (scriptUrl: string, type: string, payload: 
 };
 
 // ล้างประวัติใน Google Sheet
-export const clearHistoryInSheet = async (scriptUrl: string, type: 'bmiHistory' | 'tdeeHistory' | 'foodHistory' | 'waterHistory' | 'calorieHistory' | 'activityHistory', user: User): Promise<boolean> => {
+export const clearHistoryInSheet = async (scriptUrl: string, type: string, user: User): Promise<boolean> => {
     if (!scriptUrl || !user) return false;
     try {
         const response = await fetch(scriptUrl, {

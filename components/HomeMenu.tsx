@@ -1,7 +1,8 @@
+
 import React, { useContext } from 'react';
 import { AppView } from '../types';
 import { AppContext } from '../context/AppContext';
-import { ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, CogIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon } from './icons';
+import { ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, CogIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, InformationCircleIcon, ClipboardCheckIcon } from './icons';
 
 const menuItems = [
   { 
@@ -30,6 +31,16 @@ const menuItems = [
     color: 'text-teal-500',
     bgColor: 'bg-teal-50 dark:bg-teal-900/50',
     borderColor: 'hover:border-teal-500'
+  },
+  { 
+    view: 'wellness' as AppView, 
+    title: 'เช็คอินสุขภาพประจำวัน', 
+    description: 'บันทึกการนอน อารมณ์ นิสัย', 
+    icon: <HeartIcon className="w-10 h-10" />, 
+    color: 'text-rose-500',
+    bgColor: 'bg-rose-50 dark:bg-rose-900/50',
+    borderColor: 'hover:border-rose-500',
+    isAi: true
   },
   { 
     view: 'calorieTracker' as AppView, 
@@ -114,6 +125,24 @@ const menuItems = [
     color: 'text-orange-500',
     bgColor: 'bg-orange-50 dark:bg-orange-900/50',
     borderColor: 'hover:border-orange-500'
+  },
+  { 
+    view: 'evaluation' as AppView, 
+    title: 'ประเมินผลการใช้งาน', 
+    description: 'ความพึงพอใจ & ผลลัพธ์', 
+    icon: <ClipboardCheckIcon className="w-10 h-10" />, 
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-50 dark:bg-violet-900/50',
+    borderColor: 'hover:border-violet-600'
+  },
+  { 
+    view: 'about' as AppView, 
+    title: 'เกี่ยวกับนวัตกรรม & คู่มือ', 
+    description: 'แนวคิดและการใช้งาน', 
+    icon: <InformationCircleIcon className="w-10 h-10" />, 
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-50 dark:bg-teal-900/50',
+    borderColor: 'hover:border-teal-600'
   },
 ];
 

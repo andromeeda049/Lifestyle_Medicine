@@ -3,6 +3,8 @@ import { AppContext } from '../context/AppContext';
 import { AppView } from '../types';
 import { ScaleIcon, FireIcon, CameraIcon, ShareIcon, WaterDropIcon, BeakerIcon, BoltIcon } from './icons';
 import { PILLAR_LABELS } from '../constants';
+import GamificationCard from './GamificationCard';
+import LevelUpModal from './LevelUpModal';
 
 const getBmiCategory = (bmi: number): { category: string; color: string } => {
     if (bmi < 18.5) return { category: 'น้ำหนักน้อยกว่าเกณฑ์', color: 'text-blue-500' };
@@ -90,7 +92,7 @@ const RadarChart: React.FC<{ scores: { [key: string]: number } }> = ({ scores })
 
 
 const Dashboard: React.FC = () => {
-  const { setActiveView, bmiHistory, tdeeHistory, latestFoodAnalysis, waterHistory, waterGoal, calorieHistory, activityHistory, userProfile } = useContext(AppContext);
+  const { setActiveView, bmiHistory, tdeeHistory, latestFoodAnalysis, waterHistory, waterGoal, calorieHistory, activityHistory, userProfile, showLevelUp, closeLevelUpModal } = useContext(AppContext);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
   // Explicitly sort history to ensure [0] is the absolute latest by date
@@ -185,7 +187,17 @@ const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in relative">
+        {showLevelUp && (
+            <LevelUpModal 
+                type={showLevelUp.type} 
+                data={showLevelUp.data} 
+                onClose={closeLevelUpModal} 
+            />
+        )}
+        
+        <GamificationCard />
+
         {/* Personal Health Graph Section */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg">
              {userProfile.pillarScores ? (

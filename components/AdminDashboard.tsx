@@ -1,6 +1,9 @@
+
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { fetchAllAdminDataFromSheet, AllAdminData } from '../services/googleSheetService';
+import { OUTCOME_QUESTIONS, SATISFACTION_QUESTIONS } from '../constants';
+import { ChartBarIcon } from './icons';
 
 const ADMIN_KEY = "ADMIN1234!"; // Must match the key in Code.gs
 
@@ -71,12 +74,101 @@ const DataTable: React.FC<{ data: any[], title: string }> = ({ data, title }) =>
     );
 };
 
+const EvaluationStats: React.FC<{ data: any[] }> = ({ data }) => {
+    if (!data || data.length === 0) return <p className="text-center text-gray-500">ยังไม่มีข้อมูลการประเมิน</p>;
+
+    // Process Data
+    let totalEntries = data.length;
+    let satisfactionSums: { [key: string]: number } = {};
+    let outcomeCounts: { [key: string]: { improved: number, total: number } } = {};
+
+    // Initialize
+    SATISFACTION_QUESTIONS.forEach(q => satisfactionSums[q.id] = 0);
+    OUTCOME_QUESTIONS.forEach(q => outcomeCounts[q.id] = { improved: 0, total: 0 });
+
+    data.forEach(entry => {
+        let sat, out;
+        try {
+             // Ensure we parse if it's a string, or use as object if already parsed
+             sat = typeof entry.satisfaction_json === 'string' ? JSON.parse(entry.satisfaction_json) : entry.satisfaction_json;
+             out = typeof entry.outcome_json === 'string' ? JSON.parse(entry.outcome_json) : entry.outcome_json;
+        } catch(e) { console.error("Parse error", e); return; }
+        
+        if (sat) {
+            Object.keys(sat).forEach(key => {
+                if (satisfactionSums[key] !== undefined) satisfactionSums[key] += Number(sat[key]);
+            });
+        }
+        if (out) {
+            Object.keys(out).forEach(key => {
+                if (outcomeCounts[key] !== undefined) {
+                    outcomeCounts[key].total++;
+                    if (out[key] === 'better' || out[key] === 'much_better') {
+                        outcomeCounts[key].improved++;
+                    }
+                }
+            });
+        }
+    });
+
+    return (
+        <div className="space-y-8 animate-fade-in">
+             <div className="bg-white dark:bg-gray-700 p-6 rounded-xl shadow-md">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                    <ChartBarIcon className="w-6 h-6 text-indigo-500" />
+                    ความพึงพอใจของผู้ใช้งาน (User Satisfaction)
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">คะแนนเฉลี่ย (เต็ม 5) จากผู้ใช้งาน {totalEntries} คน</p>
+                <div className="space-y-4">
+                    {SATISFACTION_QUESTIONS.map(q => {
+                        const avg = (satisfactionSums[q.id] / totalEntries) || 0;
+                        return (
+                            <div key={q.id}>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-700 dark:text-gray-300">{q.label}</span>
+                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{avg.toFixed(2)}/5</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                                    <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: `${(avg/5)*100}%` }}></div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+             </div>
+
+             <div className="bg-white dark:bg-gray-700 p-6 rounded-xl shadow-md">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                    <ChartBarIcon className="w-6 h-6 text-green-500" />
+                    ผลลัพธ์ทางสุขภาพ (Health Outcome Impact)
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">สัดส่วนผู้ใช้งานที่รายงานว่า "สุขภาพดีขึ้น" หลังจากใช้งานแอปพลิเคชัน</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {OUTCOME_QUESTIONS.map(q => {
+                        const stats = outcomeCounts[q.id];
+                        const percent = stats.total > 0 ? (stats.improved / stats.total) * 100 : 0;
+                        return (
+                             <div key={q.id} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border-l-4 border-green-500">
+                                 <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">{q.label}</h4>
+                                 <div className="flex items-end gap-2">
+                                     <span className="text-3xl font-bold text-green-600 dark:text-green-400">{percent.toFixed(0)}%</span>
+                                     <span className="text-sm text-gray-500 mb-1">ดีขึ้น</span>
+                                 </div>
+                             </div>
+                        );
+                    })}
+                </div>
+             </div>
+        </div>
+    );
+};
+
 const AdminDashboard: React.FC = () => {
     const { scriptUrl } = useContext(AppContext);
     const [allData, setAllData] = useState<AllAdminData | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'allUsers' | 'profiles' | 'bmi' | 'tdee' | 'food' | 'planner' | 'loginLogs'>('allUsers');
+    const [activeTab, setActiveTab] = useState<'allUsers' | 'profiles' | 'bmi' | 'tdee' | 'food' | 'planner' | 'loginLogs' | 'evaluation'>('evaluation');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -136,6 +228,7 @@ const AdminDashboard: React.FC = () => {
     }, [allData]);
 
     const tabs = [
+        { id: 'evaluation', label: 'ผลการประเมิน (KPIs)', data: allData?.evaluationHistory },
         { id: 'allUsers', label: 'ผู้ใช้งานทั้งหมด', data: allUsersSummary },
         { id: 'profiles', label: 'Profiles', data: userSummary },
         { id: 'bmi', label: 'BMI History', data: allData?.bmiHistory },
@@ -150,6 +243,10 @@ const AdminDashboard: React.FC = () => {
         if (error) return <p className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 dark:text-red-400 p-4 rounded-lg">{error}</p>;
         if (!allData) return <p className="text-center text-gray-500">ไม่มีข้อมูล</p>;
 
+        if (activeTab === 'evaluation') {
+            return <EvaluationStats data={allData.evaluationHistory || []} />;
+        }
+
         const activeTabData = tabs.find(t => t.id === activeTab);
 
         return <DataTable data={activeTabData?.data || []} title={activeTabData?.label || ''} />;
@@ -157,10 +254,10 @@ const AdminDashboard: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full transform transition-all duration-300">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">Admin Dashboard - จัดการผู้ใช้</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">Admin Dashboard - จัดการผู้ใช้ & ประเมินผล</h2>
             
             <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
-                <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
+                <nav className="-mb-px flex space-x-6 overflow-x-auto pb-2" aria-label="Tabs">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
@@ -171,7 +268,7 @@ const AdminDashboard: React.FC = () => {
                                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
                             } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}
                         >
-                            {tab.label} ({tab.data?.length || 0})
+                            {tab.label} {tab.id !== 'evaluation' && `(${tab.data?.length || 0})`}
                         </button>
                     ))}
                 </nav>

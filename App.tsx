@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import BMICalculator from './components/BMICalculator';
 import TDEECalculator from './components/TDEECalculator';
@@ -15,13 +16,17 @@ import WaterTracker from './components/WaterTracker';
 import LifestyleAssessment from './components/LifestyleAssessment';
 import CalorieTracker from './components/CalorieTracker';
 import ActivityTracker from './components/ActivityTracker';
+import WellnessCheckin from './components/WellnessCheckin';
+import GamificationRules from './components/GamificationRules';
+import AboutApp from './components/AboutApp';
+import EvaluationForm from './components/EvaluationForm';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User } from './types';
-import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon } from './components/icons';
+import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon } from './components/icons';
 import { saveDataToSheet } from './services/googleSheetService';
 
 const AppContent: React.FC = () => {
-  const { activeView, setActiveView, theme, setTheme, currentUser, logout } = useContext(AppContext);
+  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -73,6 +78,14 @@ const AppContent: React.FC = () => {
         return <CalorieTracker />;
       case 'activityTracker':
         return <ActivityTracker />;
+      case 'wellness':
+        return <WellnessCheckin />;
+      case 'gamificationRules':
+        return <GamificationRules />;
+      case 'about':
+        return <AboutApp />;
+      case 'evaluation':
+        return <EvaluationForm />;
       case 'settings':
         return currentUser?.role === 'admin' ? <Settings /> : <HomeMenu />;
       case 'adminDashboard':
@@ -96,6 +109,10 @@ const AppContent: React.FC = () => {
     water: 'บันทึกการดื่มน้ำ',
     calorieTracker: 'บันทึกแคลอรี่',
     activityTracker: 'บันทึกกิจกรรม',
+    wellness: 'เช็คอินสุขภาพประจำวัน',
+    gamificationRules: 'กติกาการสะสมแต้ม',
+    about: 'เกี่ยวกับนวัตกรรม',
+    evaluation: 'ประเมินผลการใช้งาน',
     settings: 'ตั้งค่า',
     adminDashboard: 'จัดการผู้ใช้',
   };
@@ -141,6 +158,7 @@ const AppContent: React.FC = () => {
               <NavLink view="profile" label="ข้อมูลส่วนตัว" icon={<UserCircleIcon className="w-6 h-6" />} />
               <NavLink view="dashboard" label="แดชบอร์ดสุขภาพ" icon={<SquaresIcon className="w-6 h-6" />} />
               <NavLink view="assessment" label="ประเมิน 6 เสาหลัก" icon={<ClipboardDocumentCheckIcon className="w-6 h-6" />} />
+              <NavLink view="wellness" label="เช็คอินสุขภาพประจำวัน" icon={<HeartIcon className="w-6 h-6" />} />
             </>
           )}
            <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
@@ -155,6 +173,10 @@ const AppContent: React.FC = () => {
           <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
           <NavLink view="bmi" label="เครื่องมือ BMI" icon={<ScaleIcon className="w-6 h-6" />} />
           <NavLink view="tdee" label="เครื่องมือ TDEE" icon={<FireIcon className="w-6 h-6" />} />
+          <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
+          <NavLink view="gamificationRules" label="กติกาการสะสมแต้ม" icon={<QuestionMarkCircleIcon className="w-6 h-6" />} />
+          <NavLink view="about" label="เกี่ยวกับนวัตกรรม" icon={<InformationCircleIcon className="w-6 h-6" />} />
+          <NavLink view="evaluation" label="ประเมินผลการใช้งาน" icon={<ClipboardCheckIcon className="w-6 h-6" />} />
           
           {currentUser?.role === 'admin' && (
               <>
@@ -178,10 +200,12 @@ const AppContent: React.FC = () => {
     if (!currentUser) return null;
     
     const isBase64Image = currentUser.profilePicture.startsWith('data:image/');
+    const currentLevel = userProfile?.level || 1;
+    const currentXP = userProfile?.xp || 0;
 
     return (
         <div className="relative" ref={profileMenuRef}>
-            <button onClick={() => setIsProfileMenuOpen(prev => !prev)} className="flex items-center gap-2 p-1 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-gray-700">
+            <button onClick={() => setIsProfileMenuOpen(prev => !prev)} className="flex items-center gap-2 p-1 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-gray-700 relative">
                 <div className={`w-9 h-9 rounded-full border-2 ${currentUser.role === 'admin' ? 'border-red-500' : 'border-teal-500'} flex items-center justify-center bg-gray-200 dark:bg-gray-700 overflow-hidden`}>
                     {isBase64Image ? (
                         <img src={currentUser.profilePicture} alt="Profile" className="w-full h-full object-cover"/>
@@ -189,13 +213,32 @@ const AppContent: React.FC = () => {
                         <span className="text-xl">{currentUser.profilePicture}</span>
                     )}
                 </div>
+                {currentUser.role === 'user' && (
+                     <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-white text-[10px] font-bold px-1.5 rounded-full border border-white dark:border-gray-800">
+                         {currentLevel}
+                     </div>
+                )}
             </button>
             {isProfileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700 origin-top-right animate-fade-in-down z-50">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700 origin-top-right animate-fade-in-down z-50">
                     <div className="p-4 border-b dark:border-gray-700">
                         <p className="font-bold text-gray-800 dark:text-white truncate">{currentUser.displayName}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">@{currentUser.username.slice(0, 8)}</p>
                     </div>
+                    {currentUser.role === 'user' && (
+                        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="bg-yellow-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                                    {currentLevel}
+                                </div>
+                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Level {currentLevel}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                <StarIcon className="w-3 h-3 text-yellow-500" />
+                                {currentXP.toLocaleString()} XP
+                            </div>
+                        </div>
+                    )}
                     <div className="p-2">
                         <button onClick={logout} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-md transition-colors">
                             <LogoutIcon className="w-5 h-5" />

@@ -2,12 +2,12 @@ import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { CalorieHistoryEntry } from '../types';
 import { TrashIcon, BeakerIcon } from './icons';
-import { COMMON_MEALS } from '../constants';
+import { COMMON_MEALS, XP_VALUES } from '../constants';
 
 const MAX_HISTORY_ITEMS = 100;
 
 const CalorieTracker: React.FC = () => {
-    const { calorieHistory, setCalorieHistory, clearCalorieHistory, tdeeHistory } = useContext(AppContext);
+    const { calorieHistory, setCalorieHistory, clearCalorieHistory, tdeeHistory, gainXP } = useContext(AppContext);
     
     const [customName, setCustomName] = useState('');
     const [customCalories, setCustomCalories] = useState('');
@@ -45,6 +45,7 @@ const CalorieTracker: React.FC = () => {
             calories
         };
         setCalorieHistory(prev => [newEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
+        gainXP(XP_VALUES.CALORIE);
     };
 
     const handleCustomAdd = (e: React.FormEvent) => {

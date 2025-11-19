@@ -29,7 +29,7 @@ export interface NutrientInfo {
   items: FoodItem[];
 }
 
-export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment' | 'calorieTracker' | 'activityTracker';
+export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment' | 'calorieTracker' | 'activityTracker' | 'wellness' | 'gamificationRules' | 'about' | 'evaluation';
 export type Theme = 'light' | 'dark';
 
 export interface User {
@@ -48,6 +48,13 @@ export interface PillarScore {
   social: number;
 }
 
+export interface Achievement {
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+}
+
 export interface UserProfile {
   gender: 'male' | 'female';
   age: string;
@@ -57,7 +64,17 @@ export interface UserProfile {
   hip: string;
   activityLevel: number;
   healthCondition: string;
-  pillarScores?: PillarScore; // Added for Lifestyle Balance Graph
+  pillarScores?: PillarScore;
+  xp?: number; // Gamification XP
+  level?: number; // Gamification Level
+  badges?: string[]; // List of unlocked achievement IDs
+}
+
+export interface UserGamification {
+    level: number;
+    currentXP: number;
+    nextLevelXP: number;
+    progress: number;
 }
 
 export interface BMIHistoryEntry {
@@ -156,7 +173,67 @@ export interface ActivityHistoryEntry {
     caloriesBurned: number;
 }
 
+// --- New Types for Wellness Features ---
+export interface SleepEntry {
+    id: string;
+    date: string;
+    bedTime: string;
+    wakeTime: string;
+    duration: number; // hours
+    quality: number; // 1-5
+    hygieneChecklist: string[]; // items checked
+}
+
+export interface MoodEntry {
+    id: string;
+    date: string;
+    moodEmoji: string;
+    stressLevel: number; // 1-10
+    gratitude: string;
+}
+
+export interface HabitEntry {
+    id: string;
+    date: string;
+    type: 'alcohol' | 'smoking';
+    amount: number; // 0 means abstained
+    isClean: boolean;
+}
+
+export interface SocialEntry {
+    id: string;
+    date: string;
+    interaction: string;
+    feeling: 'energized' | 'neutral' | 'drained';
+}
+
 export type SpecialistId = 'general' | 'nutritionist' | 'trainer' | 'psychologist' | 'sleep_expert' | 'ncd_doctor';
+
+// --- Evaluation Types ---
+export interface SatisfactionData {
+    usability: number;
+    features: number;
+    benefit: number;
+    overall: number;
+    recommend: number;
+}
+
+export interface OutcomeData {
+    nutrition: string;
+    activity: string;
+    sleep: string;
+    stress: string;
+    risk: string;
+    overall: string;
+}
+
+export interface EvaluationEntry {
+    id: string;
+    date: string;
+    satisfaction: SatisfactionData;
+    outcomes: OutcomeData;
+}
+
 
 export interface AppContextType {
   activeView: AppView;
@@ -180,6 +257,21 @@ export interface AppContextType {
   setCalorieHistory: React.Dispatch<React.SetStateAction<CalorieHistoryEntry[]>>;
   activityHistory: ActivityHistoryEntry[];
   setActivityHistory: React.Dispatch<React.SetStateAction<ActivityHistoryEntry[]>>;
+  
+  // New Histories
+  sleepHistory: SleepEntry[];
+  setSleepHistory: React.Dispatch<React.SetStateAction<SleepEntry[]>>;
+  moodHistory: MoodEntry[];
+  setMoodHistory: React.Dispatch<React.SetStateAction<MoodEntry[]>>;
+  habitHistory: HabitEntry[];
+  setHabitHistory: React.Dispatch<React.SetStateAction<HabitEntry[]>>;
+  socialHistory: SocialEntry[];
+  setSocialHistory: React.Dispatch<React.SetStateAction<SocialEntry[]>>;
+
+  // Evaluation
+  evaluationHistory: EvaluationEntry[];
+  saveEvaluation: (satisfaction: SatisfactionData, outcomes: OutcomeData) => void;
+
   waterGoal: number;
   setWaterGoal: React.Dispatch<React.SetStateAction<number>>;
   latestFoodAnalysis: NutrientInfo | null;
@@ -191,10 +283,17 @@ export interface AppContextType {
   apiKey: string;
   setApiKey: React.Dispatch<React.SetStateAction<string>>;
   isDataSynced: boolean;
+  
   clearBmiHistory: () => void;
   clearTdeeHistory: () => void;
   clearFoodHistory: () => void;
   clearWaterHistory: () => void;
   clearCalorieHistory: () => void;
   clearActivityHistory: () => void;
+  clearWellnessHistory: () => void;
+
+  // Gamification
+  gainXP: (amount: number) => void;
+  showLevelUp: { type: 'level' | 'badge', data: any } | null;
+  closeLevelUpModal: () => void;
 }

@@ -3,6 +3,7 @@ import { analyzeFoodFromImage, analyzeFoodFromText, getLocalFoodSuggestions } fr
 import { NutrientInfo, FoodHistoryEntry, LocalFoodSuggestion } from '../types';
 import { ShareIcon, CameraIcon, XCircleIcon, TrashIcon, EyeIcon, ChatBubbleLeftEllipsisIcon, MapPinIcon } from './icons';
 import { AppContext } from '../context/AppContext';
+import { XP_VALUES } from '../constants';
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -25,15 +26,6 @@ const Spinner: React.FC<{ text?: string }> = ({ text = "กำลังวิเ
     <div className="w-12 h-12 border-4 border-t-purple-500 border-gray-200 dark:border-gray-600 rounded-full animate-spin"></div>
     <p className="text-purple-600 dark:text-purple-400 font-medium">{text}</p>
   </div>
-);
-
-const NutrientDisplay: React.FC<{ label: string; value: number; unit: string; color: string; subLabel?: string }> = ({ label, value, unit, color, subLabel }) => (
-    <div className="flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-center min-h-[100px]">
-        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">{label}</p>
-        <p className={`text-xl font-bold ${color}`}>{value?.toFixed(0) || 0}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{unit}</p>
-        {subLabel && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{subLabel}</p>}
-    </div>
 );
 
 const ImpactCard: React.FC<{ title: string; description: string; icon: string; risk?: string }> = ({ title, description, icon, risk }) => (
@@ -148,7 +140,8 @@ const FoodAnalyzer: React.FC = () => {
       setFoodHistory,
       clearFoodHistory,
       apiKey,
-      currentUser
+      currentUser,
+      gainXP
   } = useContext(AppContext);
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -265,6 +258,7 @@ const FoodAnalyzer: React.FC = () => {
         analysis: analysisResult
     };
     setFoodHistory(prev => [newEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
+    gainXP(XP_VALUES.FOOD);
   };
   
   const handleShare = async () => {
