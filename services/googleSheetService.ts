@@ -221,3 +221,27 @@ export const verifyUser = async (scriptUrl: string, email: string, password?: st
         return { success: false, message: error.message || 'Connection error' };
     }
 };
+
+// Social Auth (Google Login Backend Handling)
+export const socialAuth = async (scriptUrl: string, userInfo: { email: string, name: string, picture: string }): Promise<{success: boolean, user?: User, message?: string}> => {
+    if (!scriptUrl) return { success: false, message: 'Script URL missing' };
+    try {
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify({ 
+                action: 'socialAuth', 
+                payload: userInfo
+            }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            mode: 'cors',
+        });
+        const result = await response.json();
+        if (result.status === 'success' && result.data) {
+            return { success: true, user: result.data };
+        } else {
+            return { success: false, message: result.message || 'Authentication failed' };
+        }
+    } catch (error: any) {
+        return { success: false, message: error.message || 'Connection error' };
+    }
+}

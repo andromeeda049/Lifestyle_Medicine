@@ -24,6 +24,11 @@ import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User } from './types';
 import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon } from './components/icons';
 import { saveDataToSheet } from './services/googleSheetService';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+// !!! สำคัญ !!! แทนที่ด้วย Google Client ID ของคุณที่นี่
+// ไปที่ console.cloud.google.com -> APIs & Services -> Credentials -> Create OAuth Client ID
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"; 
 
 const AppContent: React.FC = () => {
   const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory } = useContext(AppContext);
@@ -398,7 +403,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AppProvider>
-      <Main />
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <Main />
+      </GoogleOAuthProvider>
     </AppProvider>
   )
 }

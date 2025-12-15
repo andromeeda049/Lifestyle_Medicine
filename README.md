@@ -119,6 +119,10 @@ function doPost(e) {
     if (action === 'register') {
         return handleRegisterUser(user, request.password);
     }
+
+    if (action === 'socialAuth') {
+        return handleSocialAuth(payload);
+    }
     
     if (!user || !user.username) throw new Error("User information is missing.");
     
@@ -130,6 +134,50 @@ function doPost(e) {
   } catch (error) {
     return createErrorResponse(error);
   }
+}
+
+function handleSocialAuth(userInfo) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
+    const data = sheet.getDataRange().getValues();
+    const emailIndex = 15; // Column P
+    
+    // 1. Check if email exists
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][emailIndex] === userInfo.email) {
+             // Found existing user, return their profile data
+             const user = {
+                 username: data[i][1],
+                 displayName: data[i][2], // Keep existing display name
+                 profilePicture: data[i][3] || userInfo.picture,
+                 role: data[i][11] || 'user',
+                 email: data[i][15],
+                 authProvider: 'google'
+             };
+             return createSuccessResponse(user);
+        }
+    }
+
+    // 2. Not found, create new user
+    const username = 'google_' + new Date().getTime();
+    const newRow = [
+        new Date(), username, userInfo.name, userInfo.picture,
+        '', '', '', '', '', '', '', // Gender...
+        'user', // Role
+        0, 1, '["novice"]', // XP
+        userInfo.email,
+        'social_login', // Dummy password
+        '' // healthCondition
+    ];
+    sheet.appendRow(newRow);
+
+    return createSuccessResponse({
+        username: username,
+        displayName: userInfo.name,
+        profilePicture: userInfo.picture,
+        role: 'user',
+        email: userInfo.email,
+        authProvider: 'google'
+    });
 }
 
 function handleRegisterUser(user, password) {
@@ -178,7 +226,8 @@ function handleVerifyUser(email, password) {
                      displayName: data[i][2],
                      profilePicture: data[i][3],
                      role: data[i][11] || 'user',
-                     email: data[i][15]
+                     email: data[i][15],
+                     authProvider: 'email'
                  };
                  return createSuccessResponse(user);
             } else {
@@ -335,6 +384,87 @@ function createErrorResponse(error) {
   Logger.log(error);
   return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message || error }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// --- ฟังก์ชันสำหรับสร้างชีตและคอลัมน์อัตโนมัติ (Helper Utility) ---
+// วิธีใช้: เลือกฟังก์ชันนี้แล้วกด Run เพื่อสร้าง/รีเซ็ตหัวตารางทั้งหมด
+
+function setupSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // รายชื่อชีตและคอลัมน์ทั้งหมดตามสเปค
+  const schema = {
+    "Profile": [
+      "timestamp", "username", "displayName", "profilePicture", 
+      "gender", "age", "weight", "height", "waist", "hip", "activityLevel", 
+      "role", "xp", "level", "badges", "email", "password", "healthCondition"
+    ],
+    "BMIHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "bmi", "category"
+    ],
+    "TDEEHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "tdee", "bmr"
+    ],
+    "FoodHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "description", "calories", "analysis_json"
+    ],
+    "PlannerHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "cuisine", "diet", "tdee_goal", "plan_json"
+    ],
+    "LoginLogs": [
+      "timestamp", "username", "displayName", "role"
+    ],
+    "WaterHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "amount"
+    ],
+    "CalorieHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "name", "calories"
+    ],
+    "ActivityHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "name", "caloriesBurned"
+    ],
+    "SleepHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "bedTime", "wakeTime", "duration", "quality", "hygieneChecklist"
+    ],
+    "MoodHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "emoji", "stressLevel", "gratitude"
+    ],
+    "HabitHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "type", "amount", "isClean"
+    ],
+    "SocialHistory": [
+      "timestamp", "username", "displayName", "profilePicture", "interaction", "feeling"
+    ],
+    "EvaluationHistory": [
+      "timestamp", "username", "displayName", "role", "satisfaction_json", "outcome_json"
+    ]
+  };
+
+  // วนลูปสร้าง/อัปเดตทีละชีต
+  for (const [sheetName, columns] of Object.entries(schema)) {
+    let sheet = ss.getSheetByName(sheetName);
+    
+    // 1. ถ้าไม่มีชีต ให้สร้างใหม่
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      Logger.log(`Created new sheet: ${sheetName}`);
+    } else {
+      Logger.log(`Found existing sheet: ${sheetName}`);
+    }
+
+    // 2. เขียนหัวคอลัมน์ทับแถวที่ 1 เสมอ
+    const headerRange = sheet.getRange(1, 1, 1, columns.length);
+    headerRange.setValues([columns]);
+    
+    // จัดรูปแบบหัวตาราง (ตัวหนา, จัดกึ่งกลาง, แช่แข็งแถวที่ 1)
+    headerRange.setFontWeight("bold");
+    headerRange.setHorizontalAlignment("center");
+    sheet.setFrozenRows(1);
+    
+    Logger.log(`Updated headers for: ${sheetName}`);
+  }
+
+  Logger.log("--- Setup Complete! All sheets are ready. ---");
 }
 
 // --- END OF Code.gs ---

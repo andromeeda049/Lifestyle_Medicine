@@ -3,7 +3,9 @@ import React, { useState, useContext, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
 import { GoogleIcon, LineIcon } from './icons';
-import { registerUser, verifyUser } from '../services/googleSheetService';
+import { registerUser, verifyUser, socialAuth } from '../services/googleSheetService';
+import { useGoogleLogin } from '@react-oauth/google';
+import axios from 'axios';
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
@@ -69,22 +71,51 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleSocialLogin = (provider: 'google' | 'line') => {
-        // In a real implementation, this would redirect to OAuth provider.
-        // For this demo/architecture, we simulate success but warn about API keys.
-        const providerName = provider === 'google' ? 'Google' : 'LINE';
-        const mockUser: User = {
-            username: `${provider}_user_${Date.now()}`,
-            displayName: `${providerName} User`,
-            profilePicture: provider === 'google' ? 'https://lh3.googleusercontent.com/a/default-user=s96-c' : 'https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg',
-            role: 'user',
-            authProvider: provider
-        };
-        
-        // In a real app, we would verify the token with GAS backend here.
-        // For now, we just alert and log them in (simulating success).
-        alert(`เชื่อมต่อกับ ${providerName} สำเร็จ (Simulation)\n\nหมายเหตุ: ในการใช้งานจริง จำเป็นต้องตั้งค่า Client ID/Channel ID ในโค้ด`);
-        onLogin(mockUser);
+    // Google Login Logic
+    const googleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            if (!scriptUrl) {
+                setError('ไม่พบ URL การเชื่อมต่อ Google Sheets กรุณาตั้งค่าในโหมด Admin ก่อน');
+                return;
+            }
+            setLoading(true);
+            try {
+                // 1. Fetch User Info from Google
+                const userInfoResponse = await axios.get(
+                    'https://www.googleapis.com/oauth2/v3/userinfo',
+                    { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } }
+                );
+                const userInfo = userInfoResponse.data;
+
+                // 2. Send to GAS backend to find/create user
+                const result = await socialAuth(scriptUrl, {
+                    email: userInfo.email,
+                    name: userInfo.name,
+                    picture: userInfo.picture
+                });
+
+                if (result.success && result.user) {
+                    onLogin(result.user);
+                } else {
+                    setError(result.message || 'การเชื่อมต่อ Google ผิดพลาด');
+                }
+            } catch (err) {
+                console.error("Google Login Error:", err);
+                setError('ไม่สามารถดึงข้อมูลจาก Google ได้');
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: errorResponse => {
+            console.error("Google Login Failed:", errorResponse);
+            setError('การเข้าสู่ระบบด้วย Google ล้มเหลว');
+        },
+    });
+
+    const handleLineLogin = () => {
+        // Line Login requires a backend redirect or LIFF SDK. 
+        // For this client-side demo, we keep the simulation/placeholder.
+        alert(`Line Login ต้องใช้ LIFF SDK หรือ Backend Redirect\nยังไม่สามารถใช้งานได้ในเวอร์ชัน Demo นี้`);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -161,7 +192,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             <div className="flex gap-3 justify-center">
                  <button 
                     type="button"
-                    onClick={() => handleSocialLogin('line')}
+                    onClick={handleLineLogin}
                     className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#05b64d] transition-colors gap-2"
                 >
                     <LineIcon className="w-6 h-6 fill-current text-white" />
@@ -169,8 +200,9 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 </button>
                 <button 
                     type="button"
-                    onClick={() => handleSocialLogin('google')}
-                    className="flex items-center justify-center w-full bg-white dark:bg-gray-100 text-gray-700 font-bold py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors gap-2"
+                    onClick={() => googleLogin()}
+                    disabled={loading}
+                    className="flex items-center justify-center w-full bg-white dark:bg-gray-100 text-gray-700 font-bold py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors gap-2 disabled:opacity-70"
                 >
                     <GoogleIcon className="w-5 h-5" />
                     <span className="text-sm">Log in with Google</span>
@@ -250,6 +282,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 const AdminLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [adminKey, setAdminKey] = useState('');
     const [error, setError] = useState('');
+    // NOTE: This should match the key in Code.gs
     const SUPER_ADMIN_KEY = "ADMIN1234!";
 
     const handleSubmit = (e: React.FormEvent) => {
