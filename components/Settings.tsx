@@ -51,6 +51,8 @@ const Settings: React.FC = () => {
         setTimeout(() => setSaved('none'), 2000);
     };
 
+    const isRemindersOn = !!userProfile.receiveDailyReminders;
+
     return (
         <div className="space-y-8 animate-fade-in">
              <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
@@ -81,11 +83,11 @@ const Settings: React.FC = () => {
 
             {/* Notification Settings (For Users Only) */}
             {currentUser?.role !== 'guest' && currentUser?.role !== 'admin' && (
-                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
+                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-teal-500 transition-all hover:shadow-xl">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="bg-teal-100 dark:bg-teal-900/30 p-3 rounded-full">
-                                <BellIcon className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                            <div className={`p-3 rounded-full transition-colors duration-300 ${isRemindersOn ? 'bg-teal-100 dark:bg-teal-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                                <BellIcon className={`w-6 h-6 transition-colors duration-300 ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`} />
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">
@@ -96,16 +98,21 @@ const Settings: React.FC = () => {
                                 </p>
                             </div>
                         </div>
-                        <label htmlFor="toggle-notif" className="relative inline-flex items-center cursor-pointer">
-                            <input 
-                                type="checkbox" 
-                                id="toggle-notif" 
-                                className="sr-only peer" 
-                                checked={!!userProfile.receiveDailyReminders} 
-                                onChange={toggleNotifications} 
-                            />
-                            <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                        </label>
+                        <div className="flex flex-col items-end gap-2">
+                            <label htmlFor="toggle-notif" className="relative inline-flex items-center cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    id="toggle-notif" 
+                                    className="sr-only peer" 
+                                    checked={isRemindersOn} 
+                                    onChange={toggleNotifications} 
+                                />
+                                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+                            </label>
+                            <span className={`text-xs font-semibold transition-colors duration-300 ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`}>
+                                {isRemindersOn ? 'เปิดใช้งานอยู่' : 'ปิดใช้งาน'}
+                            </span>
+                        </div>
                     </div>
                     {saved === 'notifications' && (
                         <p className="text-sm text-green-500 mt-2 text-right font-medium animate-pulse">บันทึกการตั้งค่าแล้ว</p>

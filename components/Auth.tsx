@@ -1,5 +1,5 @@
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
 import { LineIcon } from './icons';
@@ -12,7 +12,6 @@ import liff from '@line/liff';
 const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
 
 // !!! ใส่ URL ของ Logo ที่นี่ !!!
-// คุณสามารถอัปโหลดรูปภาพของคุณไปยังบริการฝากรูป (เช่น imgur, google drive public link) แล้วนำ URL มาใส่ตรงนี้
 const APP_LOGO_URL = "https://img2.pic.in.th/pic/lifestyle-medicine-logo.png"; // Placeholder Icon
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
@@ -79,34 +78,46 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [displayName, setDisplayName] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [lineInitError, setLineInitError] = useState('');
     const [isLiffReady, setIsLiffReady] = useState(false);
+    
+    // Use ref to prevent double initialization in React Strict Mode
+    const liffInitialized = useRef(false);
 
     // Initialize LIFF
     useEffect(() => {
+        if (liffInitialized.current) return;
+        liffInitialized.current = true;
+
         const initLiff = async () => {
             try {
-                await liff.init({ liffId: LINE_LIFF_ID });
+                // await liff.init({ liffId: LINE_LIFF_ID });
+                // Note: Using error callback to catch init errors properly
+                await liff.init({ 
+                    liffId: LINE_LIFF_ID,
+                    withLoginOnExternalBrowser: false // Don't auto login on external browser
+                });
+                
                 setIsLiffReady(true);
                 
+                // If user is already logged in (e.g. inside LINE app or previously logged in)
                 if (liff.isLoggedIn()) {
                     setLoading(true);
                     if (!scriptUrl) {
-                        setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
+                        setError('ไม่พบ URL เชื่อมต่อ Google Sheets (กรุณาแจ้ง Admin)');
                         setLoading(false);
                         return;
                     }
 
                     const profile = await liff.getProfile();
                     const idToken = liff.getDecodedIDToken();
-                    const userEmail = idToken?.email || `${profile.userId}@line.me`; // Fallback email using UserID
+                    const userEmail = idToken?.email || `${profile.userId}@line.me`;
 
                     const result = await socialAuth(scriptUrl, {
                         email: userEmail,
                         name: profile.displayName,
                         picture: profile.pictureUrl || '',
                         provider: 'line',
-                        userId: profile.userId // Pass UserID specifically for saving
+                        userId: profile.userId
                     });
 
                     if (result.success && result.user) {
@@ -118,8 +129,8 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 }
             } catch (err: any) {
                 console.error("LIFF Init Error:", err);
-                setLineInitError(`LINE Init Error: ${err.message}`);
-                setIsLiffReady(false);
+                // Don't block UI, just log error. User can try clicking button again which will trigger error alert.
+                setError(`LINE Login Error: ${err.message || 'Incorrect LIFF ID or Domain'}`);
             }
         };
 
@@ -135,10 +146,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         
         setLoading(true);
         try {
-            // Decode JWT ID Token
             const decoded: any = jwtDecode(credentialResponse.credential);
-            
-            // Send to backend
             const result = await socialAuth(scriptUrl, {
                 email: decoded.email,
                 name: decoded.name,
@@ -160,31 +168,51 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     };
 
     const handleGoogleError = () => {
-        setError('การเข้าสู่ระบบด้วย Google ล้มเหลว (อาจเกิดจาก Domain ไม่ได้รับอนุญาต)');
+        setError('การเข้าสู่ระบบด้วย Google ล้มเหลว');
     };
 
     const handleLineLogin = async () => {
-        if (lineInitError) {
-            setError(lineInitError);
-            return;
-        }
-        if (!isLiffReady) {
-            // Wait or warn user
-            setError("กำลังเชื่อมต่อกับ LINE...");
-            return;
-        }
         if (!scriptUrl) {
             setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
             return;
         }
 
         try {
+            // Check if LIFF is initialized, if not try to init one last time or show error
+            if (!isLiffReady) {
+                 await liff.init({ liffId: LINE_LIFF_ID });
+                 setIsLiffReady(true);
+            }
+
             if (!liff.isLoggedIn()) {
                 liff.login(); // Redirects to LINE
+            } else {
+                // Already logged in but maybe page refresh needed or state lost
+                const profile = await liff.getProfile();
+                // ... same logic as auto-login ...
+                // Ideally this path isn't reached if useEffect works, but as fallback:
+                setLoading(true);
+                const idToken = liff.getDecodedIDToken();
+                const userEmail = idToken?.email || `${profile.userId}@line.me`;
+                
+                const result = await socialAuth(scriptUrl, {
+                    email: userEmail,
+                    name: profile.displayName,
+                    picture: profile.pictureUrl || '',
+                    provider: 'line',
+                    userId: profile.userId
+                });
+                
+                if (result.success && result.user) {
+                    onLogin({ ...result.user, authProvider: 'line' });
+                } else {
+                    handleAuthError(result.message);
+                }
+                setLoading(false);
             }
         } catch (err: any) {
             console.error("LINE Login Error:", err);
-            setError(`ไม่สามารถเริ่มการเข้าสู่ระบบ LINE ได้: ${err.message}`);
+            setError(`Login Failed: ${err.message}. ตรวจสอบ LIFF ID ในโค้ด`);
         }
     };
 
@@ -290,8 +318,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                  <button 
                     type="button"
                     onClick={handleLineLogin}
-                    disabled={!isLiffReady}
-                    className={`flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-colors gap-2 text-sm h-[40px] max-w-[240px] ${!isLiffReady ? 'opacity-70 cursor-not-allowed' : 'hover:bg-[#05b64d]'}`}
+                    className={`flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-colors gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md`}
                 >
                     {isLiffReady ? (
                         <>
@@ -299,7 +326,10 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                             <span>Log in with LINE</span>
                         </>
                     ) : (
-                        <span>กำลังโหลด LINE...</span>
+                        <div className="flex items-center gap-2">
+                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                             <span>กำลังโหลด LINE...</span>
+                        </div>
                     )}
                 </button>
             </div>
