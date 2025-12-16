@@ -389,4 +389,13 @@ const Auth: React.FC = () => {
                             onClick={() => setMode('user')} 
                             className="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
                         >
-                            
+                            ← กลับไปหน้าเข้าสู่ระบบหลัก
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Auth;
