@@ -1,11 +1,15 @@
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
 import { LineIcon } from './icons';
 import { registerUser, verifyUser, socialAuth } from '../services/googleSheetService';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
+import liff from '@line/liff';
+
+// !!! สำคัญ: แทนที่ด้วย LIFF ID ของคุณที่ได้จาก LINE Developers Console !!!
+const LINE_LIFF_ID = "YOUR_LIFF_ID_HERE"; 
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
@@ -63,7 +67,7 @@ const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
 const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const { scriptUrl } = useContext(AppContext);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-    const [showEmailForm, setShowEmailForm] = useState(false); // State to toggle email form
+    const [showEmailForm, setShowEmailForm] = useState(false);
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -71,6 +75,51 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [displayName, setDisplayName] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [lineInitError, setLineInitError] = useState('');
+
+    // Initialize LIFF
+    useEffect(() => {
+        if (LINE_LIFF_ID === "YOUR_LIFF_ID_HERE") {
+            setLineInitError("กรุณาตั้งค่า LIFF ID ในโค้ดก่อนใช้งาน");
+            return;
+        }
+        
+        // Initialize LIFF to check if user is already logged in (redirect back)
+        liff.init({ liffId: LINE_LIFF_ID })
+            .then(async () => {
+                if (liff.isLoggedIn()) {
+                    setLoading(true);
+                    try {
+                        const profile = await liff.getProfile();
+                        const idToken = liff.getDecodedIDToken();
+                        
+                        // Use email from ID Token if available, otherwise fake one using userId
+                        const userEmail = idToken?.email || `${profile.userId}@line.me`;
+                        
+                        const result = await socialAuth(scriptUrl, {
+                            email: userEmail,
+                            name: profile.displayName,
+                            picture: profile.pictureUrl || ''
+                        });
+
+                        if (result.success && result.user) {
+                            onLogin({ ...result.user, authProvider: 'line' });
+                        } else {
+                            handleAuthError(result.message);
+                        }
+                    } catch (err) {
+                        console.error("LINE Profile Error:", err);
+                        setError("ไม่สามารถดึงข้อมูลจาก LINE ได้");
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+            })
+            .catch((err) => {
+                console.error("LIFF Init Error:", err);
+                setLineInitError("การเชื่อมต่อ LINE ผิดพลาด (ตรวจสอบ LIFF ID)");
+            });
+    }, [scriptUrl, onLogin]);
 
     // Google Login Logic (OIDC Flow)
     const handleGoogleSuccess = async (credentialResponse: any) => {
@@ -92,7 +141,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             });
 
             if (result.success && result.user) {
-                onLogin(result.user);
+                onLogin({ ...result.user, authProvider: 'google' });
             } else {
                 handleAuthError(result.message);
             }
@@ -108,8 +157,24 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         setError('การเข้าสู่ระบบด้วย Google ล้มเหลว (อาจเกิดจาก Domain ไม่ได้รับอนุญาต)');
     };
 
-    const handleLineLogin = () => {
-        alert(`Line Login ต้องใช้ LIFF SDK หรือ Backend Redirect\nยังไม่สามารถใช้งานได้ในเวอร์ชัน Demo นี้`);
+    const handleLineLogin = async () => {
+        if (!scriptUrl) {
+            setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
+            return;
+        }
+        if (lineInitError) {
+            setError(lineInitError);
+            return;
+        }
+
+        try {
+            if (!liff.isLoggedIn()) {
+                liff.login(); // This will redirect the page
+            }
+        } catch (err) {
+            console.error("LINE Login Error:", err);
+            setError("ไม่สามารถเริ่มการเข้าสู่ระบบ LINE ได้");
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -284,6 +349,11 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                             {error.includes('Google') && (
                                 <p className="text-xs text-red-400 text-center mt-1">
                                     *หากทดสอบใน AI Studio ให้ใช้ <b>Guest Mode</b> แทน
+                                </p>
+                            )}
+                            {error.includes('LIFF ID') && (
+                                <p className="text-xs text-red-400 text-center mt-1">
+                                    *ดูวิธีตั้งค่า LIFF ID ในคู่มือ (README)
                                 </p>
                             )}
                         </div>

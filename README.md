@@ -482,23 +482,28 @@ function setupSheets() {
 
 ### ขั้นตอนที่ 5: การตั้งค่า Google Login (OAuth 2.0)
 
-เพื่อให้ปุ่ม "ดำเนินการต่อด้วย Google" ใช้งานได้จริง คุณต้องตั้งค่า OAuth Consent Screen ดังนี้:
-
 1.  ไปที่ **[Google Cloud Console](https://console.cloud.google.com/)**
-2.  สร้าง Project ใหม่ หรือเลือก Project ที่มีอยู่
-3.  ไปที่เมนู **APIs & Services** > **OAuth consent screen**
-    *   เลือก **External** และกด Create
-    *   กรอกชื่อแอป (เช่น Smart Lifestyle Wellness) และอีเมลผู้ติดต่อ
-    *   กด Save and Continue จนจบ
-4.  ไปที่เมนู **Credentials**
-    *   กด **+ CREATE CREDENTIALS** > **OAuth client ID**
-    *   Application type: **Web application**
-    *   **Authorized JavaScript origins:** ใส่ URL ของแอปที่คุณรันอยู่
-        *   กรณีพัฒนาบนเครื่อง: `http://localhost:5173` (หรือพอร์ตที่คุณใช้)
-        *   กรณี Deploy แล้ว: ใส่ URL ของเว็บจริง (เช่น Netlify, Vercel)
-    *   กด Create
-5.  คัดลอก **Client ID** ที่ได้ (เช่น `12345...apps.googleusercontent.com`)
-6.  นำไปแทนที่ในไฟล์ `App.tsx` ตรงบรรทัด:
+2.  สร้าง Project หรือเลือก Project
+3.  เมนู **APIs & Services** > **Credentials** > **+ CREATE CREDENTIALS** > **OAuth client ID**
+4.  Application type: **Web application**
+5.  **Authorized JavaScript origins:** ใส่ URL ของแอปที่คุณรันอยู่
+6.  คัดลอก **Client ID** ไปแทนที่ในไฟล์ `App.tsx`
+
+### ขั้นตอนที่ 6: การตั้งค่า LINE Login (LIFF)
+
+เพื่อให้ปุ่ม "Log in with LINE" ใช้งานได้จริง คุณต้องสร้าง LIFF App:
+
+1.  ไปที่ **[LINE Developers Console](https://developers.line.biz/)** และล็อกอิน
+2.  กด **Create a new provider** (ถ้ายังไม่มี)
+3.  กด **Create a new channel** เลือก **LINE Login**
+    *   กรอกข้อมูลให้ครบถ้วน (Channel Name, Description, etc.)
+4.  เมื่อสร้างเสร็จ ไปที่แท็บ **LIFF** แล้วกด **Add**
+    *   **LIFF app name:** ตั้งชื่อแอป
+    *   **Size:** Full, Tall หรือ Compact (แนะนำ Full)
+    *   **Endpoint URL:** ใส่ URL ของแอปที่คุณรันอยู่ (ต้องเป็น HTTPS เท่านั้น หาก Localhost ให้ใช้ ngrok หรือ Cloudflare Tunnel)
+    *   **Scopes:** เลือก `profile` และ `openid` (ถ้าต้องการอีเมลต้องกดขออนุญาตเพิ่มในแท็บ Basic Settings > OpenID Connect)
+5.  กด **Add** แล้วคุณจะได้ **LIFF ID** (รูปแบบ `1234567890-AbCdEfGh`)
+6.  นำ LIFF ID ไปแทนที่ในไฟล์ `components/Auth.tsx` ตรงบรรทัด:
     ```javascript
-    const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID_HERE";
+    const LINE_LIFF_ID = "YOUR_LIFF_ID_HERE"; 
     ```
