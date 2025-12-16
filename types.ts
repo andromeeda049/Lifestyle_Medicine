@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export interface FoodItem {
@@ -71,6 +72,7 @@ export interface UserProfile {
   level?: number; // Gamification Level
   badges?: string[]; // List of unlocked achievement IDs
   email?: string; // Added for sync
+  lineUserId?: string; // Added for LINE Notification
 }
 
 export interface UserGamification {

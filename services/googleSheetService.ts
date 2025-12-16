@@ -62,6 +62,7 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 hip: String(data.profile.hip || ''),
                 activityLevel: Number(data.profile.activityLevel),
                 healthCondition: String(data.profile.healthCondition || 'ไม่มีโรคประจำตัว'), // Fetch health condition
+                lineUserId: String(data.profile.lineUserId || ''), // Fetch LineUserID
                 xp: Number(data.profile.xp || 0),
                 level: Number(data.profile.level || 1),
                 badges: parsedBadges
