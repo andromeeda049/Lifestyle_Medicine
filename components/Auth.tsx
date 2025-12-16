@@ -9,7 +9,7 @@ import { jwtDecode } from "jwt-decode";
 import liff from '@line/liff';
 
 // !!! สำคัญ: แทนที่ด้วย LIFF ID ของคุณที่ได้จาก LINE Developers Console !!!
-const LINE_LIFF_ID = "YOUR_LIFF_ID_HERE"; 
+const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
