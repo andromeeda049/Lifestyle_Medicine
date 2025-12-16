@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { ActivityHistoryEntry } from '../types';
@@ -27,6 +28,31 @@ const ActivityTracker: React.FC = () => {
     const totalCaloriesBurnedToday = useMemo(() => {
         return todaysEntries.reduce((sum, entry) => sum + entry.caloriesBurned, 0);
     }, [todaysEntries]);
+
+    // --- Chart Logic ---
+    const chartData = useMemo(() => {
+        const last7Days = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const displayDate = d.toLocaleDateString('th-TH', { weekday: 'short' });
+            
+            const dailyTotal = activityHistory
+                .filter(entry => {
+                    const entryDate = new Date(entry.date);
+                    return entryDate.getDate() === d.getDate() &&
+                           entryDate.getMonth() === d.getMonth() &&
+                           entryDate.getFullYear() === d.getFullYear();
+                })
+                .reduce((sum, entry) => sum + entry.caloriesBurned, 0);
+            
+            last7Days.push({ date: displayDate, value: dailyTotal });
+        }
+        return last7Days;
+    }, [activityHistory]);
+
+    // Dynamic scale based on activity
+    const maxChartValue = Math.max(300, ...chartData.map(d => d.value)) * 1.1;
 
     const addActivityEntry = (name: string, caloriesBurned: number) => {
         const newEntry: ActivityHistoryEntry = {
@@ -124,6 +150,29 @@ const ActivityTracker: React.FC = () => {
                     </button>
                 </form>
             </div>
+
+            {/* History Chart */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg">
+                 <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">สถิติย้อนหลัง 7 วัน</h3>
+                 <div className="flex items-end justify-between h-40 gap-2">
+                    {chartData.map((data, index) => {
+                        const heightPercent = (data.value / (maxChartValue || 300)) * 100;
+                        return (
+                            <div key={index} className="flex-1 flex flex-col items-center group relative">
+                                <div 
+                                    className="w-full max-w-[30px] rounded-t-md transition-all duration-500 bg-yellow-400 dark:bg-yellow-500"
+                                    style={{ height: `${heightPercent}%` }}
+                                ></div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">{data.date}</span>
+                                {/* Tooltip */}
+                                <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 bg-black text-white text-xs rounded py-1 px-2 transition-opacity whitespace-nowrap z-10">
+                                    {data.value} kcal
+                                </div>
+                            </div>
+                        )
+                    })}
+                 </div>
+             </div>
 
             {/* Logs */}
             {activityHistory.length > 0 && (
