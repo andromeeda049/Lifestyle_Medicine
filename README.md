@@ -13,7 +13,7 @@
 2.  **สร้างชีตย่อย (Tabs)** ทั้งหมด 14 ชีต และตั้งชื่อให้ตรงตามนี้เป๊ะๆ
 3.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ใน **แถวที่ 1 (Row 1)** ดังนี้:
 
-    *   **ชีตที่ 1: `Profile`** (A1-R1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`
+    *   **ชีตที่ 1: `Profile`** (A1-S1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`
     *   **ชีตที่ 2: `BMIHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `bmi`, `category`
     *   **ชีตที่ 3: `TDEEHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `tdee`, `bmr`
     *   **ชีตที่ 4: `FoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `description`, `calories`, `analysis_json`
@@ -140,11 +140,18 @@ function handleSocialAuth(userInfo) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
     const data = sheet.getDataRange().getValues();
     const emailIndex = 15; // Column P
+    const lineUserIdIndex = 18; // Column S
     
     // 1. Check if email exists
     for (let i = 1; i < data.length; i++) {
         if (data[i][emailIndex] === userInfo.email) {
-             // Found existing user, return their profile data
+             // Found existing user
+             
+             // Update lineUserId if present and different (for notification linkage)
+             if (userInfo.userId && data[i][lineUserIdIndex] !== userInfo.userId) {
+                 sheet.getRange(i + 1, lineUserIdIndex + 1).setValue(userInfo.userId);
+             }
+
              const user = {
                  username: data[i][1],
                  displayName: data[i][2], // Keep existing display name
@@ -168,7 +175,8 @@ function handleSocialAuth(userInfo) {
         0, 1, '["novice"]', // XP
         userInfo.email,
         'social_login', // Dummy password
-        '' // healthCondition
+        '', // healthCondition
+        userInfo.userId || '' // lineUserId
     ];
     sheet.appendRow(newRow);
 
@@ -207,7 +215,8 @@ function handleRegisterUser(user, password) {
         0, 1, '["novice"]', // XP, Level, Badges
         user.email || '',
         password || '', // Store password
-        '' // healthCondition (Empty initially)
+        '', // healthCondition (Empty initially)
+        '' // lineUserId
     ];
     
     sheet.appendRow(newRow);
@@ -260,12 +269,30 @@ function handleSave(type, payload, user) {
     case 'profile':
       const badgesJson = JSON.stringify(payload.badges || []);
       // Ensure healthCondition is saved (index 17)
+      // Note: We don't overwrite lineUserId (index 18) here to prevent data loss if not passed
+      
+      // Update logic: Use the known username to find the row and update specific columns is safer,
+      // but appendRow is current architecture for simplicity (except socialAuth which does lookups).
+      // For this simple app, we are appending new snapshots of profile data.
+      
+      // However, ideally 'profile' should update the existing row for that user.
+      // Let's modify handleSave for PROFILE to update instead of append, OR ensure we carry over lineUserId.
+      
+      // For simplicity in this demo structure where we mostly append history, 
+      // but for Profile we should probably find and update or append with all data.
+      // Since `getLatestProfileForUser` fetches the last row, appending works fine as a "version history".
+      
+      // We need to fetch existing lineUserId to preserve it if not in payload
+      const existingProfile = getLatestProfileForUser(user.username);
+      const existingLineId = existingProfile ? existingProfile.lineUserId : '';
+
       newRow = [ 
           ...commonPrefix, 
           payload.gender, payload.age, payload.weight, payload.height, payload.waist, payload.hip, payload.activityLevel, user.role,
           payload.xp || 0, payload.level || 1, badgesJson,
           user.email || '', '', // password empty on update
-          payload.healthCondition || '' 
+          payload.healthCondition || '',
+          existingLineId // Preserve LINE User ID
       ];
       break;
     case 'bmiHistory': newRow = [ ...commonPrefix, item.value, item.category ]; break;
@@ -316,10 +343,10 @@ function getLatestProfileForUser(username) {
   const userData = allData.filter(row => row[1] === username); 
   if (userData.length === 0) return null;
   const lastEntry = userData[userData.length - 1];
-  // Map index 17 to healthCondition
+  
   return { 
       gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7], waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10],
-      xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14], email: lastEntry[15], healthCondition: lastEntry[17]
+      xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14], email: lastEntry[15], healthCondition: lastEntry[17], lineUserId: lastEntry[18]
   };
 }
 
@@ -399,7 +426,7 @@ function setupSheets() {
     "Profile": [
       "timestamp", "username", "displayName", "profilePicture", 
       "gender", "age", "weight", "height", "waist", "hip", "activityLevel", 
-      "role", "xp", "level", "badges", "email", "password", "healthCondition"
+      "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId"
     ],
     "BMIHistory": [
       "timestamp", "username", "displayName", "profilePicture", "bmi", "category"

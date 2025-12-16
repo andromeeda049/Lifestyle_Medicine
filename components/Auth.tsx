@@ -103,7 +103,8 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         email: userEmail,
                         name: profile.displayName,
                         picture: profile.pictureUrl || '',
-                        provider: 'line'
+                        provider: 'line',
+                        userId: profile.userId // Pass UserID specifically for saving
                     });
 
                     if (result.success && result.user) {
