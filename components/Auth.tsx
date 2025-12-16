@@ -76,17 +76,15 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [lineInitError, setLineInitError] = useState('');
+    const [isLiffReady, setIsLiffReady] = useState(false);
 
     // Initialize LIFF
     useEffect(() => {
-        if (LINE_LIFF_ID === "YOUR_LIFF_ID_HERE") {
-            // ไม่แสดง Error ถ้าไม่ได้ตั้งค่า เพื่อไม่ให้รบกวนหน้าจอ แต่จะล็อกอินไม่ได้
-            return;
-        }
-        
         const initLiff = async () => {
             try {
                 await liff.init({ liffId: LINE_LIFF_ID });
+                setIsLiffReady(true);
+                
                 if (liff.isLoggedIn()) {
                     setLoading(true);
                     if (!scriptUrl) {
@@ -117,6 +115,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             } catch (err: any) {
                 console.error("LIFF Init Error:", err);
                 setLineInitError(`LINE Init Error: ${err.message}`);
+                setIsLiffReady(false);
             }
         };
 
@@ -161,12 +160,13 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     };
 
     const handleLineLogin = async () => {
-        if (LINE_LIFF_ID === "YOUR_LIFF_ID_HERE") {
-            setError("กรุณาตั้งค่า LIFF ID ในไฟล์โค้ด (components/Auth.tsx) ก่อน");
-            return;
-        }
         if (lineInitError) {
             setError(lineInitError);
+            return;
+        }
+        if (!isLiffReady) {
+            // Wait or warn user
+            setError("กำลังเชื่อมต่อกับ LINE...");
             return;
         }
         if (!scriptUrl) {
@@ -178,9 +178,9 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             if (!liff.isLoggedIn()) {
                 liff.login(); // Redirects to LINE
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("LINE Login Error:", err);
-            setError("ไม่สามารถเริ่มการเข้าสู่ระบบ LINE ได้");
+            setError(`ไม่สามารถเริ่มการเข้าสู่ระบบ LINE ได้: ${err.message}`);
         }
     };
 
@@ -286,10 +286,17 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                  <button 
                     type="button"
                     onClick={handleLineLogin}
-                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full hover:bg-[#05b64d] transition-colors gap-2 text-sm h-[40px] max-w-[240px]"
+                    disabled={!isLiffReady}
+                    className={`flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-colors gap-2 text-sm h-[40px] max-w-[240px] ${!isLiffReady ? 'opacity-70 cursor-not-allowed' : 'hover:bg-[#05b64d]'}`}
                 >
-                    <LineIcon className="w-5 h-5 fill-current text-white" />
-                    <span>Log in with LINE</span>
+                    {isLiffReady ? (
+                        <>
+                            <LineIcon className="w-5 h-5 fill-current text-white" />
+                            <span>Log in with LINE</span>
+                        </>
+                    ) : (
+                        <span>กำลังโหลด LINE...</span>
+                    )}
                 </button>
             </div>
 
