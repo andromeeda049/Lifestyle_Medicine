@@ -73,6 +73,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
     // Google Login Logic
     const googleLogin = useGoogleLogin({
+        flow: 'implicit',
         onSuccess: async (tokenResponse) => {
             if (!scriptUrl) {
                 setError('ไม่พบ URL การเชื่อมต่อ Google Sheets กรุณาตั้งค่าในโหมด Admin ก่อน');
@@ -110,6 +111,10 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             console.error("Google Login Failed:", errorResponse);
             setError('การเข้าสู่ระบบด้วย Google ล้มเหลว');
         },
+        onNonOAuthError: (nonOAuthError) => {
+             console.error("Google Login Non-OAuth Error:", nonOAuthError);
+             setError('ไม่สามารถเปิดหน้าต่าง Login ได้ (อาจถูกบล็อกโดย Browser)');
+        }
     });
 
     const handleLineLogin = () => {
@@ -384,13 +389,4 @@ const Auth: React.FC = () => {
                             onClick={() => setMode('user')} 
                             className="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
                         >
-                            ← กลับไปหน้าเข้าสู่ระบบหลัก
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default Auth;
+                            

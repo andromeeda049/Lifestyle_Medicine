@@ -30,7 +30,6 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 // ไปที่ console.cloud.google.com -> APIs & Services -> Credentials -> Create OAuth Client ID
 const GOOGLE_CLIENT_ID = "870268659424-7gi7roa07gnhpum8ov1mqr1t5tn93l9e.apps.googleusercontent.com";
 
-
 const AppContent: React.FC = () => {
   const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
