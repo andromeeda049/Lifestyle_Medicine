@@ -63,7 +63,7 @@ const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
 const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const { scriptUrl } = useContext(AppContext);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-    const [showEmailForm, setShowEmailForm] = useState(false);
+    const [showEmailForm, setShowEmailForm] = useState(false); // State to toggle email form
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -94,7 +94,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             if (result.success && result.user) {
                 onLogin(result.user);
             } else {
-                setError(result.message || 'การเชื่อมต่อ Google ผิดพลาด');
+                handleAuthError(result.message);
             }
         } catch (err) {
             console.error("Google Login Process Error:", err);
@@ -178,13 +178,13 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         <div className="space-y-6 animate-fade-in">
              <div className="flex border-b dark:border-gray-700 mb-4">
                 <button 
-                    onClick={() => { setAuthMode('login'); setError(''); }} 
+                    onClick={() => { setAuthMode('login'); setError(''); setShowEmailForm(false); }} 
                     className={`flex-1 pb-2 text-sm font-semibold text-center transition-colors ${authMode === 'login' ? 'border-b-2 border-teal-500 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}
                 >
                     เข้าสู่ระบบ
                 </button>
                 <button 
-                    onClick={() => { setAuthMode('register'); setError(''); }} 
+                    onClick={() => { setAuthMode('register'); setError(''); setShowEmailForm(true); }} 
                     className={`flex-1 pb-2 text-sm font-semibold text-center transition-colors ${authMode === 'register' ? 'border-b-2 border-teal-500 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400'}`}
                 >
                     สมัครสมาชิก
@@ -212,20 +212,23 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 </button>
             </div>
 
+            {/* Divider with Toggle Button */}
             <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
                 <button 
                     type="button"
                     onClick={() => setShowEmailForm(!showEmailForm)}
-                    className="flex-shrink-0 mx-4 text-gray-400 text-xs hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer focus:outline-none flex items-center gap-1"
+                    className="flex-shrink-0 mx-4 text-gray-400 text-xs hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer focus:outline-none flex items-center gap-1 group"
                 >
-                    Or with Email <span className="text-[10px]">{showEmailForm ? '▲' : '▼'}</span>
+                    Or with Email 
+                    <span className={`transform transition-transform duration-200 text-[10px] ${showEmailForm ? 'rotate-180' : ''}`}>▼</span>
                 </button>
                 <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
             </div>
 
+            {/* Collapsible Email Form */}
             {showEmailForm && (
-                <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-down">
+                <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-down origin-top">
                     {authMode === 'register' && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อที่แสดง (Display Name)</label>
@@ -276,7 +279,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                     )}
 
                     {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg animate-fade-in">
                             <p className="text-red-500 text-sm text-center">{error}</p>
                             {error.includes('Google') && (
                                 <p className="text-xs text-red-400 text-center mt-1">

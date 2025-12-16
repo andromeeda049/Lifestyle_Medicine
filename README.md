@@ -479,3 +479,26 @@ function setupSheets() {
     *   **ผู้ที่เข้าถึงได้:** ***ทุกคน (Anyone)***  <-- **ต้องเลือกอันนี้เท่านั้น**
 4.  กด `ทำให้ใช้งานได้ (Deploy)` และ **ให้สิทธิ์การเข้าถึง (Authorize)**
 5.  คัดลอก **URL** ใหม่ที่ได้ ไปอัปเดตในหน้า **ตั้งค่า (Settings)** ของแอปพลิเคชัน
+
+### ขั้นตอนที่ 5: การตั้งค่า Google Login (OAuth 2.0)
+
+เพื่อให้ปุ่ม "ดำเนินการต่อด้วย Google" ใช้งานได้จริง คุณต้องตั้งค่า OAuth Consent Screen ดังนี้:
+
+1.  ไปที่ **[Google Cloud Console](https://console.cloud.google.com/)**
+2.  สร้าง Project ใหม่ หรือเลือก Project ที่มีอยู่
+3.  ไปที่เมนู **APIs & Services** > **OAuth consent screen**
+    *   เลือก **External** และกด Create
+    *   กรอกชื่อแอป (เช่น Smart Lifestyle Wellness) และอีเมลผู้ติดต่อ
+    *   กด Save and Continue จนจบ
+4.  ไปที่เมนู **Credentials**
+    *   กด **+ CREATE CREDENTIALS** > **OAuth client ID**
+    *   Application type: **Web application**
+    *   **Authorized JavaScript origins:** ใส่ URL ของแอปที่คุณรันอยู่
+        *   กรณีพัฒนาบนเครื่อง: `http://localhost:5173` (หรือพอร์ตที่คุณใช้)
+        *   กรณี Deploy แล้ว: ใส่ URL ของเว็บจริง (เช่น Netlify, Vercel)
+    *   กด Create
+5.  คัดลอก **Client ID** ที่ได้ (เช่น `12345...apps.googleusercontent.com`)
+6.  นำไปแทนที่ในไฟล์ `App.tsx` ตรงบรรทัด:
+    ```javascript
+    const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID_HERE";
+    ```
