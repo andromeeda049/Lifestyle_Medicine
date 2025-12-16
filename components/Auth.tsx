@@ -1,11 +1,11 @@
 
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
-import { GoogleIcon, LineIcon } from './icons';
+import { LineIcon } from './icons';
 import { registerUser, verifyUser, socialAuth } from '../services/googleSheetService';
-import { useGoogleLogin } from '@react-oauth/google';
-import axios from 'axios';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from "jwt-decode";
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
@@ -71,55 +71,43 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Google Login Logic
-    const googleLogin = useGoogleLogin({
-        flow: 'implicit',
-        onSuccess: async (tokenResponse) => {
-            if (!scriptUrl) {
-                setError('ไม่พบ URL การเชื่อมต่อ Google Sheets กรุณาตั้งค่าในโหมด Admin ก่อน');
-                return;
-            }
-            setLoading(true);
-            try {
-                // 1. Fetch User Info from Google
-                const userInfoResponse = await axios.get(
-                    'https://www.googleapis.com/oauth2/v3/userinfo',
-                    { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } }
-                );
-                const userInfo = userInfoResponse.data;
-
-                // 2. Send to GAS backend to find/create user
-                const result = await socialAuth(scriptUrl, {
-                    email: userInfo.email,
-                    name: userInfo.name,
-                    picture: userInfo.picture
-                });
-
-                if (result.success && result.user) {
-                    onLogin(result.user);
-                } else {
-                    setError(result.message || 'การเชื่อมต่อ Google ผิดพลาด');
-                }
-            } catch (err) {
-                console.error("Google Login Error:", err);
-                setError('ไม่สามารถดึงข้อมูลจาก Google ได้');
-            } finally {
-                setLoading(false);
-            }
-        },
-        onError: errorResponse => {
-            console.error("Google Login Failed:", errorResponse);
-            setError('การเข้าสู่ระบบด้วย Google ล้มเหลว');
-        },
-        onNonOAuthError: (nonOAuthError) => {
-             console.error("Google Login Non-OAuth Error:", nonOAuthError);
-             setError('ไม่สามารถเปิดหน้าต่าง Login ได้ (อาจถูกบล็อกโดย Browser)');
+    // Google Login Logic (OIDC Flow)
+    const handleGoogleSuccess = async (credentialResponse: any) => {
+        if (!scriptUrl) {
+            setError('ไม่พบ URL การเชื่อมต่อ Google Sheets กรุณาตั้งค่าในโหมด Admin ก่อน');
+            return;
         }
-    });
+        
+        setLoading(true);
+        try {
+            // Decode JWT ID Token
+            const decoded: any = jwtDecode(credentialResponse.credential);
+            
+            // Send to backend
+            const result = await socialAuth(scriptUrl, {
+                email: decoded.email,
+                name: decoded.name,
+                picture: decoded.picture
+            });
+
+            if (result.success && result.user) {
+                onLogin(result.user);
+            } else {
+                setError(result.message || 'การเชื่อมต่อ Google ผิดพลาด');
+            }
+        } catch (err) {
+            console.error("Google Login Process Error:", err);
+            setError('ไม่สามารถประมวลผลข้อมูลการล็อกอินได้');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleError = () => {
+        setError('การเข้าสู่ระบบด้วย Google ล้มเหลว (อาจเกิดจาก Domain ไม่ได้รับอนุญาต)');
+    };
 
     const handleLineLogin = () => {
-        // Line Login requires a backend redirect or LIFF SDK. 
-        // For this client-side demo, we keep the simulation/placeholder.
         alert(`Line Login ต้องใช้ LIFF SDK หรือ Backend Redirect\nยังไม่สามารถใช้งานได้ในเวอร์ชัน Demo นี้`);
     };
 
@@ -194,23 +182,24 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 </button>
             </div>
 
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-col gap-3 justify-center items-center">
+                 <div className="w-full flex justify-center">
+                    <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={handleGoogleError}
+                        theme="filled_blue"
+                        shape="pill"
+                        text="continue_with"
+                        locale="th"
+                    />
+                 </div>
                  <button 
                     type="button"
                     onClick={handleLineLogin}
-                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#05b64d] transition-colors gap-2"
+                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full hover:bg-[#05b64d] transition-colors gap-2 text-sm h-[40px] max-w-[240px]"
                 >
-                    <LineIcon className="w-6 h-6 fill-current text-white" />
-                    <span className="text-sm">Log in with LINE</span>
-                </button>
-                <button 
-                    type="button"
-                    onClick={() => googleLogin()}
-                    disabled={loading}
-                    className="flex items-center justify-center w-full bg-white dark:bg-gray-100 text-gray-700 font-bold py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors gap-2 disabled:opacity-70"
-                >
-                    <GoogleIcon className="w-5 h-5" />
-                    <span className="text-sm">Log in with Google</span>
+                    <LineIcon className="w-5 h-5 fill-current text-white" />
+                    <span>Log in with LINE</span>
                 </button>
             </div>
 
@@ -270,7 +259,16 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                     </div>
                 )}
 
-                {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-500 text-sm text-center">{error}</p>
+                        {error.includes('Google') && (
+                            <p className="text-xs text-red-400 text-center mt-1">
+                                *หากทดสอบใน AI Studio ให้ใช้ <b>Guest Mode</b> แทน
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 <button
                     type="submit"
