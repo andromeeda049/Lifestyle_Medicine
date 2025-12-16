@@ -63,6 +63,7 @@ const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
 const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const { scriptUrl } = useContext(AppContext);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+    const [showEmailForm, setShowEmailForm] = useState(false);
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -149,7 +150,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             if (result.success) {
                 onLogin(newUser);
             } else {
-                setError(result.message || 'ลงทะเบียนไม่สำเร็จ');
+                handleAuthError(result.message);
             }
 
         } else {
@@ -159,10 +160,18 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             if (result.success && result.user) {
                 onLogin(result.user);
             } else {
-                setError(result.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+                handleAuthError(result.message);
             }
         }
         setLoading(false);
+    };
+
+    const handleAuthError = (msg?: string) => {
+        if (msg && msg.includes("Invalid action")) {
+            setError("Google Apps Script ของคุณเป็นเวอร์ชันเก่า ไม่รองรับการเข้าสู่ระบบ กรุณาอัปเดต Code.gs ใน Apps Script Editor และ Deploy ใหม่");
+        } else {
+            setError(msg || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        }
     };
 
     return (
@@ -205,79 +214,87 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
             <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">Or with Email</span>
+                <button 
+                    type="button"
+                    onClick={() => setShowEmailForm(!showEmailForm)}
+                    className="flex-shrink-0 mx-4 text-gray-400 text-xs hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer focus:outline-none flex items-center gap-1"
+                >
+                    Or with Email <span className="text-[10px]">{showEmailForm ? '▲' : '▼'}</span>
+                </button>
                 <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                {authMode === 'register' && (
-                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อที่แสดง (Display Name)</label>
+            {showEmailForm && (
+                <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-down">
+                    {authMode === 'register' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ชื่อที่แสดง (Display Name)</label>
+                            <input
+                                type="text"
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
+                                placeholder="ชื่อของคุณ"
+                                required={authMode === 'register'}
+                            />
+                        </div>
+                    )}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อีเมล</label>
                         <input
-                            type="text"
-                            value={displayName}
-                            onChange={(e) => setDisplayName(e.target.value)}
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
-                            placeholder="ชื่อของคุณ"
-                            required={authMode === 'register'}
+                            placeholder="name@example.com"
+                            required
                         />
                     </div>
-                )}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">อีเมล</label>
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
-                        placeholder="name@example.com"
-                        required
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">รหัสผ่าน</label>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
-                        placeholder="********"
-                        required
-                    />
-                </div>
-                {authMode === 'register' && (
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ยืนยันรหัสผ่าน</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">รหัสผ่าน</label>
                         <input
                             type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
                             placeholder="********"
-                            required={authMode === 'register'}
+                            required
                         />
                     </div>
-                )}
+                    {authMode === 'register' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ยืนยันรหัสผ่าน</label>
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
+                                placeholder="********"
+                                required={authMode === 'register'}
+                            />
+                        </div>
+                    )}
 
-                {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-500 text-sm text-center">{error}</p>
-                        {error.includes('Google') && (
-                            <p className="text-xs text-red-400 text-center mt-1">
-                                *หากทดสอบใน AI Studio ให้ใช้ <b>Guest Mode</b> แทน
-                            </p>
-                        )}
-                    </div>
-                )}
+                    {error && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-red-500 text-sm text-center">{error}</p>
+                            {error.includes('Google') && (
+                                <p className="text-xs text-red-400 text-center mt-1">
+                                    *หากทดสอบใน AI Studio ให้ใช้ <b>Guest Mode</b> แทน
+                                </p>
+                            )}
+                        </div>
+                    )}
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                    {loading ? 'กำลังดำเนินการ...' : (authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก')}
-                </button>
-            </form>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                        {loading ? 'กำลังดำเนินการ...' : (authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก')}
+                    </button>
+                </form>
+            )}
         </div>
     );
 };

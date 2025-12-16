@@ -180,8 +180,8 @@ export const registerUser = async (scriptUrl: string, user: User, password?: str
             method: 'POST',
             body: JSON.stringify({ 
                 action: 'register', 
-                user: user,
-                password: password // Security Note: In production, use a real backend auth service. Sending password to GAS is for demo/prototype.
+                user: user, // Keep full user object for new scripts
+                password: password 
             }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
@@ -201,12 +201,15 @@ export const registerUser = async (scriptUrl: string, user: User, password?: str
 export const verifyUser = async (scriptUrl: string, email: string, password?: string): Promise<{success: boolean, user?: User, message?: string}> => {
     if (!scriptUrl) return { success: false, message: 'Script URL missing' };
     try {
+        // NOTE: Send a dummy 'user' object. Older scripts might check for 'user' property globally 
+        // before checking 'action'. This prevents 'User information is missing' error on legacy backends.
         const response = await fetch(scriptUrl, {
             method: 'POST',
             body: JSON.stringify({ 
                 action: 'verifyUser', 
                 email: email,
-                password: password
+                password: password,
+                user: { username: 'auth_temp', displayName: 'Auth', role: 'guest' } 
             }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
@@ -226,8 +229,6 @@ export const verifyUser = async (scriptUrl: string, email: string, password?: st
 export const socialAuth = async (scriptUrl: string, userInfo: { email: string, name: string, picture: string }): Promise<{success: boolean, user?: User, message?: string}> => {
     if (!scriptUrl) return { success: false, message: 'Script URL missing' };
     try {
-        // NOTE: We send a dummy 'user' object to bypass the global 'User information is missing' check 
-        // in legacy Google Apps Script deployments that might not check the action type first.
         const response = await fetch(scriptUrl, {
             method: 'POST',
             body: JSON.stringify({ 
