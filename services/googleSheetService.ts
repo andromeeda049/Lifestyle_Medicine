@@ -226,11 +226,14 @@ export const verifyUser = async (scriptUrl: string, email: string, password?: st
 export const socialAuth = async (scriptUrl: string, userInfo: { email: string, name: string, picture: string }): Promise<{success: boolean, user?: User, message?: string}> => {
     if (!scriptUrl) return { success: false, message: 'Script URL missing' };
     try {
+        // NOTE: We send a dummy 'user' object to bypass the global 'User information is missing' check 
+        // in legacy Google Apps Script deployments that might not check the action type first.
         const response = await fetch(scriptUrl, {
             method: 'POST',
             body: JSON.stringify({ 
                 action: 'socialAuth', 
-                payload: userInfo
+                payload: userInfo,
+                user: { username: 'social_login_temp', displayName: 'Temp', role: 'guest' } 
             }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
