@@ -225,8 +225,11 @@ export const verifyUser = async (scriptUrl: string, email: string, password?: st
     }
 };
 
-// Social Auth (Google Login Backend Handling)
-export const socialAuth = async (scriptUrl: string, userInfo: { email: string, name: string, picture: string }): Promise<{success: boolean, user?: User, message?: string}> => {
+// Social Auth (Google/Line Login Backend Handling)
+export const socialAuth = async (
+    scriptUrl: string, 
+    userInfo: { email: string, name: string, picture: string, provider: 'google' | 'line' }
+): Promise<{success: boolean, user?: User, message?: string}> => {
     if (!scriptUrl) return { success: false, message: 'Script URL missing' };
     try {
         const response = await fetch(scriptUrl, {

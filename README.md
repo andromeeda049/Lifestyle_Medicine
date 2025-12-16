@@ -151,14 +151,16 @@ function handleSocialAuth(userInfo) {
                  profilePicture: data[i][3] || userInfo.picture,
                  role: data[i][11] || 'user',
                  email: data[i][15],
-                 authProvider: 'google'
+                 authProvider: userInfo.provider || 'social'
              };
              return createSuccessResponse(user);
         }
     }
 
     // 2. Not found, create new user
-    const username = 'google_' + new Date().getTime();
+    const provider = userInfo.provider || 'social';
+    const username = provider + '_' + new Date().getTime();
+    
     const newRow = [
         new Date(), username, userInfo.name, userInfo.picture,
         '', '', '', '', '', '', '', // Gender...
@@ -176,7 +178,7 @@ function handleSocialAuth(userInfo) {
         profilePicture: userInfo.picture,
         role: 'user',
         email: userInfo.email,
-        authProvider: 'google'
+        authProvider: provider
     });
 }
 

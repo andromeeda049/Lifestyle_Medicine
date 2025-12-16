@@ -80,45 +80,46 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     // Initialize LIFF
     useEffect(() => {
         if (LINE_LIFF_ID === "YOUR_LIFF_ID_HERE") {
-            setLineInitError("กรุณาตั้งค่า LIFF ID ในโค้ดก่อนใช้งาน");
+            // ไม่แสดง Error ถ้าไม่ได้ตั้งค่า เพื่อไม่ให้รบกวนหน้าจอ แต่จะล็อกอินไม่ได้
             return;
         }
         
-        // Initialize LIFF to check if user is already logged in (redirect back)
-        liff.init({ liffId: LINE_LIFF_ID })
-            .then(async () => {
+        const initLiff = async () => {
+            try {
+                await liff.init({ liffId: LINE_LIFF_ID });
                 if (liff.isLoggedIn()) {
                     setLoading(true);
-                    try {
-                        const profile = await liff.getProfile();
-                        const idToken = liff.getDecodedIDToken();
-                        
-                        // Use email from ID Token if available, otherwise fake one using userId
-                        const userEmail = idToken?.email || `${profile.userId}@line.me`;
-                        
-                        const result = await socialAuth(scriptUrl, {
-                            email: userEmail,
-                            name: profile.displayName,
-                            picture: profile.pictureUrl || ''
-                        });
-
-                        if (result.success && result.user) {
-                            onLogin({ ...result.user, authProvider: 'line' });
-                        } else {
-                            handleAuthError(result.message);
-                        }
-                    } catch (err) {
-                        console.error("LINE Profile Error:", err);
-                        setError("ไม่สามารถดึงข้อมูลจาก LINE ได้");
-                    } finally {
+                    if (!scriptUrl) {
+                        setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
                         setLoading(false);
+                        return;
                     }
+
+                    const profile = await liff.getProfile();
+                    const idToken = liff.getDecodedIDToken();
+                    const userEmail = idToken?.email || `${profile.userId}@line.me`; // Fallback email using UserID
+
+                    const result = await socialAuth(scriptUrl, {
+                        email: userEmail,
+                        name: profile.displayName,
+                        picture: profile.pictureUrl || '',
+                        provider: 'line'
+                    });
+
+                    if (result.success && result.user) {
+                        onLogin({ ...result.user, authProvider: 'line' });
+                    } else {
+                        handleAuthError(result.message);
+                    }
+                    setLoading(false);
                 }
-            })
-            .catch((err) => {
+            } catch (err: any) {
                 console.error("LIFF Init Error:", err);
-                setLineInitError("การเชื่อมต่อ LINE ผิดพลาด (ตรวจสอบ LIFF ID)");
-            });
+                setLineInitError(`LINE Init Error: ${err.message}`);
+            }
+        };
+
+        initLiff();
     }, [scriptUrl, onLogin]);
 
     // Google Login Logic (OIDC Flow)
@@ -137,7 +138,8 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             const result = await socialAuth(scriptUrl, {
                 email: decoded.email,
                 name: decoded.name,
-                picture: decoded.picture
+                picture: decoded.picture,
+                provider: 'google'
             });
 
             if (result.success && result.user) {
@@ -158,18 +160,22 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     };
 
     const handleLineLogin = async () => {
-        if (!scriptUrl) {
-            setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
+        if (LINE_LIFF_ID === "YOUR_LIFF_ID_HERE") {
+            setError("กรุณาตั้งค่า LIFF ID ในไฟล์โค้ด (components/Auth.tsx) ก่อน");
             return;
         }
         if (lineInitError) {
             setError(lineInitError);
             return;
         }
+        if (!scriptUrl) {
+            setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
+            return;
+        }
 
         try {
             if (!liff.isLoggedIn()) {
-                liff.login(); // This will redirect the page
+                liff.login(); // Redirects to LINE
             }
         } catch (err) {
             console.error("LINE Login Error:", err);
@@ -238,6 +244,15 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             setError(msg || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 space-y-4 animate-fade-in">
+                <div className="w-12 h-12 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
+                <p className="text-gray-600 dark:text-gray-300">กำลังเข้าสู่ระบบ...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 animate-fade-in">
