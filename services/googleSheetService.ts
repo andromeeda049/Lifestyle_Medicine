@@ -173,6 +173,21 @@ export const clearHistoryInSheet = async (scriptUrl: string, type: string, user:
     }
 };
 
+// ส่งสัญญาณให้ Backend แจ้งเตือนผ่าน LINE
+export const sendMissionCompleteNotification = async (scriptUrl: string, user: User): Promise<void> => {
+    if (!scriptUrl || !user) return;
+    try {
+        await fetch(scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'notifyComplete', user }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            mode: 'cors',
+        });
+    } catch (error) {
+        console.error("Error sending LINE notification:", error);
+    }
+};
+
 // Register User (Send Email/Password to GAS)
 export const registerUser = async (scriptUrl: string, user: User, password?: string): Promise<{success: boolean, message: string}> => {
     if (!scriptUrl) return { success: false, message: 'Script URL missing' };

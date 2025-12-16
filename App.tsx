@@ -23,20 +23,24 @@ import EvaluationForm from './components/EvaluationForm';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User } from './types';
 import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon } from './components/icons';
-import { saveDataToSheet } from './services/googleSheetService';
+import { sendMissionCompleteNotification, saveDataToSheet } from './services/googleSheetService';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import useLocalStorage from './hooks/useLocalStorage';
 
 // !!! สำคัญ !!! แทนที่ด้วย Google Client ID ของคุณที่นี่
 // ไปที่ console.cloud.google.com -> APIs & Services -> Credentials -> Create OAuth Client ID
 const GOOGLE_CLIENT_ID = "968529250528-sp2uu4uu05peu6tvc2frpug7tfq3s5dg.apps.googleusercontent.com";
 
 const AppContent: React.FC = () => {
-  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory } = useContext(AppContext);
+  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
+  
+  // Track if we've already notified the backend today
+  const [lastMissionCompleteDate, setLastMissionCompleteDate] = useLocalStorage<string>('lastMissionCompleteDate', '');
   
    useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -207,7 +211,7 @@ const AppContent: React.FC = () => {
     </aside>
   );
 
-  // Daily Task Logic
+  // Daily Task Logic & Auto Notification
   const pendingTasks = useMemo(() => {
       if (!currentUser || currentUser.role !== 'user') return [];
       
@@ -221,7 +225,6 @@ const AppContent: React.FC = () => {
 
       const tasks = [];
       if (!waterHistory.some(h => isToday(h.date))) tasks.push({ id: 'water', label: 'ดื่มน้ำ', view: 'water' as AppView, icon: <WaterDropIcon className="w-4 h-4 text-blue-500"/> });
-      // Replace Food Analysis with Calorie Tracker
       if (!calorieHistory.some(h => isToday(h.date))) tasks.push({ id: 'calorie', label: 'บันทึกแคลอรี่', view: 'calorieTracker' as AppView, icon: <BeakerIcon className="w-4 h-4 text-orange-500"/> });
       if (!activityHistory.some(h => isToday(h.date))) tasks.push({ id: 'activity', label: 'ออกกำลังกาย', view: 'activityTracker' as AppView, icon: <BoltIcon className="w-4 h-4 text-yellow-500"/> });
       if (!moodHistory.some(h => isToday(h.date)) && !sleepHistory.some(h => isToday(h.date))) {
@@ -230,6 +233,22 @@ const AppContent: React.FC = () => {
 
       return tasks;
   }, [waterHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, currentUser]);
+
+  // Check for Mission Complete
+  useEffect(() => {
+      if (!currentUser || currentUser.role !== 'user' || !scriptUrl) return;
+
+      const todayStr = new Date().toDateString();
+      
+      // If no pending tasks AND we haven't notified today
+      if (pendingTasks.length === 0 && lastMissionCompleteDate !== todayStr) {
+          // Trigger notification to backend
+          sendMissionCompleteNotification(scriptUrl, currentUser);
+          // Mark as notified locally
+          setLastMissionCompleteDate(todayStr);
+      }
+  }, [pendingTasks, currentUser, scriptUrl, lastMissionCompleteDate, setLastMissionCompleteDate]);
+
 
   const NotificationBell = () => {
       const count = pendingTasks.length;

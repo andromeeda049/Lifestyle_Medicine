@@ -13,7 +13,7 @@
 2.  **สร้างชีตย่อย (Tabs)** ทั้งหมด 14 ชีต และตั้งชื่อให้ตรงตามนี้เป๊ะๆ
 3.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ใน **แถวที่ 1 (Row 1)** ดังนี้:
 
-    *   **ชีตที่ 1: `Profile`** (A1-S1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`
+    *   **ชีตที่ 1: `Profile`** (A1-T1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`, `receiveDailyReminders`
     *   **ชีตที่ 2: `BMIHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `bmi`, `category`
     *   **ชีตที่ 3: `TDEEHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `tdee`, `bmr`
     *   **ชีตที่ 4: `FoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `description`, `calories`, `analysis_json`
@@ -33,10 +33,12 @@
 
 1.  ใน Google Sheet ของคุณ ไปที่เมนู `ส่วนขยาย (Extensions)` > `Apps Script`
 
-### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (เวอร์ชันล่าสุด)
+### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (เวอร์ชัน Flex Message + Notification Toggle)
 
 1.  ลบโค้ดที่มีอยู่ทั้งหมดในไฟล์ `Code.gs`
 2.  คัดลอกโค้ด **ทั้งหมด** ด้านล่างนี้ไปวางแทนที่:
+3.  **สำคัญ:** ระบบได้ใส่ Token ของคุณให้แล้ว
+4.  (Optional) ตรง `YOUR_LIFF_URL` ในฟังก์ชัน Flex Message แนะนำให้ใส่ URL ของ LIFF (เช่น `https://liff.line.me/xxx-xxxx`) เพื่อให้กดปุ่มแล้วเปิดแอปทันที
 
 ```javascript
 // --- START OF Code.gs ---
@@ -58,12 +60,16 @@ const SHEET_NAMES = {
   EVALUATION: "EvaluationHistory"
 };
 
-// !!! สำคัญ: ตั้งค่า Admin Key ของคุณที่นี่ !!!
 const ADMIN_KEY = "ADMIN1234!";
+// Token ที่คุณให้มา
+const LINE_CHANNEL_ACCESS_TOKEN = "YxGdduOpLZ5IoVNONoPih8Z0n84f7tPK8D7MlFn866YI+XEuQfdI6QvUv6EDoOd8UIC+Iz6Gvfi6zKdiX6/74OKG08yFqlsoxGBlSbEEbByIpTGp+TcywcENUWSgGLggJnbTBAynTQ5r3VctmDUZ8wdB04t89/1O/w1cDnyilFU=";
+
+// !!! ใส่ Link LIFF ของคุณที่นี่เพื่อให้ปุ่มใน Flex Message ทำงานสมบูรณ์ !!!
+// หากยังไม่มี ให้ใส่ URL เว็บแอปปกติ หรือปล่อยไว้แบบนี้ (ปุ่มจะกดไม่ไปไหน)
+const APP_URL = "https://liff.line.me/2008705690-V5wrjpTX"; 
 
 function doGet(e) {
   try {
-    // Admin: Get All Data
     if (e.parameter.action === 'getAllData' && e.parameter.adminKey === ADMIN_KEY) {
        const allData = {};
        for (const key in SHEET_NAMES) {
@@ -83,7 +89,6 @@ function doGet(e) {
        });
     }
 
-    // User: Get User Data
     const username = e.parameter.username;
     if (!username) throw new Error("Username parameter is required.");
 
@@ -112,20 +117,14 @@ function doPost(e) {
     const request = JSON.parse(e.postData.contents);
     const { action, type, payload, user } = request;
     
-    if (action === 'verifyUser') {
-        return handleVerifyUser(request.email, request.password);
-    }
-
-    if (action === 'register') {
-        return handleRegisterUser(user, request.password);
-    }
-
-    if (action === 'socialAuth') {
-        return handleSocialAuth(payload);
-    }
+    if (action === 'verifyUser') return handleVerifyUser(request.email, request.password);
+    if (action === 'register') return handleRegisterUser(user, request.password);
+    if (action === 'socialAuth') return handleSocialAuth(payload);
     
     if (!user || !user.username) throw new Error("User information is missing.");
     
+    if (action === 'notifyComplete') return handleNotifyComplete(user);
+
     switch (action) {
       case 'save': return handleSave(type, payload, user);
       case 'clear': return handleClear(type, user);
@@ -136,25 +135,197 @@ function doPost(e) {
   }
 }
 
+// --- FLEX MESSAGE GENERATORS ---
+
+function getDailyReminderFlex(displayName) {
+  return {
+    "type": "flex",
+    "altText": "☀️ ถึงเวลาดูแลสุขภาพแล้วครับ " + displayName,
+    "contents": {
+      "type": "bubble",
+      "hero": {
+        "type": "image",
+        "url": "https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=800&auto=format&fit=crop", // Healthy food image
+        "size": "full",
+        "aspectRatio": "20:13",
+        "aspectMode": "cover"
+      },
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          { "type": "text", "text": "อรุณสวัสดิ์ครับ! ☀️", "weight": "bold", "size": "xl" },
+          { "type": "text", "text": "คุณ " + displayName, "weight": "bold", "size": "lg", "margin": "md", "color": "#14b8a6" },
+          { "type": "text", "text": "เริ่มวันใหม่ด้วยการดูแลสุขภาพ 6 มิติ", "size": "sm", "color": "#aaaaaa", "wrap": true, "margin": "xs" },
+          { "type": "separator", "margin": "md" },
+          { "type": "box", "layout": "vertical", "margin": "md", "spacing": "sm", "contents": [
+              { "type": "box", "layout": "baseline", "spacing": "sm", "contents": [
+                  { "type": "text", "text": "💧", "flex": 1, "size": "md" },
+                  { "type": "text", "text": "ดื่มน้ำให้เพียงพอ", "flex": 5, "size": "sm", "color": "#666666" }
+                ]
+              },
+              { "type": "box", "layout": "baseline", "spacing": "sm", "contents": [
+                  { "type": "text", "text": "🥗", "flex": 1, "size": "md" },
+                  { "type": "text", "text": "เลือกทานอาหารดี", "flex": 5, "size": "sm", "color": "#666666" }
+                ]
+              },
+              { "type": "box", "layout": "baseline", "spacing": "sm", "contents": [
+                  { "type": "text", "text": "💪", "flex": 1, "size": "md" },
+                  { "type": "text", "text": "ขยับร่างกายบ้าง", "flex": 5, "size": "sm", "color": "#666666" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "footer": {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "button",
+            "style": "primary",
+            "height": "sm",
+            "color": "#14b8a6",
+            "action": { "type": "uri", "label": "เข้าสู่แอปพลิเคชัน", "uri": APP_URL }
+          }
+        ],
+        "flex": 0
+      }
+    }
+  };
+}
+
+function getMissionCompleteFlex(displayName) {
+  return {
+    "type": "flex",
+    "altText": "🎉 ยินดีด้วยครับ! ภารกิจสำเร็จ",
+    "contents": {
+      "type": "bubble",
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          { "type": "text", "text": "ภารกิจสำเร็จ! 🎉", "weight": "bold", "size": "xl", "color": "#Eab308", "align": "center" },
+          { 
+            "type": "image", 
+            "url": "https://cdn-icons-png.flaticon.com/512/3112/3112946.png", 
+            "size": "md", 
+            "margin": "md" 
+          },
+          { "type": "text", "text": "ยอดเยี่ยมมากครับคุณ " + displayName, "weight": "bold", "size": "md", "align": "center", "margin": "md", "wrap": true },
+          { "type": "text", "text": "คุณรักษาวินัยได้ดีเยี่ยม การดูแลตัวเองสม่ำเสมอคือหัวใจของสุขภาพที่ยั่งยืน", "size": "xs", "color": "#aaaaaa", "wrap": true, "align": "center", "margin": "sm" },
+          { "type": "separator", "margin": "xl" },
+          { "type": "text", "text": "พักผ่อนให้เพียงพอนะครับ 🌙", "size": "sm", "align": "center", "margin": "md", "color": "#666666" }
+        ]
+      },
+      "footer": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "button",
+            "style": "secondary",
+            "color": "#Eab308",
+            "action": { "type": "uri", "label": "ดูบันทึกของฉัน", "uri": APP_URL }
+          }
+        ]
+      }
+    }
+  };
+}
+
+// --- Notification Logic ---
+
+function handleNotifyComplete(user) {
+    const profile = getLatestProfileForUser(user.username);
+    // Even if reminders are off, mission complete is a direct user action result, 
+    // so we typically send it unless we want to be strict. 
+    // But let's respect the toggle for all automated/system-initiated messages.
+    // For mission complete, it's a reward, so we might keep it.
+    // However, to be safe, let's check.
+    if (profile && profile.lineUserId) {
+        const flexMessage = getMissionCompleteFlex(user.displayName);
+        sendLinePush(profile.lineUserId, [flexMessage]);
+        return createSuccessResponse({ status: "Notification sent" });
+    }
+    return createErrorResponse({ message: "No LINE User ID found" });
+}
+
+function triggerDailyReminders() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
+    if (!sheet) return;
+    
+    const data = sheet.getDataRange().getValues();
+    const lineUserIdIndex = 18; // Column S
+    const nameIndex = 2; // Column C
+    const receiveRemindersIndex = 19; // Column T
+    
+    const processedIds = new Set();
+
+    for (let i = data.length - 1; i >= 1; i--) {
+        const lineUserId = data[i][lineUserIdIndex];
+        const displayName = data[i][nameIndex];
+        const receiveReminders = data[i][receiveRemindersIndex];
+        
+        // Check if Line ID exists AND if user opted in (true, "TRUE", or empty/undefined which defaults to true in logic if we want, but let's be strict or lenient)
+        // Let's treat empty as TRUE (opt-out model default) or explicit TRUE.
+        // If the cell is empty string in Sheets, it's falsy in JS.
+        // Let's normalize: String(val).toLowerCase() === 'true'
+        const isOptIn = String(receiveReminders).toLowerCase() === 'true';
+
+        if (lineUserId && isOptIn && !processedIds.has(lineUserId)) {
+            const flexMessage = getDailyReminderFlex(displayName);
+            sendLinePush(lineUserId, [flexMessage]);
+            processedIds.add(lineUserId);
+        }
+    }
+}
+
+function sendLinePush(userId, messages) {
+    if (!LINE_CHANNEL_ACCESS_TOKEN) return;
+
+    const url = 'https://api.line.me/v2/bot/message/push';
+    const payload = {
+        to: userId,
+        messages: messages // Expects array of message objects (Flex or Text)
+    };
+
+    const options = {
+        method: 'post',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + LINE_CHANNEL_ACCESS_TOKEN
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+    };
+
+    try {
+        const res = UrlFetchApp.fetch(url, options);
+        Logger.log("Response: " + res.getContentText());
+    } catch (e) {
+        Logger.log("Error sending LINE msg: " + e.message);
+    }
+}
+
+// --- Existing Logic (Helper Functions) ---
+
 function handleSocialAuth(userInfo) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
     const data = sheet.getDataRange().getValues();
-    const emailIndex = 15; // Column P
-    const lineUserIdIndex = 18; // Column S
+    const emailIndex = 15; 
+    const lineUserIdIndex = 18; 
     
-    // 1. Check if email exists
     for (let i = 1; i < data.length; i++) {
         if (data[i][emailIndex] === userInfo.email) {
-             // Found existing user
-             
-             // Update lineUserId if present and different (for notification linkage)
              if (userInfo.userId && data[i][lineUserIdIndex] !== userInfo.userId) {
                  sheet.getRange(i + 1, lineUserIdIndex + 1).setValue(userInfo.userId);
              }
-
              const user = {
                  username: data[i][1],
-                 displayName: data[i][2], // Keep existing display name
+                 displayName: data[i][2],
                  profilePicture: data[i][3] || userInfo.picture,
                  role: data[i][11] || 'user',
                  email: data[i][15],
@@ -164,19 +335,19 @@ function handleSocialAuth(userInfo) {
         }
     }
 
-    // 2. Not found, create new user
     const provider = userInfo.provider || 'social';
     const username = provider + '_' + new Date().getTime();
     
     const newRow = [
         new Date(), username, userInfo.name, userInfo.picture,
-        '', '', '', '', '', '', '', // Gender...
-        'user', // Role
-        0, 1, '["novice"]', // XP
+        '', '', '', '', '', '', '', 
+        'user', 
+        0, 1, '["novice"]', 
         userInfo.email,
-        'social_login', // Dummy password
-        '', // healthCondition
-        userInfo.userId || '' // lineUserId
+        'social_login', 
+        '', 
+        userInfo.userId || '',
+        true // Default receiveDailyReminders to TRUE
     ];
     sheet.appendRow(newRow);
 
@@ -193,30 +364,24 @@ function handleSocialAuth(userInfo) {
 function handleRegisterUser(user, password) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
     const data = sheet.getDataRange().getValues();
-    
-    // Check if email already exists (Column 16 = Index 15)
     const emailIndex = 15; 
     const usernameIndex = 1;
 
     for (let i = 1; i < data.length; i++) {
-        if (data[i][usernameIndex] === user.username) {
-             return createErrorResponse({ message: "Username already exists" });
-        }
-        if (user.email && data[i][emailIndex] === user.email) {
-             return createErrorResponse({ message: "Email already registered" });
-        }
+        if (data[i][usernameIndex] === user.username) return createErrorResponse({ message: "Username already exists" });
+        if (user.email && data[i][emailIndex] === user.email) return createErrorResponse({ message: "Email already registered" });
     }
     
-    // Append new user
     const newRow = [
         new Date(), user.username, user.displayName, user.profilePicture,
-        '', '', '', '', '', '', '', // Gender, Age... Activity (Empty initially)
+        '', '', '', '', '', '', '', 
         user.role,
-        0, 1, '["novice"]', // XP, Level, Badges
+        0, 1, '["novice"]', 
         user.email || '',
-        password || '', // Store password
-        '', // healthCondition (Empty initially)
-        '' // lineUserId
+        password || '', 
+        '', 
+        '',
+        true // Default receiveDailyReminders to TRUE
     ];
     
     sheet.appendRow(newRow);
@@ -268,21 +433,6 @@ function handleSave(type, payload, user) {
   switch (type) {
     case 'profile':
       const badgesJson = JSON.stringify(payload.badges || []);
-      // Ensure healthCondition is saved (index 17)
-      // Note: We don't overwrite lineUserId (index 18) here to prevent data loss if not passed
-      
-      // Update logic: Use the known username to find the row and update specific columns is safer,
-      // but appendRow is current architecture for simplicity (except socialAuth which does lookups).
-      // For this simple app, we are appending new snapshots of profile data.
-      
-      // However, ideally 'profile' should update the existing row for that user.
-      // Let's modify handleSave for PROFILE to update instead of append, OR ensure we carry over lineUserId.
-      
-      // For simplicity in this demo structure where we mostly append history, 
-      // but for Profile we should probably find and update or append with all data.
-      // Since `getLatestProfileForUser` fetches the last row, appending works fine as a "version history".
-      
-      // We need to fetch existing lineUserId to preserve it if not in payload
       const existingProfile = getLatestProfileForUser(user.username);
       const existingLineId = existingProfile ? existingProfile.lineUserId : '';
 
@@ -290,9 +440,10 @@ function handleSave(type, payload, user) {
           ...commonPrefix, 
           payload.gender, payload.age, payload.weight, payload.height, payload.waist, payload.hip, payload.activityLevel, user.role,
           payload.xp || 0, payload.level || 1, badgesJson,
-          user.email || '', '', // password empty on update
+          user.email || '', '',
           payload.healthCondition || '',
-          existingLineId // Preserve LINE User ID
+          existingLineId,
+          payload.receiveDailyReminders // Added column for notification preference
       ];
       break;
     case 'bmiHistory': newRow = [ ...commonPrefix, item.value, item.category ]; break;
@@ -302,21 +453,13 @@ function handleSave(type, payload, user) {
     case 'waterHistory': newRow = [ ...commonPrefix, item.amount ]; break;
     case 'calorieHistory': newRow = [ ...commonPrefix, item.name, item.calories ]; break;
     case 'activityHistory': newRow = [ ...commonPrefix, item.name, item.caloriesBurned ]; break;
-    case 'sleepHistory': 
-        // Include hygieneChecklist at the end
-        newRow = [ ...commonPrefix, item.bedTime, item.wakeTime, item.duration, item.quality, JSON.stringify(item.hygieneChecklist || []) ]; 
-        break;
+    case 'sleepHistory': newRow = [ ...commonPrefix, item.bedTime, item.wakeTime, item.duration, item.quality, JSON.stringify(item.hygieneChecklist || []) ]; break;
     case 'moodHistory': newRow = [ ...commonPrefix, item.moodEmoji, item.stressLevel, item.gratitude ]; break;
     case 'habitHistory': newRow = [ ...commonPrefix, item.type, item.amount, item.isClean ]; break;
     case 'socialHistory': newRow = [ ...commonPrefix, item.interaction, item.feeling ]; break;
-    case 'evaluationHistory': 
-        newRow = [ new Date(), user.username, user.displayName, user.role, JSON.stringify(item.satisfaction), JSON.stringify(item.outcomes) ];
-        break;
-    case 'loginLog':
-       newRow = [ new Date(), user.username, user.displayName, user.role ];
-       break;
-    default:
-      throw new Error(`Unknown data type for save: ${type}`);
+    case 'evaluationHistory': newRow = [ new Date(), user.username, user.displayName, user.role, JSON.stringify(item.satisfaction), JSON.stringify(item.outcomes) ]; break;
+    case 'loginLog': newRow = [ new Date(), user.username, user.displayName, user.role ]; break;
+    default: throw new Error(`Unknown data type for save: ${type}`);
   }
   
   sheet.appendRow(newRow);
@@ -344,9 +487,13 @@ function getLatestProfileForUser(username) {
   if (userData.length === 0) return null;
   const lastEntry = userData[userData.length - 1];
   
+  // Parse boolean safely
+  const receiveReminders = String(lastEntry[19]).toLowerCase() === 'true';
+
   return { 
       gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7], waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10],
-      xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14], email: lastEntry[15], healthCondition: lastEntry[17], lineUserId: lastEntry[18]
+      xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14], email: lastEntry[15], healthCondition: lastEntry[17], lineUserId: lastEntry[18],
+      receiveDailyReminders: receiveReminders
   };
 }
 
@@ -372,7 +519,7 @@ function getAllHistoryForUser(sheetName, username) {
         default: return [];
     }
   } catch(e) {
-    Logger.log("Error parsing history for user " + username + " in sheet: " + sheetName + ". Error: " + e.message);
+    Logger.log("Error parsing history: " + e.message);
     return [];
   }
 }
@@ -380,17 +527,12 @@ function getAllHistoryForUser(sheetName, username) {
 function getAllRowsAsObjects(sheetName) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() < 2) return [];
-  try {
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => h.trim());
-    const dataRows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-    return dataRows.map(row => headers.reduce((obj, header, index) => {
-        if (header) obj[header] = row[index];
-        return obj;
-    }, {}));
-  } catch (e) {
-    Logger.log("Error in getAllRowsAsObjects for sheet '" + sheetName + "': " + e.message);
-    return [];
-  }
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => h.trim());
+  const dataRows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  return dataRows.map(row => headers.reduce((obj, header, index) => {
+      if (header) obj[header] = row[index];
+      return obj;
+  }, {}));
 }
 
 function clearSheetForUser(sheetName, username) {
@@ -426,7 +568,7 @@ function setupSheets() {
     "Profile": [
       "timestamp", "username", "displayName", "profilePicture", 
       "gender", "age", "weight", "height", "waist", "hip", "activityLevel", 
-      "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId"
+      "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId", "receiveDailyReminders"
     ],
     "BMIHistory": [
       "timestamp", "username", "displayName", "profilePicture", "bmi", "category"
@@ -497,42 +639,3 @@ function setupSheets() {
 }
 
 // --- END OF Code.gs ---
-```
-
-### ขั้นตอนที่ 4: Deploy ใหม่ (สำคัญที่สุด!)
-
-1.  กดปุ่มสีน้ำเงิน **`ทำให้ใช้งานได้ (Deploy)`** > **`การทำให้ใช้งานได้รายการใหม่ (New deployment)`**
-2.  เลือกประเภท: **เว็บแอป (Web app)**
-3.  การตั้งค่า:
-    *   **ผู้ดำเนินการ:** *ฉัน (Me)*
-    *   **ผู้ที่เข้าถึงได้:** ***ทุกคน (Anyone)***  <-- **ต้องเลือกอันนี้เท่านั้น**
-4.  กด `ทำให้ใช้งานได้ (Deploy)` และ **ให้สิทธิ์การเข้าถึง (Authorize)**
-5.  คัดลอก **URL** ใหม่ที่ได้ ไปอัปเดตในหน้า **ตั้งค่า (Settings)** ของแอปพลิเคชัน
-
-### ขั้นตอนที่ 5: การตั้งค่า Google Login (OAuth 2.0)
-
-1.  ไปที่ **[Google Cloud Console](https://console.cloud.google.com/)**
-2.  สร้าง Project หรือเลือก Project
-3.  เมนู **APIs & Services** > **Credentials** > **+ CREATE CREDENTIALS** > **OAuth client ID**
-4.  Application type: **Web application**
-5.  **Authorized JavaScript origins:** ใส่ URL ของแอปที่คุณรันอยู่
-6.  คัดลอก **Client ID** ไปแทนที่ในไฟล์ `App.tsx`
-
-### ขั้นตอนที่ 6: การตั้งค่า LINE Login (LIFF)
-
-เพื่อให้ปุ่ม "Log in with LINE" ใช้งานได้จริง คุณต้องสร้าง LIFF App:
-
-1.  ไปที่ **[LINE Developers Console](https://developers.line.biz/)** และล็อกอิน
-2.  กด **Create a new provider** (ถ้ายังไม่มี)
-3.  กด **Create a new channel** เลือก **LINE Login**
-    *   กรอกข้อมูลให้ครบถ้วน (Channel Name, Description, etc.)
-4.  เมื่อสร้างเสร็จ ไปที่แท็บ **LIFF** แล้วกด **Add**
-    *   **LIFF app name:** ตั้งชื่อแอป
-    *   **Size:** Full, Tall หรือ Compact (แนะนำ Full)
-    *   **Endpoint URL:** ใส่ URL ของแอปที่คุณรันอยู่ (ต้องเป็น HTTPS เท่านั้น หาก Localhost ให้ใช้ ngrok หรือ Cloudflare Tunnel)
-    *   **Scopes:** เลือก `profile` และ `openid` (ถ้าต้องการอีเมลต้องกดขออนุญาตเพิ่มในแท็บ Basic Settings > OpenID Connect)
-5.  กด **Add** แล้วคุณจะได้ **LIFF ID** (รูปแบบ `1234567890-AbCdEfGh`)
-6.  นำ LIFF ID ไปแทนที่ในไฟล์ `components/Auth.tsx` ตรงบรรทัด:
-    ```javascript
-    const LINE_LIFF_ID = "YOUR_LIFF_ID_HERE"; 
-    ```

@@ -1,13 +1,14 @@
+
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
-import { SunIcon, MoonIcon } from './icons';
+import { SunIcon, MoonIcon, BellIcon } from './icons';
 
 const Settings: React.FC = () => {
-    const { scriptUrl, setScriptUrl, apiKey, setApiKey, isDataSynced, theme, setTheme } = useContext(AppContext);
+    const { scriptUrl, setScriptUrl, apiKey, setApiKey, isDataSynced, theme, setTheme, currentUser, userProfile, setUserProfile } = useContext(AppContext);
     
     const [currentScriptUrl, setCurrentScriptUrl] = useState(scriptUrl);
     const [currentApiKey, setCurrentApiKey] = useState(apiKey);
-    const [saved, setSaved] = useState<'none' | 'sheets' | 'api'>('none');
+    const [saved, setSaved] = useState<'none' | 'sheets' | 'api' | 'notifications'>('none');
     const [showGoogleSheetsSettings, setShowGoogleSheetsSettings] = useState(false);
     const [showApiKeySettings, setShowApiKeySettings] = useState(false);
 
@@ -34,8 +35,24 @@ const Settings: React.FC = () => {
         setTimeout(() => setSaved('none'), 3000);
     };
 
+    const toggleNotifications = () => {
+        if (!currentUser) return;
+        
+        const newValue = !userProfile.receiveDailyReminders;
+        const updatedProfile = { ...userProfile, receiveDailyReminders: newValue };
+        
+        // Use existing context function to save to local state and sync to sheet
+        setUserProfile(updatedProfile, { 
+            displayName: currentUser.displayName, 
+            profilePicture: currentUser.profilePicture 
+        });
+        
+        setSaved('notifications');
+        setTimeout(() => setSaved('none'), 2000);
+    };
+
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-fade-in">
              <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">ลักษณะที่ปรากฏ</h2>
                 <div className="flex justify-center gap-4">
@@ -61,6 +78,40 @@ const Settings: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Notification Settings (For Users Only) */}
+            {currentUser?.role !== 'guest' && currentUser?.role !== 'admin' && (
+                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-teal-100 dark:bg-teal-900/30 p-3 rounded-full">
+                                <BellIcon className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+                                    การแจ้งเตือนรายวัน
+                                </h2>
+                                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+                                    รับข้อความแจ้งเตือนภารกิจสุขภาพตอนเช้าผ่าน LINE
+                                </p>
+                            </div>
+                        </div>
+                        <label htmlFor="toggle-notif" className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                id="toggle-notif" 
+                                className="sr-only peer" 
+                                checked={!!userProfile.receiveDailyReminders} 
+                                onChange={toggleNotifications} 
+                            />
+                            <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+                        </label>
+                    </div>
+                    {saved === 'notifications' && (
+                        <p className="text-sm text-green-500 mt-2 text-right font-medium animate-pulse">บันทึกการตั้งค่าแล้ว</p>
+                    )}
+                </div>
+            )}
 
             <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
                  <div className="flex items-center justify-between">

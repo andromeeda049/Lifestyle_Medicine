@@ -20,7 +20,8 @@ const defaultProfile: UserProfile = {
   healthCondition: HEALTH_CONDITIONS[0],
   xp: 0,
   level: 1,
-  badges: ['novice'] // Default badge
+  badges: ['novice'], // Default badge
+  receiveDailyReminders: true // Default to true
 };
 
 const getInitialTheme = (): Theme => {

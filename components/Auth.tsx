@@ -11,6 +11,10 @@ import liff from '@line/liff';
 // !!! สำคัญ: แทนที่ด้วย LIFF ID ของคุณที่ได้จาก LINE Developers Console !!!
 const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
 
+// !!! ใส่ URL ของ Logo ที่นี่ !!!
+// คุณสามารถอัปโหลดรูปภาพของคุณไปยังบริการฝากรูป (เช่น imgur, google drive public link) แล้วนำ URL มาใส่ตรงนี้
+const APP_LOGO_URL = "https://img2.pic.in.th/pic/lifestyle-medicine-logo.png"; // Placeholder Icon
+
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
 
@@ -466,11 +470,25 @@ const Auth: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-sky-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900 p-4">
             <div className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl animate-fade-in-down">
                 <div className="text-center mb-6">
-                    {/* Logo or Icon could go here */}
-                    <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-teal-400 to-blue-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                        <span className="text-4xl">🥗</span>
+                    {/* Logo Section */}
+                    <div className="flex justify-center mb-4">
+                        <img 
+                            src={APP_LOGO_URL}
+                            alt="Smart Lifestyle Wellness Logo" 
+                            className="w-32 h-32 object-contain drop-shadow-md rounded-2xl"
+                            onError={(e) => {
+                                // Fallback if image fails
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                        />
+                        {/* Fallback Icon */}
+                        <div className="w-24 h-24 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg hidden">
+                            <span className="text-5xl">🥗</span>
+                        </div>
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Smart Lifestyle Wellness นวัตกรรมสุขภาพวิถีชีวิต</h1>
+                    
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Smart Lifestyle Wellness</h1>
                     <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{getWelcomeMessage()}</p>
                 </div>
                 

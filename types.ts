@@ -73,6 +73,7 @@ export interface UserProfile {
   badges?: string[]; // List of unlocked achievement IDs
   email?: string; // Added for sync
   lineUserId?: string; // Added for LINE Notification
+  receiveDailyReminders?: boolean; // New: Toggle for daily notifications
 }
 
 export interface UserGamification {
