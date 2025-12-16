@@ -102,7 +102,7 @@ const AppContent: React.FC = () => {
       case 'evaluation':
         return <EvaluationForm />;
       case 'settings':
-        return currentUser?.role === 'admin' ? <Settings /> : <HomeMenu />;
+        return <Settings />;
       case 'adminDashboard':
         return currentUser?.role === 'admin' ? <AdminDashboard /> : <HomeMenu />;
       default:
@@ -193,11 +193,12 @@ const AppContent: React.FC = () => {
           <NavLink view="about" label="เกี่ยวกับนวัตกรรม" icon={<InformationCircleIcon className="w-6 h-6" />} />
           <NavLink view="evaluation" label="ประเมินผลการใช้งาน" icon={<ClipboardCheckIcon className="w-6 h-6" />} />
           
+          <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
+          <NavLink view="settings" label="ตั้งค่า" icon={<CogIcon className="w-6 h-6" />} />
+
           {currentUser?.role === 'admin' && (
               <>
-                <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
-                <NavLink view="adminDashboard" label="จัดการผู้ใช้" icon={<UserCircleIcon className="w-6 h-6" />} />
-                <NavLink view="settings" label="ตั้งค่า" icon={<CogIcon className="w-6 h-6" />} />
+                <NavLink view="adminDashboard" label="จัดการผู้ใช้ (Admin)" icon={<UserCircleIcon className="w-6 h-6" />} />
               </>
           )}
         </div>
