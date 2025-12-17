@@ -1,7 +1,7 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
-import { SunIcon, MoonIcon, BellIcon, LineIcon } from './icons';
+import { SunIcon, MoonIcon, BellIcon, LineIcon, SparklesIcon } from './icons';
 import { sendTestNotification } from '../services/googleSheetService';
 
 const Settings: React.FC = () => {
@@ -67,6 +67,16 @@ const Settings: React.FC = () => {
             alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
         } finally {
             setTestingNotif(false);
+        }
+    };
+
+    const handleResetMission = () => {
+        if (window.confirm("ต้องการรีเซ็ตสถานะภารกิจของวันนี้ใช่หรือไม่?\n(ระบบจะแจ้งเตือน Mission Complete อีกครั้งเมื่อคุณทำภารกิจครบ)")) {
+            // Remove the local storage key that tracks daily completion
+            // Note: Since useLocalStorage is hook based, direct removal requires a reload to sync App.tsx state cleanly for this specific case
+            window.localStorage.removeItem('lastMissionCompleteDate');
+            alert('รีเซ็ตเรียบร้อย! ระบบจะโหลดหน้าใหม่...');
+            window.location.reload();
         }
     };
 
@@ -142,14 +152,24 @@ const Settings: React.FC = () => {
                             </div>
                             
                             {hasLineId && (
-                                <button 
-                                    onClick={handleTestNotification}
-                                    disabled={testingNotif}
-                                    className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-1"
-                                >
-                                    <LineIcon className="w-3 h-3" />
-                                    {testingNotif ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความ LINE'}
-                                </button>
+                                <div className="flex flex-col items-end gap-1 mt-2">
+                                    <button 
+                                        onClick={handleTestNotification}
+                                        disabled={testingNotif}
+                                        className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+                                    >
+                                        <LineIcon className="w-3 h-3" />
+                                        {testingNotif ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความ LINE'}
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={handleResetMission}
+                                        className="text-xs text-orange-500 hover:underline flex items-center gap-1"
+                                    >
+                                        <SparklesIcon className="w-3 h-3" />
+                                        รีเซ็ตสถานะ Mission (ทดสอบ)
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
