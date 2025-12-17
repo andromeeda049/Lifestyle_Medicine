@@ -1,7 +1,8 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
-import { SunIcon, MoonIcon, BellIcon } from './icons';
+import { SunIcon, MoonIcon, BellIcon, LineIcon } from './icons';
+import { sendTestNotification } from '../services/googleSheetService';
 
 const Settings: React.FC = () => {
     const { scriptUrl, setScriptUrl, apiKey, setApiKey, isDataSynced, theme, setTheme, currentUser, userProfile, setUserProfile } = useContext(AppContext);
@@ -11,6 +12,7 @@ const Settings: React.FC = () => {
     const [saved, setSaved] = useState<'none' | 'sheets' | 'api' | 'notifications'>('none');
     const [showGoogleSheetsSettings, setShowGoogleSheetsSettings] = useState(false);
     const [showApiKeySettings, setShowApiKeySettings] = useState(false);
+    const [testingNotif, setTestingNotif] = useState(false);
 
     useEffect(() => {
         setCurrentScriptUrl(scriptUrl);
@@ -51,7 +53,25 @@ const Settings: React.FC = () => {
         setTimeout(() => setSaved('none'), 2000);
     };
 
+    const handleTestNotification = async () => {
+        if (!scriptUrl || !currentUser) return;
+        setTestingNotif(true);
+        try {
+            const result = await sendTestNotification(scriptUrl, currentUser);
+            if (result.success) {
+                alert("ส่งข้อความทดสอบสำเร็จ! กรุณาตรวจสอบแอป LINE ของคุณ");
+            } else {
+                alert("ไม่สามารถส่งข้อความได้: " + result.message + "\n\n(กรุณาตรวจสอบว่าคุณ Log in ด้วย LINE หรือยัง และอัปเดต Code.gs)");
+            }
+        } catch (e) {
+            alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+        } finally {
+            setTestingNotif(false);
+        }
+    };
+
     const isRemindersOn = !!userProfile.receiveDailyReminders;
+    const hasLineId = !!userProfile.lineUserId;
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -84,7 +104,7 @@ const Settings: React.FC = () => {
             {/* Notification Settings (Visible for User and Admin) */}
             {currentUser?.role !== 'guest' && (
                 <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-teal-500 transition-all hover:shadow-xl">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                             <div className={`p-3 rounded-full transition-colors duration-300 ${isRemindersOn ? 'bg-teal-100 dark:bg-teal-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
                                 <BellIcon className={`w-6 h-6 transition-colors duration-300 ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`} />
@@ -96,22 +116,41 @@ const Settings: React.FC = () => {
                                 <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
                                     รับข้อความแจ้งเตือนภารกิจสุขภาพตอนเช้าผ่าน LINE
                                 </p>
+                                {!hasLineId && (
+                                    <p className="text-red-500 text-xs mt-1 font-bold">
+                                        ⚠️ ยังไม่เชื่อมต่อ LINE: กรุณา Log out แล้วเลือก "Log in with LINE"
+                                    </p>
+                                )}
                             </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                            <label htmlFor="toggle-notif" className="relative inline-flex items-center cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    id="toggle-notif" 
-                                    className="sr-only peer" 
-                                    checked={isRemindersOn} 
-                                    onChange={toggleNotifications} 
-                                />
-                                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                            </label>
-                            <span className={`text-xs font-semibold transition-colors duration-300 ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`}>
-                                {isRemindersOn ? 'เปิดใช้งานอยู่' : 'ปิดใช้งาน'}
-                            </span>
+                        <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-2">
+                                <label htmlFor="toggle-notif" className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        id="toggle-notif" 
+                                        className="sr-only peer" 
+                                        checked={isRemindersOn} 
+                                        onChange={toggleNotifications} 
+                                        disabled={!hasLineId}
+                                    />
+                                    <div className={`w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 ${isRemindersOn ? 'peer-checked:bg-teal-600' : ''}`}></div>
+                                </label>
+                                <span className={`text-xs font-semibold ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`}>
+                                    {isRemindersOn ? 'เปิด' : 'ปิด'}
+                                </span>
+                            </div>
+                            
+                            {hasLineId && (
+                                <button 
+                                    onClick={handleTestNotification}
+                                    disabled={testingNotif}
+                                    className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-1"
+                                >
+                                    <LineIcon className="w-3 h-3" />
+                                    {testingNotif ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความ LINE'}
+                                </button>
+                            )}
                         </div>
                     </div>
                     {saved === 'notifications' && (

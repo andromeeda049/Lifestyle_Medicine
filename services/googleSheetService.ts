@@ -188,6 +188,24 @@ export const sendMissionCompleteNotification = async (scriptUrl: string, user: U
     }
 };
 
+// ทดสอบส่ง Notification
+export const sendTestNotification = async (scriptUrl: string, user: User): Promise<{success: boolean, message: string}> => {
+    if (!scriptUrl || !user) return { success: false, message: 'Missing config' };
+    try {
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'testNotification', user }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            mode: 'cors',
+        });
+        const result = await response.json();
+        if(result.status === 'success') return { success: true, message: 'Sent' };
+        else return { success: false, message: result.message || 'Failed' };
+    } catch (error: any) {
+        return { success: false, message: error.message };
+    }
+};
+
 // Register User (Send Email/Password to GAS)
 export const registerUser = async (scriptUrl: string, user: User, password?: string): Promise<{success: boolean, message: string}> => {
     if (!scriptUrl) return { success: false, message: 'Script URL missing' };

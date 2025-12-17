@@ -33,12 +33,12 @@
 
 1.  ใน Google Sheet ของคุณ ไปที่เมนู `ส่วนขยาย (Extensions)` > `Apps Script`
 
-### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (เวอร์ชัน Flex Message + Notification Toggle)
+### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (รองรับการทดสอบ LINE)
 
 1.  ลบโค้ดที่มีอยู่ทั้งหมดในไฟล์ `Code.gs`
 2.  คัดลอกโค้ด **ทั้งหมด** ด้านล่างนี้ไปวางแทนที่:
 3.  **สำคัญ:** ระบบได้ใส่ Token ของคุณให้แล้ว
-4.  (Optional) ตรง `YOUR_LIFF_URL` ในฟังก์ชัน Flex Message แนะนำให้ใส่ URL ของ LIFF (เช่น `https://liff.line.me/xxx-xxxx`) เพื่อให้กดปุ่มแล้วเปิดแอปทันที
+4.  กด **Save** และ **Deploy** > New Deployment > Type: Web app > Who has access: **Anyone**
 
 ```javascript
 // --- START OF Code.gs ---
@@ -65,7 +65,6 @@ const ADMIN_KEY = "ADMIN1234!";
 const LINE_CHANNEL_ACCESS_TOKEN = "YxGdduOpLZ5IoVNONoPih8Z0n84f7tPK8D7MlFn866YI+XEuQfdI6QvUv6EDoOd8UIC+Iz6Gvfi6zKdiX6/74OKG08yFqlsoxGBlSbEEbByIpTGp+TcywcENUWSgGLggJnbTBAynTQ5r3VctmDUZ8wdB04t89/1O/w1cDnyilFU=";
 
 // !!! ใส่ Link LIFF ของคุณที่นี่เพื่อให้ปุ่มใน Flex Message ทำงานสมบูรณ์ !!!
-// หากยังไม่มี ให้ใส่ URL เว็บแอปปกติ หรือปล่อยไว้แบบนี้ (ปุ่มจะกดไม่ไปไหน)
 const APP_URL = "https://liff.line.me/2008705690-V5wrjpTX"; 
 
 function doGet(e) {
@@ -124,6 +123,7 @@ function doPost(e) {
     if (!user || !user.username) throw new Error("User information is missing.");
     
     if (action === 'notifyComplete') return handleNotifyComplete(user);
+    if (action === 'testNotification') return handleTestNotification(user);
 
     switch (action) {
       case 'save': return handleSave(type, payload, user);
@@ -145,7 +145,7 @@ function getDailyReminderFlex(displayName) {
       "type": "bubble",
       "hero": {
         "type": "image",
-        "url": "https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=800&auto=format&fit=crop", // Healthy food image
+        "url": "https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=800&auto=format&fit=crop", 
         "size": "full",
         "aspectRatio": "20:13",
         "aspectMode": "cover"
@@ -238,13 +238,19 @@ function getMissionCompleteFlex(displayName) {
 
 // --- Notification Logic ---
 
+function handleTestNotification(user) {
+    const profile = getLatestProfileForUser(user.username);
+    if (profile && profile.lineUserId) {
+        // Simple text message for test
+        const msg = { type: 'text', text: '✅ ทดสอบการแจ้งเตือนสำเร็จ!\nระบบพร้อมส่งการแจ้งเตือนรายวันให้คุณแล้วครับ' };
+        sendLinePush(profile.lineUserId, [msg]);
+        return createSuccessResponse({ status: "Test notification sent" });
+    }
+    return createErrorResponse({ message: "LINE ID not found in profile" });
+}
+
 function handleNotifyComplete(user) {
     const profile = getLatestProfileForUser(user.username);
-    // Even if reminders are off, mission complete is a direct user action result, 
-    // so we typically send it unless we want to be strict. 
-    // But let's respect the toggle for all automated/system-initiated messages.
-    // For mission complete, it's a reward, so we might keep it.
-    // However, to be safe, let's check.
     if (profile && profile.lineUserId) {
         const flexMessage = getMissionCompleteFlex(user.displayName);
         sendLinePush(profile.lineUserId, [flexMessage]);
@@ -253,6 +259,7 @@ function handleNotifyComplete(user) {
     return createErrorResponse({ message: "No LINE User ID found" });
 }
 
+// *** ฟังก์ชันนี้ต้องตั้ง Trigger ให้ทำงานทุกเช้า ***
 function triggerDailyReminders() {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
     if (!sheet) return;
@@ -264,21 +271,22 @@ function triggerDailyReminders() {
     
     const processedIds = new Set();
 
-    for (let i = data.length - 1; i >= 1; i--) {
+    for (let i = 1; i < data.length; i++) {
         const lineUserId = data[i][lineUserIdIndex];
         const displayName = data[i][nameIndex];
         const receiveReminders = data[i][receiveRemindersIndex];
         
-        // Check if Line ID exists AND if user opted in (true, "TRUE", or empty/undefined which defaults to true in logic if we want, but let's be strict or lenient)
-        // Let's treat empty as TRUE (opt-out model default) or explicit TRUE.
-        // If the cell is empty string in Sheets, it's falsy in JS.
-        // Let's normalize: String(val).toLowerCase() === 'true'
-        const isOptIn = String(receiveReminders).toLowerCase() === 'true';
+        // เช็คว่า User เปิดรับการแจ้งเตือนหรือไม่ (ค่าว่างหรือ true ถือว่าเปิด)
+        const isOptIn = String(receiveReminders).toLowerCase() !== 'false';
 
         if (lineUserId && isOptIn && !processedIds.has(lineUserId)) {
-            const flexMessage = getDailyReminderFlex(displayName);
-            sendLinePush(lineUserId, [flexMessage]);
-            processedIds.add(lineUserId);
+            try {
+                const flexMessage = getDailyReminderFlex(displayName);
+                sendLinePush(lineUserId, [flexMessage]);
+                processedIds.add(lineUserId);
+            } catch (e) {
+                Logger.log("Failed to send to " + displayName);
+            }
         }
     }
 }
@@ -289,7 +297,7 @@ function sendLinePush(userId, messages) {
     const url = 'https://api.line.me/v2/bot/message/push';
     const payload = {
         to: userId,
-        messages: messages // Expects array of message objects (Flex or Text)
+        messages: messages 
     };
 
     const options = {
@@ -347,7 +355,7 @@ function handleSocialAuth(userInfo) {
         'social_login', 
         '', 
         userInfo.userId || '',
-        true // Default receiveDailyReminders to TRUE
+        true 
     ];
     sheet.appendRow(newRow);
 
@@ -381,7 +389,7 @@ function handleRegisterUser(user, password) {
         password || '', 
         '', 
         '',
-        true // Default receiveDailyReminders to TRUE
+        true 
     ];
     
     sheet.appendRow(newRow);
@@ -443,7 +451,7 @@ function handleSave(type, payload, user) {
           user.email || '', '',
           payload.healthCondition || '',
           existingLineId,
-          payload.receiveDailyReminders // Added column for notification preference
+          payload.receiveDailyReminders 
       ];
       break;
     case 'bmiHistory': newRow = [ ...commonPrefix, item.value, item.category ]; break;
@@ -487,13 +495,10 @@ function getLatestProfileForUser(username) {
   if (userData.length === 0) return null;
   const lastEntry = userData[userData.length - 1];
   
-  // Parse boolean safely
-  const receiveReminders = String(lastEntry[19]).toLowerCase() === 'true';
-
   return { 
       gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7], waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10],
       xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14], email: lastEntry[15], healthCondition: lastEntry[17], lineUserId: lastEntry[18],
-      receiveDailyReminders: receiveReminders
+      receiveDailyReminders: String(lastEntry[19]).toLowerCase() !== 'false'
   };
 }
 
@@ -557,85 +562,50 @@ function createErrorResponse(error) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// --- ฟังก์ชันสำหรับสร้างชีตและคอลัมน์อัตโนมัติ (Helper Utility) ---
-// วิธีใช้: เลือกฟังก์ชันนี้แล้วกด Run เพื่อสร้าง/รีเซ็ตหัวตารางทั้งหมด
-
 function setupSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // รายชื่อชีตและคอลัมน์ทั้งหมดตามสเปค
   const schema = {
-    "Profile": [
-      "timestamp", "username", "displayName", "profilePicture", 
-      "gender", "age", "weight", "height", "waist", "hip", "activityLevel", 
-      "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId", "receiveDailyReminders"
-    ],
-    "BMIHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "bmi", "category"
-    ],
-    "TDEEHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "tdee", "bmr"
-    ],
-    "FoodHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "description", "calories", "analysis_json"
-    ],
-    "PlannerHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "cuisine", "diet", "tdee_goal", "plan_json"
-    ],
-    "LoginLogs": [
-      "timestamp", "username", "displayName", "role"
-    ],
-    "WaterHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "amount"
-    ],
-    "CalorieHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "name", "calories"
-    ],
-    "ActivityHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "name", "caloriesBurned"
-    ],
-    "SleepHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "bedTime", "wakeTime", "duration", "quality", "hygieneChecklist"
-    ],
-    "MoodHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "emoji", "stressLevel", "gratitude"
-    ],
-    "HabitHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "type", "amount", "isClean"
-    ],
-    "SocialHistory": [
-      "timestamp", "username", "displayName", "profilePicture", "interaction", "feeling"
-    ],
-    "EvaluationHistory": [
-      "timestamp", "username", "displayName", "role", "satisfaction_json", "outcome_json"
-    ]
+    "Profile": ["timestamp", "username", "displayName", "profilePicture", "gender", "age", "weight", "height", "waist", "hip", "activityLevel", "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId", "receiveDailyReminders"],
+    "BMIHistory": ["timestamp", "username", "displayName", "profilePicture", "bmi", "category"],
+    "TDEEHistory": ["timestamp", "username", "displayName", "profilePicture", "tdee", "bmr"],
+    "FoodHistory": ["timestamp", "username", "displayName", "profilePicture", "description", "calories", "analysis_json"],
+    "PlannerHistory": ["timestamp", "username", "displayName", "profilePicture", "cuisine", "diet", "tdee_goal", "plan_json"],
+    "LoginLogs": ["timestamp", "username", "displayName", "role"],
+    "WaterHistory": ["timestamp", "username", "displayName", "profilePicture", "amount"],
+    "CalorieHistory": ["timestamp", "username", "displayName", "profilePicture", "name", "calories"],
+    "ActivityHistory": ["timestamp", "username", "displayName", "profilePicture", "name", "caloriesBurned"],
+    "SleepHistory": ["timestamp", "username", "displayName", "profilePicture", "bedTime", "wakeTime", "duration", "quality", "hygieneChecklist"],
+    "MoodHistory": ["timestamp", "username", "displayName", "profilePicture", "emoji", "stressLevel", "gratitude"],
+    "HabitHistory": ["timestamp", "username", "displayName", "profilePicture", "type", "amount", "isClean"],
+    "SocialHistory": ["timestamp", "username", "displayName", "profilePicture", "interaction", "feeling"],
+    "EvaluationHistory": ["timestamp", "username", "displayName", "role", "satisfaction_json", "outcome_json"]
   };
 
-  // วนลูปสร้าง/อัปเดตทีละชีต
   for (const [sheetName, columns] of Object.entries(schema)) {
     let sheet = ss.getSheetByName(sheetName);
-    
-    // 1. ถ้าไม่มีชีต ให้สร้างใหม่
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      Logger.log(`Created new sheet: ${sheetName}`);
-    } else {
-      Logger.log(`Found existing sheet: ${sheetName}`);
-    }
-
-    // 2. เขียนหัวคอลัมน์ทับแถวที่ 1 เสมอ
+    if (!sheet) { sheet = ss.insertSheet(sheetName); }
     const headerRange = sheet.getRange(1, 1, 1, columns.length);
     headerRange.setValues([columns]);
-    
-    // จัดรูปแบบหัวตาราง (ตัวหนา, จัดกึ่งกลาง, แช่แข็งแถวที่ 1)
     headerRange.setFontWeight("bold");
     headerRange.setHorizontalAlignment("center");
     sheet.setFrozenRows(1);
-    
-    Logger.log(`Updated headers for: ${sheetName}`);
   }
-
-  Logger.log("--- Setup Complete! All sheets are ready. ---");
 }
-
 // --- END OF Code.gs ---
+```
+
+### ขั้นตอนที่ 4: ตั้งค่า Trigger (สำคัญมาก)
+
+เพื่อให้ระบบส่งข้อความแจ้งเตือนตอนเช้า คุณต้องตั้งค่าตัวกระตุ้นด้วยตนเอง:
+
+1.  ในหน้า Apps Script (ที่เพิ่งวางโค้ดไป) ให้มองหาเมนูรูปนาฬิกา (Triggers) ทางด้านซ้าย
+2.  คลิกปุ่ม **+ Add Trigger (เพิ่มทริกเกอร์)** มุมขวาล่าง
+3.  ตั้งค่าดังนี้:
+    *   Choose which function to run: **`triggerDailyReminders`**
+    *   Choose which deployment should run: **Head**
+    *   Select event source: **Time-driven (ตามเวลา)**
+    *   Select type of time based trigger: **Day timer (ตัวจับเวลารายวัน)**
+    *   Select time of day: **07:00 to 08:00** (หรือเวลาที่คุณต้องการ)
+4.  กด **Save** (ระบบอาจขอสิทธิ์เข้าถึง ให้กดอนุญาต)
+
+**เสร็จสิ้น!** ระบบจะส่งข้อความแจ้งเตือนหาผู้ใช้ที่มี LINE ID ในฐานข้อมูลทุกเช้า
