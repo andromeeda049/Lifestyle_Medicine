@@ -1,6 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { NutrientInfo, BMIHistoryEntry, TDEEHistoryEntry, MealPlan, PlannerResults, LocalFoodSuggestion, UserProfile, SpecialistId } from '../types';
+import { NutrientInfo, BMIHistoryEntry, TDEEHistoryEntry, MealPlan, PlannerResults, LocalFoodSuggestion, UserProfile, SpecialistId, SleepEntry, MoodEntry, FoodHistoryEntry } from '../types';
 import { SPECIALIST_TEAM } from "../constants";
+
+// ... (Existing foodAnalysisSchema and related functions keep unchanged) ...
 
 const foodAnalysisSchema = {
   type: Type.OBJECT,
@@ -238,10 +241,15 @@ export const generateMealPlan = async (
   diet: string,
   healthCondition: string,
   lifestyleGoal: string,
+  foodHistory: FoodHistoryEntry[], // Added Context
   apiKey: string
 ): Promise<MealPlan> => {
   if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
   const ai = new GoogleGenAI({ apiKey });
+
+  // Process history to find preferences
+  const pastMeals = foodHistory.slice(0, 10).map(f => f.analysis.description).join(", ");
+
   const prompt = `
 You are a Lifestyle Medicine Planner. Create a 7-day "Local Ingredient" Meal & Activity Plan.
 **User Context:**
@@ -250,6 +258,8 @@ You are a Lifestyle Medicine Planner. Create a 7-day "Local Ingredient" Meal & A
 - Diet: ${diet}
 - **Health Condition:** ${healthCondition} (Crucial! Adjust food/activity to be safe)
 - **Lifestyle Goal:** ${lifestyleGoal} (e.g., Better Sleep -> add calming foods/activities)
+- **Eating Preferences (Inferred from History):** The user previously ate: [${pastMeals}]. 
+  *Analyze this*: If they eat a lot of specific meat/veg, include similar (but healthy) options. If they eat unhealthy stuff, suggest healthier alternatives that taste similar.
 
 **Requirements:**
 1. Meals: Use local ingredients, easy to cook.
@@ -280,3 +290,130 @@ You are a Lifestyle Medicine Planner. Create a 7-day "Local Ingredient" Meal & A
     throw new Error('ไม่สามารถสร้างแผนอาหารได้ กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง');
   }
 };
+
+// --- Proactive AI Service ---
+
+export const generateProactiveInsight = async (
+    data: {
+        bmiHistory: BMIHistoryEntry[];
+        sleepHistory: SleepEntry[];
+        moodHistory: MoodEntry[];
+        foodHistory: FoodHistoryEntry[];
+        userName: string;
+    },
+    apiKey: string
+): Promise<{ title: string; message: string; type: 'warning' | 'info' | 'success' }> => {
+    if (!apiKey) return { title: "พร้อมดูแลคุณ", message: "กรุณาตั้งค่า API Key เพื่อรับคำแนะนำเชิงรุก", type: 'info' };
+    
+    const ai = new GoogleGenAI({ apiKey });
+    
+    // Simplistic trend analysis for prompt context
+    const recentBmi = data.bmiHistory.slice(0, 3);
+    const weightTrend = recentBmi.length >= 2 && recentBmi[0].value > recentBmi[1].value ? "Increasing" : "Stable/Decreasing";
+    
+    const recentSleep = data.sleepHistory.slice(0, 3);
+    const avgSleep = recentSleep.length > 0 ? recentSleep.reduce((a,b) => a + b.duration, 0) / recentSleep.length : 7;
+    
+    const recentMood = data.moodHistory.slice(0, 3);
+    const highStress = recentMood.some(m => m.stressLevel >= 7);
+
+    const prompt = `
+    Act as a "Proactive Health Guardian" for ${data.userName}.
+    Analyze recent trends:
+    - Weight Trend: ${weightTrend}
+    - Recent Sleep Avg: ${avgSleep.toFixed(1)} hrs
+    - Recent Stress: ${highStress ? "High detected" : "Normal"}
+    
+    Task: Generate ONE proactive, short, and caring insight/warning (Thai language).
+    Logic:
+    - If weight increasing -> Warn about dinner/sugar today.
+    - If sleep < 6 -> Suggest cutting caffeine/early bed.
+    - If stress high -> Suggest a specific breathing technique.
+    - If all good -> Compliment consistency.
+    
+    Return JSON: { "title": "...", "message": "...", "type": "warning" | "info" | "success" }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        message: { type: Type.STRING },
+                        type: { type: Type.STRING, enum: ['warning', 'info', 'success'] }
+                    }
+                }
+            }
+        });
+        return JSON.parse(response.text.trim());
+    } catch (error) {
+        console.error("Proactive Insight Error:", error);
+        return { title: "สวัสดีครับ", message: "อย่าลืมดูแลสุขภาพวันนี้นะครับ", type: "info" };
+    }
+}
+
+// --- Health Data Sync via OCR ---
+
+export const extractHealthDataFromImage = async (
+    base64Image: string, 
+    mimeType: string, 
+    type: 'activity' | 'sleep',
+    apiKey: string
+): Promise<any> => {
+    if (!apiKey) throw new Error('กรุณาตั้งค่า API Key');
+    const ai = new GoogleGenAI({ apiKey });
+
+    let prompt = "";
+    let schema: any = {};
+
+    if (type === 'activity') {
+        prompt = "Extract health data from this screenshot (e.g. Apple Health, Garmin, Mi Fit). Look for Steps, Calories Burned (Active Energy), and Distance. Ignore irrelevant text. Return JSON.";
+        schema = {
+            type: Type.OBJECT,
+            properties: {
+                steps: { type: Type.NUMBER, description: "Total steps count" },
+                calories: { type: Type.NUMBER, description: "Active calories burned (kcal)" },
+                distance: { type: Type.NUMBER, description: "Distance in km" }
+            },
+            required: []
+        };
+    } else {
+        prompt = "Extract sleep data from this screenshot. Look for Sleep Duration (Total time asleep), Bed Time, and Wake Time. Return JSON.";
+        schema = {
+            type: Type.OBJECT,
+            properties: {
+                durationHours: { type: Type.NUMBER, description: "Total sleep hours (e.g. 7.5)" },
+                bedTime: { type: Type.STRING, description: "Bed time in HH:mm format" },
+                wakeTime: { type: Type.STRING, description: "Wake time in HH:mm format" }
+            },
+            required: []
+        };
+    }
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [
+                {
+                    parts: [
+                        { inlineData: { data: base64Image, mimeType: mimeType } },
+                        { text: prompt }
+                    ]
+                }
+            ],
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: schema
+            }
+        });
+        return JSON.parse(response.text.trim());
+    } catch (error) {
+        console.error("Health OCR Error:", error);
+        throw new Error("ไม่สามารถอ่านข้อมูลจากภาพได้");
+    }
+}

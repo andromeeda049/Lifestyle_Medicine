@@ -7,6 +7,7 @@ import { registerUser, verifyUser, socialAuth } from '../services/googleSheetSer
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import liff from '@line/liff';
+import { ORGANIZATIONS, ADMIN_CREDENTIALS } from '../constants';
 
 // !!! สำคัญ: แทนที่ด้วย LIFF ID ของคุณที่ได้จาก LINE Developers Console !!!
 const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
@@ -33,6 +34,7 @@ const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
             displayName: displayName.trim(),
             profilePicture: '👤',
             role: 'guest',
+            organization: 'general'
         });
     };
 
@@ -76,6 +78,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [displayName, setDisplayName] = useState('');
+    const [selectedOrg, setSelectedOrg] = useState(ORGANIZATIONS[0].id); // New state for organization
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [isLiffReady, setIsLiffReady] = useState(false);
@@ -246,7 +249,8 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 profilePicture: getRandomEmoji(),
                 role: 'user',
                 email: email,
-                authProvider: 'email'
+                authProvider: 'email',
+                organization: selectedOrg // Add selected org
             };
 
             const result = await registerUser(scriptUrl, newUser, password);
@@ -387,17 +391,33 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         />
                     </div>
                     {authMode === 'register' && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ยืนยันรหัสผ่าน</label>
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
-                                placeholder="********"
-                                required={authMode === 'register'}
-                            />
-                        </div>
+                        <>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ยืนยันรหัสผ่าน</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-teal-500"
+                                    placeholder="********"
+                                    required={authMode === 'register'}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-teal-700 dark:text-teal-400 mb-1">สังกัด/หน่วยงาน (Organization)</label>
+                                <select 
+                                    value={selectedOrg}
+                                    onChange={(e) => setSelectedOrg(e.target.value)}
+                                    className="w-full px-4 py-2 border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-900/20 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-gray-200"
+                                >
+                                    {ORGANIZATIONS.map(org => (
+                                        <option key={org.id} value={org.id}>{org.name}</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">*เลือกหน่วยงานเพื่อให้ข้อมูลสุขภาพของคุณถูกรวบรวมได้ถูกต้อง</p>
+                            </div>
+                        </>
                     )}
 
                     {error && (
@@ -432,18 +452,26 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 const AdminLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [adminKey, setAdminKey] = useState('');
     const [error, setError] = useState('');
-    // NOTE: This should match the key in Code.gs
-    const SUPER_ADMIN_KEY = "ADMIN1234!";
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (adminKey === SUPER_ADMIN_KEY) {
+        
+        // Check if key is Super Admin (mapped to 'all') or Org Admin (mapped to specific ID)
+        const assignedOrg = ADMIN_CREDENTIALS[adminKey];
+
+        if (assignedOrg) {
             setError('');
+            const isSuperAdmin = assignedOrg === 'all';
+            const orgName = isSuperAdmin 
+                ? 'Super Admin' 
+                : (ORGANIZATIONS.find(o => o.id === assignedOrg)?.name || 'Admin');
+
             onLogin({
                 username: `admin_${Date.now()}`,
-                displayName: 'ผู้ดูแลระบบ',
+                displayName: `ผู้ดูแล: ${orgName}`,
                 profilePicture: '👑',
                 role: 'admin',
+                organization: assignedOrg // 'all' or specific ID
             });
         } else {
             setError('Admin Key ไม่ถูกต้อง');
@@ -457,7 +485,7 @@ const AdminLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
             </div>
             <div>
                 <label htmlFor="adminKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
-                   Admin Key
+                   Admin Key (รหัสหน่วยงาน)
                 </label>
                 <input
                     type="password"

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { InformationCircleIcon, BookOpenIcon, ClipboardListIcon, CameraIcon, SparklesIcon, HeartIcon, ScaleIcon, FireIcon, BeakerIcon, BoltIcon } from './icons';
 
@@ -64,7 +65,7 @@ const AboutApp: React.FC = () => {
                                 { icon: '💪', title: 'การเคลื่อนไหว', desc: 'Active Living' },
                                 { icon: '😴', title: 'การนอนหลับ', desc: 'Restorative Sleep' },
                                 { icon: '🧠', title: 'ความเครียด', desc: 'Stress Management' },
-                                { icon: '🚫', title: 'เลี่ยงสารเสี่ยง', desc: 'No Smoking/Alcohol' },
+                                { icon: '🚫', title: 'การหลีกเลี่ยงสารเสพติดและพฤติกรรมเสี่ยง', desc: 'No Smoking/Alcohol' },
                                 { icon: '🤝', title: 'สังคม', desc: 'Positive Connection' }
                             ].map((item, idx) => (
                                 <div key={idx} className="flex flex-col items-center p-4 bg-white dark:bg-gray-700 rounded-xl shadow-sm text-center border border-gray-100 dark:border-gray-600">

@@ -20,9 +20,13 @@ import WellnessCheckin from './components/WellnessCheckin';
 import GamificationRules from './components/GamificationRules';
 import AboutApp from './components/AboutApp';
 import EvaluationForm from './components/EvaluationForm';
+import HealthLiteracyQuiz from './components/HealthLiteracyQuiz';
+import PDPAModal from './components/PDPAModal';
+import SOSModal from './components/SOSModal';
+import Community from './components/Community';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User, WaterHistoryEntry } from './types';
-import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon } from './components/icons';
+import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon, UserGroupIcon, PhoneIcon } from './components/icons';
 import { sendMissionCompleteNotification, saveDataToSheet } from './services/googleSheetService';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import useLocalStorage from './hooks/useLocalStorage';
@@ -32,12 +36,30 @@ import { XP_VALUES } from './constants';
 // ไปที่ console.cloud.google.com -> APIs & Services -> Credentials -> Create OAuth Client ID
 const GOOGLE_CLIENT_ID = "968529250528-sp2uu4uu05peu6tvc2frpug7tfq3s5dg.apps.googleusercontent.com";
 
+const SOSButton: React.FC = () => {
+    const { openSOS } = useContext(AppContext);
+    return (
+        <button
+            onClick={openSOS}
+            className="fixed bottom-24 right-4 z-40 bg-red-600 hover:bg-red-700 text-white p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 animate-pulse"
+            aria-label="SOS Emergency"
+        >
+            <PhoneIcon className="w-6 h-6" />
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
+        </button>
+    );
+};
+
 const AppContent: React.FC = () => {
-  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP } = useContext(AppContext);
+  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP, isSOSOpen, closeSOS } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false); // State for Quick Action Modal
+  const [showPDPA, setShowPDPA] = useState(false);
   
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -45,6 +67,32 @@ const AppContent: React.FC = () => {
   // Track if we've already notified the backend today
   const [lastMissionCompleteDate, setLastMissionCompleteDate] = useLocalStorage<string>('lastMissionCompleteDate', '');
   
+  // Check PDPA Status on Load
+  useEffect(() => {
+      if (currentUser && currentUser.role !== 'guest' && currentUser.role !== 'admin') {
+          // If profile loaded but PDPA not accepted yet
+          if (userProfile && !userProfile.pdpaAccepted) {
+              setShowPDPA(true);
+          }
+      }
+  }, [currentUser, userProfile]);
+
+  const handlePDPAAccept = () => {
+      if (!currentUser) return;
+      
+      const updatedProfile = { 
+          ...userProfile, 
+          pdpaAccepted: true, 
+          pdpaAcceptedDate: new Date().toISOString() 
+      };
+      
+      setUserProfile(updatedProfile, { 
+          displayName: currentUser.displayName, 
+          profilePicture: currentUser.profilePicture 
+      });
+      setShowPDPA(false);
+  };
+
    useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
@@ -78,6 +126,8 @@ const AppContent: React.FC = () => {
         return <UserProfile />;
       case 'dashboard':
         return <Dashboard />;
+      case 'community':
+        return <Community />;
       case 'assessment':
         return <LifestyleAssessment />;
       case 'planner':
@@ -106,6 +156,8 @@ const AppContent: React.FC = () => {
         return <AboutApp />;
       case 'evaluation':
         return <EvaluationForm />;
+      case 'quiz':
+        return <HealthLiteracyQuiz />;
       case 'settings':
         return <Settings />;
       case 'adminDashboard':
@@ -119,6 +171,7 @@ const AppContent: React.FC = () => {
     home: 'หน้าแรก',
     profile: 'ข้อมูลส่วนตัว',
     dashboard: 'แดชบอร์ดสุขภาพ',
+    community: 'ชุมชนคนรักสุขภาพ',
     assessment: 'ประเมิน 6 เสาหลัก',
     planner: 'แผนไลฟ์สไตล์',
     bmi: 'เครื่องคำนวณ BMI',
@@ -133,15 +186,17 @@ const AppContent: React.FC = () => {
     gamificationRules: 'กติกาการสะสมแต้ม',
     about: 'เกี่ยวกับนวัตกรรม',
     evaluation: 'ประเมินผลการใช้งาน',
+    quiz: 'แบบทดสอบความรอบรู้ (HL Quiz)',
     settings: 'ตั้งค่า',
-    adminDashboard: 'จัดการผู้ใช้',
+    adminDashboard: 'จัดการหน่วยงาน (Admin)',
   };
   
   const NavLink: React.FC<{
     view: AppView;
     label: string;
     icon: React.ReactNode;
-  }> = ({ view, label, icon }) => {
+    isSpecial?: boolean;
+  }> = ({ view, label, icon, isSpecial }) => {
     const isActive = activeView === view;
     return (
       <button
@@ -149,7 +204,9 @@ const AppContent: React.FC = () => {
         className={`flex items-center w-full p-3 my-1 rounded-lg font-semibold text-left transition-colors duration-200 ${
           isActive
             ? 'bg-teal-500 text-white shadow-md'
-            : 'text-gray-600 dark:text-gray-300 hover:bg-teal-100 dark:hover:bg-gray-700 hover:text-teal-800 dark:hover:text-white'
+            : isSpecial 
+                ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-teal-100 dark:hover:bg-gray-700 hover:text-teal-800 dark:hover:text-white'
         }`}
       >
         <span className="mr-4">{icon}</span>
@@ -173,11 +230,23 @@ const AppContent: React.FC = () => {
       <nav className="p-4 h-[calc(100%-65px)] flex flex-col justify-between overflow-y-auto">
         <div>
           <NavLink view="home" label="หน้าแรก" icon={<HomeIcon className="w-6 h-6" />} />
+          
+          {currentUser?.role === 'admin' && (
+              <div className="mb-4 mt-2">
+                  <p className="text-xs font-bold text-red-500 dark:text-red-400 uppercase tracking-wider mb-2 px-3">
+                      Administrator Zone
+                  </p>
+                  <NavLink view="adminDashboard" label="แดชบอร์ดหน่วยงาน" icon={<UserGroupIcon className="w-6 h-6" />} isSpecial={true} />
+              </div>
+          )}
+
           {currentUser?.role === 'user' && (
             <>
               <NavLink view="profile" label="ข้อมูลส่วนตัว" icon={<UserCircleIcon className="w-6 h-6" />} />
               <NavLink view="dashboard" label="แดชบอร์ดสุขภาพ" icon={<SquaresIcon className="w-6 h-6" />} />
+              <NavLink view="community" label="ชุมชนสุขภาพ" icon={<UserGroupIcon className="w-6 h-6" />} />
               <NavLink view="assessment" label="ประเมิน 6 เสาหลัก" icon={<ClipboardDocumentCheckIcon className="w-6 h-6" />} />
+              <NavLink view="quiz" label="แบบทดสอบความรอบรู้ (HL)" icon={<StarIcon className="w-6 h-6" />} />
               <NavLink view="wellness" label="เช็คอินสุขภาพประจำวัน" icon={<HeartIcon className="w-6 h-6" />} />
             </>
           )}
@@ -200,12 +269,6 @@ const AppContent: React.FC = () => {
           
           <div className="border-t my-4 border-gray-200 dark:border-gray-700"></div>
           <NavLink view="settings" label="ตั้งค่า" icon={<CogIcon className="w-6 h-6" />} />
-
-          {currentUser?.role === 'admin' && (
-              <>
-                <NavLink view="adminDashboard" label="จัดการผู้ใช้ (Admin)" icon={<UserCircleIcon className="w-6 h-6" />} />
-              </>
-          )}
         </div>
         <div className="p-2">
             <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 font-semibold transition-colors">
@@ -459,6 +522,13 @@ const AppContent: React.FC = () => {
           aria-hidden="true"
         ></div>
       )}
+      
+      {/* PDPA Modal */}
+      {showPDPA && <PDPAModal onAccept={handlePDPAAccept} />}
+      
+      {/* SOS Modal & Button */}
+      {currentUser?.role === 'user' && <SOSButton />}
+      {isSOSOpen && <SOSModal onClose={closeSOS} />}
 
       <div className="flex flex-col flex-1 pb-24">
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm">

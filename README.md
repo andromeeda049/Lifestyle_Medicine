@@ -13,7 +13,7 @@
 2.  **สร้างชีตย่อย (Tabs)** ทั้งหมด 14 ชีต และตั้งชื่อให้ตรงตามนี้เป๊ะๆ
 3.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ใน **แถวที่ 1 (Row 1)** ดังนี้:
 
-    *   **ชีตที่ 1: `Profile`** (A1-T1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`, `receiveDailyReminders`
+    *   **ชีตที่ 1: `Profile`** (A1-W1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`, `receiveDailyReminders`, **`researchId`, `pdpaAccepted`, `pdpaAcceptedDate`**
     *   **ชีตที่ 2: `BMIHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `bmi`, `category`
     *   **ชีตที่ 3: `TDEEHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `tdee`, `bmr`
     *   **ชีตที่ 4: `FoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `description`, `calories`, `analysis_json`
@@ -33,11 +33,11 @@
 
 1.  ใน Google Sheet ของคุณ ไปที่เมนู `ส่วนขยาย (Extensions)` > `Apps Script`
 
-### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (รองรับการทดสอบ LINE)
+### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (รองรับ PDPA, Leaderboard, และ Research ID)
 
 1.  ลบโค้ดที่มีอยู่ทั้งหมดในไฟล์ `Code.gs`
 2.  คัดลอกโค้ด **ทั้งหมด** ด้านล่างนี้ไปวางแทนที่:
-3.  **สำคัญ:** ระบบได้ใส่ Token ของคุณให้แล้ว
+3.  **สำคัญ:** อย่าลืมใส่ Token ของคุณที่บรรทัดบนสุด
 4.  กด **Save** และ **Deploy** > New Deployment > Type: Web app > Who has access: **Anyone**
 
 ```javascript
@@ -119,6 +119,7 @@ function doPost(e) {
     if (action === 'verifyUser') return handleVerifyUser(request.email, request.password);
     if (action === 'register') return handleRegisterUser(user, request.password);
     if (action === 'socialAuth') return handleSocialAuth(payload);
+    if (action === 'getLeaderboard') return handleGetLeaderboard();
     
     if (!user || !user.username) throw new Error("User information is missing.");
     
@@ -133,6 +134,39 @@ function doPost(e) {
   } catch (error) {
     return createErrorResponse(error);
   }
+}
+
+function handleGetLeaderboard() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
+    if (!sheet) return createErrorResponse({ message: "Profile sheet not found" });
+    
+    // Get all profiles (skip header)
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+    
+    // Map to safe public data (only username, displayName, XP, level, badges, picture)
+    // Avoid sensitive info like email, password, health conditions
+    const users = data.map(row => {
+        let badges = [];
+        try { badges = JSON.parse(row[14]); } catch(e) {}
+        
+        return {
+            username: row[1],
+            displayName: row[2],
+            profilePicture: row[3],
+            role: row[11],
+            xp: Number(row[12] || 0),
+            level: Number(row[13] || 1),
+            badges: badges
+        };
+    });
+    
+    // Filter only role 'user', sort by XP desc, take top 20
+    const topUsers = users
+        .filter(u => u.role === 'user')
+        .sort((a, b) => b.xp - a.xp)
+        .slice(0, 20);
+        
+    return createSuccessResponse(topUsers);
 }
 
 // --- FLEX MESSAGE GENERATORS ---
@@ -355,7 +389,8 @@ function handleSocialAuth(userInfo) {
         'social_login', 
         '', 
         userInfo.userId || '',
-        true 
+        true,
+        '', '', '' // New Columns: ResearchID, PDPA, PDPA_Date
     ];
     sheet.appendRow(newRow);
 
@@ -389,7 +424,8 @@ function handleRegisterUser(user, password) {
         password || '', 
         '', 
         '',
-        true 
+        true,
+        '', '', '' // New Columns: ResearchID, PDPA, PDPA_Date
     ];
     
     sheet.appendRow(newRow);
@@ -451,7 +487,10 @@ function handleSave(type, payload, user) {
           user.email || '', '',
           payload.healthCondition || '',
           existingLineId,
-          payload.receiveDailyReminders 
+          payload.receiveDailyReminders,
+          payload.researchId || '', // Column U
+          payload.pdpaAccepted,     // Column V
+          payload.pdpaAcceptedDate  // Column W
       ];
       break;
     case 'bmiHistory': newRow = [ ...commonPrefix, item.value, item.category ]; break;
@@ -498,7 +537,10 @@ function getLatestProfileForUser(username) {
   return { 
       gender: lastEntry[4], age: lastEntry[5], weight: lastEntry[6], height: lastEntry[7], waist: lastEntry[8], hip: lastEntry[9], activityLevel: lastEntry[10],
       xp: lastEntry[12], level: lastEntry[13], badges: lastEntry[14], email: lastEntry[15], healthCondition: lastEntry[17], lineUserId: lastEntry[18],
-      receiveDailyReminders: String(lastEntry[19]).toLowerCase() !== 'false'
+      receiveDailyReminders: String(lastEntry[19]).toLowerCase() !== 'false',
+      researchId: lastEntry[20], 
+      pdpaAccepted: lastEntry[21],
+      pdpaAcceptedDate: lastEntry[22]
   };
 }
 
@@ -565,7 +607,7 @@ function createErrorResponse(error) {
 function setupSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const schema = {
-    "Profile": ["timestamp", "username", "displayName", "profilePicture", "gender", "age", "weight", "height", "waist", "hip", "activityLevel", "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId", "receiveDailyReminders"],
+    "Profile": ["timestamp", "username", "displayName", "profilePicture", "gender", "age", "weight", "height", "waist", "hip", "activityLevel", "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId", "receiveDailyReminders", "researchId", "pdpaAccepted", "pdpaAcceptedDate"],
     "BMIHistory": ["timestamp", "username", "displayName", "profilePicture", "bmi", "category"],
     "TDEEHistory": ["timestamp", "username", "displayName", "profilePicture", "tdee", "bmr"],
     "FoodHistory": ["timestamp", "username", "displayName", "profilePicture", "description", "calories", "analysis_json"],

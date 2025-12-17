@@ -1,7 +1,7 @@
 
 import React, { createContext, ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, User, AppContextType, Achievement, SatisfactionData, OutcomeData } from '../types';
+import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, QuizEntry, User, AppContextType, Achievement, SatisfactionData, OutcomeData } from '../types';
 import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, LEVEL_THRESHOLDS, ACHIEVEMENTS } from '../constants';
 import { fetchAllDataFromSheet, saveDataToSheet, clearHistoryInSheet } from '../services/googleSheetService';
 
@@ -21,7 +21,10 @@ const defaultProfile: UserProfile = {
   xp: 0,
   level: 1,
   badges: ['novice'], // Default badge
-  receiveDailyReminders: true // Default to true
+  receiveDailyReminders: true, // Default to true
+  organization: 'general', // Default org
+  streak: 0,
+  lastLogDate: ''
 };
 
 const getInitialTheme = (): Theme => {
@@ -55,8 +58,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [habitHistory, _setHabitHistory] = useLocalStorage<HabitEntry[]>('habitHistory', []);
   const [socialHistory, _setSocialHistory] = useLocalStorage<SocialEntry[]>('socialHistory', []);
 
-  // Evaluation State
+  // Evaluation & Quiz State
   const [evaluationHistory, _setEvaluationHistory] = useLocalStorage<EvaluationEntry[]>('evaluationHistory', []);
+  const [quizHistory, _setQuizHistory] = useLocalStorage<QuizEntry[]>('quizHistory', []);
 
   const [waterGoal, setWaterGoal] = useLocalStorage<number>('waterGoal', 2000);
   const [latestFoodAnalysis, setLatestFoodAnalysis] = useLocalStorage<NutrientInfo | null>('latestFoodAnalysis', null);
@@ -67,6 +71,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // Gamification State
   const [showLevelUp, setShowLevelUp] = useState<{ type: 'level' | 'badge', data: any } | null>(null);
+
+  // SOS & Tele-Support State
+  const [isSOSOpen, setIsSOSOpen] = useState(false);
+  const openSOS = () => setIsSOSOpen(true);
+  const closeSOS = () => setIsSOSOpen(false);
 
   // Theme management
   useEffect(() => {
@@ -103,6 +112,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     _setHabitHistory([]);
     _setSocialHistory([]);
     _setEvaluationHistory([]);
+    _setQuizHistory([]);
     setLatestFoodAnalysis(null);
     setActiveView('home');
 
@@ -143,6 +153,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           _setHabitHistory(fetchedData.habitHistory);
           _setSocialHistory(fetchedData.socialHistory);
           _setEvaluationHistory(fetchedData.evaluationHistory);
+          _setQuizHistory(fetchedData.quizHistory || []);
         }
         setIsDataSynced(true);
       }
@@ -151,9 +162,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [scriptUrl, currentUser]);
 
   // --- Wrapper Functions for State Management ---
-  // Note: We now use useLocalStorage directly for setters to leverage the fixed functional updates.
-  // Syncing to Google Sheets is handled by useEffects below to avoid race conditions.
-
   const setUserProfile = useCallback((profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => {
     if (!currentUser) return;
     const updatedUser = {
@@ -164,8 +172,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentUser(updatedUser);
     _setUserProfile(profileData);
     
-    // Profile is usually a single update, safe to sync directly or via effect. 
-    // Keeping direct for profile as it's not an array append operation.
     if (scriptUrl) {
         saveDataToSheet(scriptUrl, 'profile', profileData, updatedUser);
     }
@@ -184,7 +190,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setSocialHistory = _setSocialHistory;
 
   // --- Sync Effects (Save to Sheets when state changes) ---
-  // Using a helper to prevent saving on initial load (when isDataSynced is false)
   const useSyncToSheet = (data: any, type: string) => {
       const isFirstRun = useRef(true);
       useEffect(() => {
@@ -195,7 +200,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (isDataSynced && scriptUrl && currentUser && currentUser.role !== 'admin' && data.length > 0) {
               saveDataToSheet(scriptUrl, type, data, currentUser);
           }
-      }, [data, type]); // Dependencies: data updates trigger save
+      }, [data, type]);
   };
 
   useSyncToSheet(bmiHistory, 'bmiHistory');
@@ -209,6 +214,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useSyncToSheet(moodHistory, 'moodHistory');
   useSyncToSheet(habitHistory, 'habitHistory');
   useSyncToSheet(socialHistory, 'socialHistory');
+  useSyncToSheet(quizHistory, 'quizHistory');
   
   // Evaluation Logic
   const saveEvaluation = useCallback((satisfaction: SatisfactionData, outcomes: OutcomeData) => {
@@ -220,11 +226,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           outcomes
       };
       _setEvaluationHistory(prev => [newEntry, ...prev]);
-      // Explicit save for evaluation as it's a one-off event usually
       if (scriptUrl && currentUser.role !== 'admin') {
           saveDataToSheet(scriptUrl, 'evaluationHistory', [newEntry], currentUser);
       }
   }, [currentUser, scriptUrl, _setEvaluationHistory]);
+
+  // Quiz Logic
+  const saveQuizResult = useCallback((score: number, total: number, correct: number) => {
+      if (!currentUser) return;
+      
+      const isPreTest = quizHistory.length === 0;
+      
+      const newEntry: QuizEntry = {
+          id: Date.now().toString(),
+          date: new Date().toISOString(),
+          score,
+          totalQuestions: total,
+          correctAnswers: correct,
+          type: isPreTest ? 'pre-test' : 'post-test'
+      };
+      
+      _setQuizHistory(prev => [...prev, newEntry]); // Append to keep chronological order
+      
+      // Explicit sync for quiz
+      if (scriptUrl && currentUser.role !== 'admin') {
+          saveDataToSheet(scriptUrl, 'quizHistory', [newEntry], currentUser);
+      }
+  }, [currentUser, scriptUrl, _setQuizHistory, quizHistory]);
 
   // --- Clear Functions ---
   const clearHistory = useCallback((type: string, setter: any) => {
@@ -245,45 +273,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       _setMoodHistory([]);
       _setHabitHistory([]);
       _setSocialHistory([]);
-      // Not clearing sheet for all wellness at once to avoid complexity, user can clear individually if needed or we add a bulk clear endpoint later
   }, [currentUser, _setSleepHistory, _setMoodHistory, _setHabitHistory, _setSocialHistory]);
 
 
-  // --- Gamification Logic ---
+  // --- Gamification Logic & Streak System ---
   const gainXP = useCallback((amount: number) => {
     if (!currentUser || currentUser.role === 'guest') return;
 
-    // Use functional update to ensure we are working with the absolute latest profile state
     _setUserProfile(currentProfile => {
         let currentXP = currentProfile.xp || 0;
         let currentLevel = currentProfile.level || 1;
         let currentBadges = currentProfile.badges || ['novice'];
+        let currentStreak = currentProfile.streak || 0;
+        let lastLog = currentProfile.lastLogDate;
+
+        const todayStr = new Date().toDateString();
+        
+        if (lastLog !== todayStr) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toDateString();
+
+            if (lastLog === yesterdayStr) {
+                currentStreak += 1;
+            } else {
+                currentStreak = 1;
+            }
+        }
         
         const newXP = currentXP + amount;
         let newLevel = currentLevel;
         let leveledUp = false;
         
-        // Check Level Up
         while (newLevel < LEVEL_THRESHOLDS.length - 1 && newXP >= LEVEL_THRESHOLDS[newLevel]) {
             newLevel++;
             leveledUp = true;
         }
 
-        // Check Achievements (Note: This relies on history states. 
-        // In a perfect world we'd pass history into this calc, but reading from closure is generally ok for gamification non-critical consistency)
+        // Check Achievements
         const badgesToUnlock = [];
         if (newLevel >= 5 && !currentBadges.includes('level5')) badgesToUnlock.push('level5');
         if (newLevel >= 10 && !currentBadges.includes('master')) badgesToUnlock.push('master');
         
-        // Simple counters based on current session/loaded history to avoid heavy recalculation
-        if (!currentBadges.includes('explorer') && (foodHistory.length) >= 4) badgesToUnlock.push('explorer'); // +1 current
+        if (!currentBadges.includes('explorer') && (foodHistory.length) >= 4) badgesToUnlock.push('explorer');
         if (!currentBadges.includes('hydrated') && (waterHistory.length) >= 4) badgesToUnlock.push('hydrated');
         if (!currentBadges.includes('active') && (activityHistory.length) >= 4) badgesToUnlock.push('active');
         if (!currentBadges.includes('mindful') && (moodHistory.length) >= 4) badgesToUnlock.push('mindful');
+        
+        // Quiz achievement check happens here if we want, but usually on quiz completion
+        if (!currentBadges.includes('scholar') && quizHistory.some(q => q.score >= 80)) badgesToUnlock.push('scholar');
 
         const newBadges = [...currentBadges, ...badgesToUnlock];
         
-        // Trigger Modals (Side Effect)
         if (leveledUp) {
             setShowLevelUp({ type: 'level', data: newLevel });
         } else if (badgesToUnlock.length > 0) {
@@ -291,9 +332,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (badgeData) setShowLevelUp({ type: 'badge', data: badgeData });
         }
 
-        const updatedProfile = { ...currentProfile, xp: newXP, level: newLevel, badges: newBadges };
+        const updatedProfile = { 
+            ...currentProfile, 
+            xp: newXP, 
+            level: newLevel, 
+            badges: newBadges,
+            streak: currentStreak,
+            lastLogDate: todayStr
+        };
         
-        // Sync profile to sheet
         if (scriptUrl && currentUser.role !== 'admin') {
              saveDataToSheet(scriptUrl, 'profile', updatedProfile, currentUser);
         }
@@ -301,7 +348,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return updatedProfile;
     });
 
-  }, [currentUser, foodHistory, waterHistory, activityHistory, moodHistory, scriptUrl, _setUserProfile]);
+  }, [currentUser, foodHistory, waterHistory, activityHistory, moodHistory, quizHistory, scriptUrl, _setUserProfile]);
 
   const closeLevelUpModal = () => setShowLevelUp(null);
 
@@ -322,6 +369,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         habitHistory, setHabitHistory,
         socialHistory, setSocialHistory,
         evaluationHistory, saveEvaluation,
+        quizHistory, saveQuizResult,
         waterGoal, setWaterGoal,
         latestFoodAnalysis, setLatestFoodAnalysis,
         userProfile, setUserProfile,
@@ -337,7 +385,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clearWellnessHistory,
         gainXP,
         showLevelUp,
-        closeLevelUpModal
+        closeLevelUpModal,
+        isSOSOpen, openSOS, closeSOS
     }}>
       {children}
     </AppContext.Provider>

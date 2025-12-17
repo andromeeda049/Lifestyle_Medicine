@@ -1,7 +1,7 @@
 
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
-import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, ACHIEVEMENTS } from '../constants';
+import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, ACHIEVEMENTS, ORGANIZATIONS } from '../constants';
 import { UserProfile as UserProfileType } from '../types';
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
@@ -62,7 +62,10 @@ const UserProfile: React.FC = () => {
             pillarScores: userProfile.pillarScores,
             xp: userProfile.xp,
             level: userProfile.level,
-            badges: userProfile.badges
+            badges: userProfile.badges,
+            // Keep PDPA status if not editing
+            pdpaAccepted: userProfile.pdpaAccepted,
+            pdpaAcceptedDate: userProfile.pdpaAcceptedDate
         };
         setUserProfile(updatedProfile, { displayName, profilePicture });
         setSaved(true);
@@ -121,6 +124,37 @@ const UserProfile: React.FC = () => {
                                 className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 focus:ring-2 focus:ring-green-500"
                                 placeholder="ชื่อของคุณ"
                             />
+                        </div>
+                        
+                        {/* Research ID Field - NEW */}
+                        <div>
+                            <label className="block text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">
+                                รหัสกลุ่มตัวอย่าง / รหัสพนักงาน (Research ID)
+                            </label>
+                            <input
+                                type="text"
+                                name="researchId"
+                                value={healthData.researchId || ''}
+                                onChange={handleHealthChange}
+                                className="w-full p-2 border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 rounded-md focus:ring-2 focus:ring-purple-500 text-gray-800 dark:text-gray-200"
+                                placeholder="เช่น STN-001 (ระบุตามที่ได้รับแจ้ง)"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">ใช้สำหรับการยืนยันตัวตนในโครงการวิจัยโดยไม่เปิดเผยชื่อ (Optional)</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-teal-600 dark:text-teal-400 mb-1">สังกัด/หน่วยงาน (Organization)</label>
+                            <select 
+                                name="organization" 
+                                value={healthData.organization || 'general'} 
+                                onChange={handleHealthChange} 
+                                className="w-full p-2 border border-teal-300 dark:border-teal-700 rounded-md bg-teal-50 dark:bg-teal-900/20 focus:ring-2 focus:ring-teal-500 text-gray-800 dark:text-gray-200"
+                            >
+                                {ORGANIZATIONS.map(org => (
+                                    <option key={org.id} value={org.id}>{org.name}</option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">กรุณาเลือกหน่วยงานให้ถูกต้องเพื่อให้ข้อมูลของคุณถูกส่งไปยังเจ้าหน้าที่ดูแลสุขภาพในพื้นที่</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">รูปโปรไฟล์</label>

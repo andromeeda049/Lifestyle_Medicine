@@ -1,5 +1,5 @@
 
-import { UserProfile, BMIHistoryEntry, TDEEHistoryEntry, FoodHistoryEntry, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, User } from '../types';
+import { UserProfile, BMIHistoryEntry, TDEEHistoryEntry, FoodHistoryEntry, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, QuizEntry, User } from '../types';
 
 interface AllData {
     profile: UserProfile | null;
@@ -15,6 +15,7 @@ interface AllData {
     habitHistory: HabitEntry[];
     socialHistory: SocialEntry[];
     evaluationHistory: EvaluationEntry[];
+    quizHistory: QuizEntry[]; // Added
 }
 
 export interface AllAdminData {
@@ -28,7 +29,40 @@ export interface AllAdminData {
     activityHistory: any[];
     loginLogs: any[];
     evaluationHistory: any[];
+    quizHistory: any[]; // Added
 }
+
+// Fetch Leaderboard (Public Safe Data)
+export const fetchLeaderboard = async (scriptUrl: string): Promise<any[]> => {
+    if (!scriptUrl) return [];
+    try {
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'getLeaderboard' }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            mode: 'cors',
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            return result.data;
+        }
+        // Fallback mock data if backend not updated yet
+        return [
+            { username: 'user1', displayName: 'พี่สมชาย รักสุขภาพ', xp: 5200, level: 5, badges: ['novice', 'active'], profilePicture: '🏃‍♂️' },
+            { username: 'user2', displayName: 'น้องน้ำใส', xp: 4800, level: 4, badges: ['hydrated'], profilePicture: '💧' },
+            { username: 'user3', displayName: 'คุณหมอใจดี', xp: 4500, level: 4, badges: ['scholar'], profilePicture: '🩺' },
+            { username: 'user4', displayName: 'ป้าสมศรี', xp: 3200, level: 3, badges: ['novice'], profilePicture: '👵' },
+            { username: 'user5', displayName: 'User123', xp: 1500, level: 2, badges: [], profilePicture: '👤' },
+        ];
+    } catch (error) {
+        console.warn("Leaderboard fetch failed, using fallback.");
+        return [
+            { username: 'user1', displayName: 'พี่สมชาย รักสุขภาพ', xp: 5200, level: 5, badges: ['novice', 'active'], profilePicture: '🏃‍♂️' },
+            { username: 'user2', displayName: 'น้องน้ำใส', xp: 4800, level: 4, badges: ['hydrated'], profilePicture: '💧' },
+            { username: 'user3', displayName: 'คุณหมอใจดี', xp: 4500, level: 4, badges: ['scholar'], profilePicture: '🩺' },
+        ];
+    }
+};
 
 // ดึงข้อมูลทั้งหมดจาก Google Sheet (สำหรับ User)
 export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Promise<AllData | null> => {
@@ -65,7 +99,11 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 lineUserId: String(data.profile.lineUserId || ''), // Fetch LineUserID
                 xp: Number(data.profile.xp || 0),
                 level: Number(data.profile.level || 1),
-                badges: parsedBadges
+                badges: parsedBadges,
+                organization: String(data.profile.organization || 'general'), // Parse Organization
+                researchId: String(data.profile.researchId || ''), // Fetch Research ID
+                pdpaAccepted: String(data.profile.pdpaAccepted).toLowerCase() === 'true', // Fetch PDPA Status
+                pdpaAcceptedDate: String(data.profile.pdpaAcceptedDate || '')
             } : null;
 
             // Helper sort function: Newest first
@@ -85,6 +123,7 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 habitHistory: (data.habitHistory || []).sort(sortByDateDesc),
                 socialHistory: (data.socialHistory || []).sort(sortByDateDesc),
                 evaluationHistory: (data.evaluationHistory || []).sort(sortByDateDesc),
+                quizHistory: (data.quizHistory || []).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()), // Keep quizzes chronological for Pre/Post logic
             };
         }
         console.error("Error fetching data from sheet:", result.message);

@@ -1,19 +1,22 @@
 
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { ActivityHistoryEntry } from '../types';
-import { TrashIcon, BoltIcon } from './icons';
+import { TrashIcon, BoltIcon, CameraIcon, SparklesIcon } from './icons';
 import { COMMON_ACTIVITIES, XP_VALUES } from '../constants';
+import { extractHealthDataFromImage } from '../services/geminiService';
 
 const MAX_HISTORY_ITEMS = 100;
 
 const ActivityTracker: React.FC = () => {
-    const { activityHistory, setActivityHistory, clearActivityHistory, gainXP } = useContext(AppContext);
+    const { activityHistory, setActivityHistory, clearActivityHistory, gainXP, apiKey } = useContext(AppContext);
     
     const [customName, setCustomName] = useState('');
     const [customCalories, setCustomCalories] = useState('');
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const todaysEntries = useMemo(() => {
         const now = new Date();
@@ -94,6 +97,34 @@ const ActivityTracker: React.FC = () => {
         setShowConfirmDialog(false);
         setItemToDelete(null);
     };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsSyncing(true);
+        try {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                if (typeof reader.result === 'string') {
+                    const base64 = reader.result.split(',')[1];
+                    const data = await extractHealthDataFromImage(base64, file.type, 'activity', apiKey);
+                    
+                    if (data.calories) setCustomCalories(data.calories.toString());
+                    if (data.steps) setCustomName(`เดิน ${data.steps.toLocaleString()} ก้าว (Synced)`);
+                    else if (data.distance) setCustomName(`วิ่ง/เดิน ${data.distance} กม. (Synced)`);
+                    
+                    alert(`✅ AI อ่านข้อมูลสำเร็จ!\n- แคลอรี่: ${data.calories || 0}\n- ก้าวเดิน: ${data.steps || '-'}`);
+                }
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            alert('ไม่สามารถอ่านข้อมูลจากภาพได้');
+        } finally {
+            setIsSyncing(false);
+            if(fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
     
     return (
         <div className="w-full space-y-8 animate-fade-in">
@@ -109,6 +140,33 @@ const ActivityTracker: React.FC = () => {
                     <p className="text-sm font-medium text-yellow-700 dark:text-yellow-300">เผาผลาญแคลอรี่ทั้งหมดวันนี้</p>
                     <p className="text-4xl font-bold text-yellow-600 dark:text-yellow-400 my-1">{totalCaloriesBurnedToday.toLocaleString()}</p>
                     <p className="text-lg font-semibold text-yellow-700 dark:text-yellow-300">kcal</p>
+                </div>
+                
+                {/* AI Sync Button */}
+                <div className="mb-6">
+                    <input 
+                        type="file" 
+                        accept="image/*" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        className="hidden" 
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isSyncing}
+                        className="w-full py-3 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl shadow-md flex items-center justify-center gap-2 hover:from-black hover:to-gray-800 transition-all transform active:scale-95 disabled:opacity-70"
+                    >
+                        {isSyncing ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                            <CameraIcon className="w-5 h-5" />
+                        )}
+                        <span>{isSyncing ? 'AI กำลังอ่านภาพ...' : 'Sync จากภาพหน้าจอ (Smart Watch/App)'}</span>
+                        {!isSyncing && <SparklesIcon className="w-4 h-4 text-yellow-400" />}
+                    </button>
+                    <p className="text-xs text-center text-gray-500 mt-2">
+                        *ถ่ายภาพหน้าจอสรุปผลจาก Apple Health, Google Fit หรือแอปนาฬิกา แล้วให้ AI กรอกข้อมูลให้
+                    </p>
                 </div>
                 
                 {/* Quick Add */}
@@ -134,7 +192,7 @@ const ActivityTracker: React.FC = () => {
                             type="text" 
                             value={customName} 
                             onChange={(e) => setCustomName(e.target.value)} 
-                            placeholder="ชื่อกิจกรรม" 
+                            placeholder="ชื่อกิจกรรม / จำนวนก้าว" 
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-yellow-500"
                         />
                          <input 

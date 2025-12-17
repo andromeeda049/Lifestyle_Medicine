@@ -30,7 +30,7 @@ export interface NutrientInfo {
   items: FoodItem[];
 }
 
-export type AppView = 'home' | 'profile' | 'dashboard' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment' | 'calorieTracker' | 'activityTracker' | 'wellness' | 'gamificationRules' | 'about' | 'evaluation';
+export type AppView = 'home' | 'profile' | 'dashboard' | 'community' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment' | 'calorieTracker' | 'activityTracker' | 'wellness' | 'gamificationRules' | 'about' | 'evaluation' | 'quiz';
 export type Theme = 'light' | 'dark';
 
 export interface User {
@@ -40,6 +40,7 @@ export interface User {
   role: 'user' | 'admin' | 'guest';
   email?: string;
   authProvider?: 'email' | 'google' | 'line';
+  organization?: string; // New field for public health agency
 }
 
 export interface PillarScore {
@@ -74,6 +75,12 @@ export interface UserProfile {
   email?: string; // Added for sync
   lineUserId?: string; // Added for LINE Notification
   receiveDailyReminders?: boolean; // New: Toggle for daily notifications
+  organization?: string; // New field for public health agency
+  researchId?: string; // NEW: รหัสกลุ่มตัวอย่าง (Subject ID)
+  pdpaAccepted?: boolean; // NEW: สถานะการยอมรับ PDPA
+  pdpaAcceptedDate?: string; // NEW: วันที่ยอมรับ
+  streak?: number; // New: Current streak days
+  lastLogDate?: string; // New: Date string of last activity
 }
 
 export interface UserGamification {
@@ -201,7 +208,7 @@ export interface MoodEntry {
 export interface HabitEntry {
     id: string;
     date: string;
-    type: 'alcohol' | 'smoking';
+    type: 'alcohol' | 'smoking' | 'chemicals' | 'accidents';
     amount: number; // 0 means abstained
     isClean: boolean;
 }
@@ -240,6 +247,24 @@ export interface EvaluationEntry {
     outcomes: OutcomeData;
 }
 
+// --- Health Literacy Quiz Types ---
+export interface QuizQuestion {
+    id: number;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+    category: 'nutrition' | 'activity' | 'sleep' | 'stress' | 'risk' | 'general';
+}
+
+export interface QuizEntry {
+    id: string;
+    date: string;
+    score: number; // 0-100
+    totalQuestions: number;
+    correctAnswers: number;
+    type: 'pre-test' | 'post-test' | 'practice';
+}
 
 export interface AppContextType {
   activeView: AppView;
@@ -274,9 +299,11 @@ export interface AppContextType {
   socialHistory: SocialEntry[];
   setSocialHistory: React.Dispatch<React.SetStateAction<SocialEntry[]>>;
 
-  // Evaluation
+  // Evaluation & Quiz
   evaluationHistory: EvaluationEntry[];
   saveEvaluation: (satisfaction: SatisfactionData, outcomes: OutcomeData) => void;
+  quizHistory: QuizEntry[];
+  saveQuizResult: (score: number, total: number, correct: number) => void;
 
   waterGoal: number;
   setWaterGoal: React.Dispatch<React.SetStateAction<number>>;
@@ -302,4 +329,9 @@ export interface AppContextType {
   gainXP: (amount: number) => void;
   showLevelUp: { type: 'level' | 'badge', data: any } | null;
   closeLevelUpModal: () => void;
+
+  // SOS & Tele-Support
+  isSOSOpen: boolean;
+  openSOS: () => void;
+  closeSOS: () => void;
 }

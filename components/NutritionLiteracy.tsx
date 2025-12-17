@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BookOpenIcon } from './icons';
 
@@ -74,7 +75,7 @@ const NutritionLiteracy: React.FC = () => {
           </ul>
         </AccordionItem>
 
-        <AccordionItem title="เสาหลักที่ 5: การหลีกเลี่ยงสารอันตราย (Avoidance of Risky Substances)">
+        <AccordionItem title="เสาหลักที่ 5: การหลีกเลี่ยงสารเสพติดและพฤติกรรมเสี่ยง (Avoidance of Addictive Substances)">
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>งดสูบบุหรี่:</strong> การเลิกบุหรี่เป็นสิ่งที่ดีที่สุดที่คุณทำได้เพื่อปอดและหัวใจ</li>
             <li><strong>จำกัดแอลกอฮอล์:</strong> หากดื่ม ควรดื่มในปริมาณที่จำกัด (ไม่เกิน 1 แก้วสำหรับหญิง, 2 แก้วสำหรับชาย ต่อวัน)</li>

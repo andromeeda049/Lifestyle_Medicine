@@ -1,79 +1,53 @@
+
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { PILLAR_LABELS } from '../constants';
 import { PillarScore } from '../types';
-import { ClipboardDocumentCheckIcon } from './icons';
+import { ClipboardDocumentCheckIcon, StarIcon } from './icons';
 
-// --- Radar Chart Component (Local for Real-time Feedback) ---
-const AssessmentRadarChart: React.FC<{ scores: { [key: string]: number } }> = ({ scores }) => {
-    const size = 300;
-    const center = size / 2;
-    const radius = 100;
-    const keys = Object.keys(PILLAR_LABELS);
-    const totalAxes = keys.length;
-    
-    // Convert value to coordinates
-    const getCoordinates = (value: number, index: number) => {
-        const angle = (Math.PI * 2 * index) / totalAxes - Math.PI / 2; // -PI/2 to start at top
-        const x = center + (radius * (value / 10)) * Math.cos(angle);
-        const y = center + (radius * (value / 10)) * Math.sin(angle);
-        return { x, y };
-    };
+// --- Components ---
+const ScoreGauge: React.FC<{ score: number }> = ({ score }) => {
+    let color = 'text-red-500';
+    let label = 'ความเสี่ยงสูง (High Risk)';
+    let recommendation = 'ควรปรับพฤติกรรมโดยด่วนและปรึกษาแพทย์';
 
-    // Generate path for data
-    const pathData = keys.map((key, i) => {
-        const val = scores[key] || 5; // default 5
-        const { x, y } = getCoordinates(val, i);
-        return `${i === 0 ? 'M' : 'L'}${x},${y}`;
-    }).join(' ') + 'Z';
+    if (score >= 80) {
+        color = 'text-green-500';
+        label = 'สุขภาพดีเยี่ยม (Excellent)';
+        recommendation = 'ยอดเยี่ยม! รักษามาตรฐานนี้ไว้เพื่อป้องกันโรค';
+    } else if (score >= 60) {
+        color = 'text-teal-500';
+        label = 'สุขภาพดี (Good)';
+        recommendation = 'ทำได้ดี แต่ยังมีบางจุดที่พัฒนาให้ดียิ่งขึ้นได้';
+    } else if (score >= 40) {
+        color = 'text-yellow-500';
+        label = 'ความเสี่ยงปานกลาง (Fair)';
+        recommendation = 'ควรเริ่มปรับเปลี่ยนพฤติกรรมในบางด้าน';
+    }
+
+    const circumference = 2 * Math.PI * 40;
+    const offset = circumference - (score / 100) * circumference;
 
     return (
-        <div className="flex flex-col items-center justify-center">
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="max-w-full h-auto">
-                {/* Grid Circles */}
-                {[2, 4, 6, 8, 10].map(r => (
-                     <circle 
-                        key={r} 
-                        cx={center} 
-                        cy={center} 
-                        r={radius * (r / 10)} 
-                        fill="none" 
-                        stroke="#e5e7eb" // gray-200
-                        strokeWidth="1" 
-                        className="dark:stroke-gray-700"
-                     />
-                ))}
-                
-                {/* Axes & Labels */}
-                {keys.map((key, i) => {
-                    const { x, y } = getCoordinates(10, i); // End of axis
-                    const labelCoord = getCoordinates(12, i); // Label position
-                    return (
-                        <g key={key}>
-                            <line x1={center} y1={center} x2={x} y2={y} stroke="#e5e7eb" strokeWidth="1" className="dark:stroke-gray-700"/>
-                            <text 
-                                x={labelCoord.x} 
-                                y={labelCoord.y} 
-                                textAnchor="middle" 
-                                dominantBaseline="middle" 
-                                className="text-[10px] fill-gray-500 dark:fill-gray-400 font-medium"
-                            >
-                                {PILLAR_LABELS[key as keyof typeof PILLAR_LABELS]}
-                            </text>
-                        </g>
-                    );
-                })}
-
-                {/* Data Shape */}
-                <path d={pathData} fill="rgba(20, 184, 166, 0.2)" stroke="#14b8a6" strokeWidth="2" className="transition-all duration-300 ease-out" />
-                
-                {/* Data Points */}
-                {keys.map((key, i) => {
-                    const val = scores[key] || 5;
-                    const { x, y } = getCoordinates(val, i);
-                    return <circle key={i} cx={x} cy={y} r="4" fill="#14b8a6" className="transition-all duration-300 ease-out" />;
-                })}
-            </svg>
+        <div className="flex flex-col items-center justify-center relative">
+            <div className="relative w-48 h-48">
+                <svg className="w-full h-full transform -rotate-90">
+                    <circle cx="50%" cy="50%" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-200 dark:text-gray-700" />
+                    <circle cx="50%" cy="50%" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" 
+                        strokeDasharray={circumference} 
+                        strokeDashoffset={offset} 
+                        className={`${color} transition-all duration-1000 ease-out`} 
+                    />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-4xl font-bold ${color}`}>{score}</span>
+                    <span className="text-xs text-gray-400">/ 100 คะแนน</span>
+                </div>
+            </div>
+            <div className="text-center mt-2">
+                <h3 className={`text-lg font-bold ${color}`}>{label}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs">{recommendation}</p>
+            </div>
         </div>
     );
 };
@@ -86,12 +60,22 @@ const LifestyleAssessment: React.FC = () => {
     });
     
     const [saved, setSaved] = useState(false);
+    const [totalScore, setTotalScore] = useState(0);
 
     useEffect(() => {
         if (userProfile.pillarScores) {
             setPillarScores(userProfile.pillarScores);
         }
     }, [userProfile]);
+
+    useEffect(() => {
+        // Calculate Total Score (Weighted or Average)
+        // Normalize to 0-100 scale. There are 6 pillars, max 10 each. Total max 60.
+        // Score = (Sum / 60) * 100
+        const sum = Object.values(pillarScores).reduce((a, b) => a + b, 0);
+        const normalized = Math.round((sum / 60) * 100);
+        setTotalScore(normalized);
+    }, [pillarScores]);
 
     const handlePillarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -112,40 +96,42 @@ const LifestyleAssessment: React.FC = () => {
         setTimeout(() => {
             setSaved(false);
             setActiveView('dashboard');
-        }, 1500);
+        }, 2000);
     };
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full transform transition-all duration-300 animate-fade-in">
-            <div className="text-center mb-6">
+            <div className="text-center mb-8">
                 <div className="flex justify-center mb-2">
-                     <ClipboardDocumentCheckIcon className="w-12 h-12 text-teal-500" />
+                     <div className="p-3 bg-teal-100 dark:bg-teal-900/30 rounded-full">
+                        <ClipboardDocumentCheckIcon className="w-10 h-10 text-teal-600 dark:text-teal-400" />
+                     </div>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">ประเมิน 6 เสาหลัก (Lifestyle Balance)</h2>
-                <p className="text-gray-600 dark:text-gray-300 mt-2">
-                    ให้คะแนนความพึงพอใจในแต่ละด้าน (1 = ต้องปรับปรุง, 10 = ดีเยี่ยม) เพื่อสร้างแผนภูมิสุขภาพของคุณ
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">ดัชนีวิถีชีวิต (Lifestyle Index Assessment)</h2>
+                <p className="text-gray-600 dark:text-gray-300 mt-2 text-sm">
+                    เครื่องมือประเมินความเสี่ยงพฤติกรรมสุขภาพ 6 มิติ เพื่อติดตามผลลัพธ์การปรับเปลี่ยนพฤติกรรม (Behavioral Change)
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                {/* Left: Radar Chart */}
-                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 flex justify-center">
-                    <AssessmentRadarChart scores={pillarScores as any} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                {/* Left: Score Gauge (The "Measurement" Result) */}
+                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-2xl p-6 flex justify-center items-center shadow-inner border border-gray-100 dark:border-gray-700">
+                    <ScoreGauge score={totalScore} />
                 </div>
 
-                {/* Right: Sliders */}
-                <div className="space-y-6">
+                {/* Right: Assessment Form (The Intervention Input) */}
+                <div className="space-y-5">
                      {Object.keys(PILLAR_LABELS).map((key) => {
                              const score = pillarScores[key as keyof PillarScore];
                              return (
-                                <div key={key} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                <div key={key} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-4 rounded-xl shadow-sm transition-shadow hover:shadow-md">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <label className="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
                                             {PILLAR_LABELS[key as keyof PillarScore]}
                                         </label>
-                                        <span className={`text-lg font-bold ${score >= 8 ? 'text-green-500' : score <= 4 ? 'text-red-500' : 'text-yellow-500'}`}>
+                                        <div className="bg-gray-100 dark:bg-gray-600 px-3 py-1 rounded-lg text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400">
                                             {score}/10
-                                        </span>
+                                        </div>
                                     </div>
                                     <input 
                                         type="range" 
@@ -155,11 +141,11 @@ const LifestyleAssessment: React.FC = () => {
                                         step="1"
                                         value={score} 
                                         onChange={handlePillarChange}
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 accent-teal-500"
+                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-500 accent-indigo-500"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 mt-1 px-1">
-                                        <span>ปรับปรุง</span>
-                                        <span>ดีเยี่ยม</span>
+                                    <div className="flex justify-between text-[10px] text-gray-400 mt-2 uppercase tracking-wider">
+                                        <span>ความเสี่ยงสูง (1)</span>
+                                        <span>เหมาะสม (10)</span>
                                     </div>
                                 </div>
                              );
@@ -167,13 +153,23 @@ const LifestyleAssessment: React.FC = () => {
                 </div>
             </div>
             
-            <div className="mt-8 flex justify-center">
-                 <button
-                    onClick={handleSave}
-                    className={`w-full md:w-auto px-8 py-3 rounded-lg font-bold text-white transition-all duration-300 transform hover:scale-105 ${saved ? 'bg-green-500' : 'bg-teal-500 hover:bg-teal-600'}`}
-                >
-                    {saved ? 'บันทึกเรียบร้อย!' : 'บันทึกการประเมิน'}
-                </button>
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                 <div className="flex flex-col items-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 text-center max-w-lg">
+                        * คะแนนนี้ใช้สำหรับติดตามพัฒนาการรายบุคคล (Personal Trend) เพื่อประกอบการประกวดผลงานวิชาการ 
+                        และไม่ใช่การวินิจฉัยทางการแพทย์
+                    </p>
+                    <button
+                        onClick={handleSave}
+                        className={`w-full md:w-auto px-8 py-3 rounded-full font-bold text-white shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center gap-2 ${saved ? 'bg-green-500' : 'bg-gradient-to-r from-teal-500 to-indigo-500'}`}
+                    >
+                        {saved ? (
+                            <><span>บันทึกผลเรียบร้อย</span><StarIcon className="w-5 h-5"/></>
+                        ) : (
+                            'ยืนยันผลการประเมิน (Submit)'
+                        )}
+                    </button>
+                 </div>
             </div>
         </div>
     );

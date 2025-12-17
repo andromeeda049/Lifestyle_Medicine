@@ -1,3 +1,4 @@
+
 import React, { useState, useContext } from 'react';
 import { PLANNER_ACTIVITY_LEVELS, CARB_PERCENTAGES, CUISINE_TYPES, DIETARY_PREFERENCES, HEALTH_CONDITIONS, LIFESTYLE_GOALS } from '../constants';
 import { generateMealPlan } from '../services/geminiService';
@@ -6,7 +7,7 @@ import { PrinterIcon, ArrowLeftIcon } from './icons';
 import { AppContext } from '../context/AppContext';
 
 const PersonalizedPlanner: React.FC = () => {
-    const { userProfile, plannerHistory, setPlannerHistory, apiKey, currentUser } = useContext(AppContext);
+    const { userProfile, plannerHistory, setPlannerHistory, apiKey, currentUser, foodHistory } = useContext(AppContext);
 
     const isGuest = currentUser?.role === 'guest';
 
@@ -101,12 +102,14 @@ const PersonalizedPlanner: React.FC = () => {
         setResults(calculatedResults);
 
         try {
+            // Pass foodHistory to Gemini for context-aware planning
             const plan = await generateMealPlan(
                 calculatedResults, 
                 formData.cuisine, 
                 formData.diet, 
                 formData.healthCondition, 
                 formData.lifestyleGoal,
+                foodHistory, // Pass history here
                 apiKey
             );
             setMealPlan(plan);
@@ -147,7 +150,7 @@ const PersonalizedPlanner: React.FC = () => {
         <div className="max-w-lg mx-auto bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg space-y-4 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2 text-center">แผนไลฟ์สไตล์ (Lifestyle Planner)</h2>
             <p className="text-center text-gray-600 dark:text-gray-300 -mt-2 mb-4">
-                วางแผนอาหารและกิจกรรมตามเป้าหมาย Lifestyle Medicine
+                วางแผนอาหารและกิจกรรมตามเป้าหมาย Lifestyle Medicine โดย AI จะเรียนรู้จากประวัติการกินของคุณ
             </p>
             
             {/* Basic Stats */}
@@ -235,7 +238,7 @@ const PersonalizedPlanner: React.FC = () => {
                     disabled={loading || isGuest}
                     className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 dark:focus:ring-teal-800 transition-all duration-300 transform hover:scale-105 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100"
                 >
-                    {loading ? 'กำลังสร้างแผน AI...' : 'คำนวณและสร้างแผน'}
+                    {loading ? 'กำลังสร้างแผน AI (Context-Aware)...' : 'คำนวณและสร้างแผน'}
                 </button>
                 {isGuest && (
                     <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center rounded-lg text-center p-4">
@@ -303,7 +306,7 @@ const PersonalizedPlanner: React.FC = () => {
                      <div className="text-center">
                         <div className="flex flex-col items-center justify-center gap-4">
                             <div className="w-12 h-12 border-4 border-t-teal-500 border-gray-200 dark:border-gray-600 rounded-full animate-spin"></div>
-                            <p className="text-teal-600 dark:text-teal-400 font-medium">AI กำลังจัดสรรเมนูและกิจกรรม...</p>
+                            <p className="text-teal-600 dark:text-teal-400 font-medium">AI กำลังจัดสรรเมนูจากประวัติการกินของคุณ...</p>
                         </div>
                      </div>
                 )}
