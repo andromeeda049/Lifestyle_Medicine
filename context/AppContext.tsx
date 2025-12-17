@@ -1,5 +1,5 @@
 
-import React, { createContext, ReactNode, useState, useEffect, useCallback } from 'react';
+import React, { createContext, ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, User, AppContextType, Achievement, SatisfactionData, OutcomeData } from '../types';
 import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, LEVEL_THRESHOLDS, ACHIEVEMENTS } from '../constants';
@@ -150,127 +150,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     loadAllData();
   }, [scriptUrl, currentUser]);
 
-  // --- Wrapper Functions for State Management and Syncing ---
+  // --- Wrapper Functions for State Management ---
+  // Note: We now use useLocalStorage directly for setters to leverage the fixed functional updates.
+  // Syncing to Google Sheets is handled by useEffects below to avoid race conditions.
 
   const setUserProfile = useCallback((profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => {
     if (!currentUser) return;
-    
     const updatedUser = {
         ...currentUser,
         displayName: accountData.displayName,
         profilePicture: accountData.profilePicture
     };
-    
     setCurrentUser(updatedUser);
     _setUserProfile(profileData);
     
+    // Profile is usually a single update, safe to sync directly or via effect. 
+    // Keeping direct for profile as it's not an array append operation.
     if (scriptUrl) {
         saveDataToSheet(scriptUrl, 'profile', profileData, updatedUser);
     }
-}, [scriptUrl, currentUser, setCurrentUser, _setUserProfile]);
+  }, [scriptUrl, currentUser, setCurrentUser, _setUserProfile]);
 
-  const setBmiHistory = useCallback((value: React.SetStateAction<BMIHistoryEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(bmiHistory) : value;
-    _setBmiHistory(newHistory);
-    // Allow UI updates for everyone
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'bmiHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setBmiHistory, bmiHistory, currentUser]);
+  const setBmiHistory = _setBmiHistory;
+  const setTdeeHistory = _setTdeeHistory;
+  const setFoodHistory = _setFoodHistory;
+  const setPlannerHistory = _setPlannerHistory;
+  const setWaterHistory = _setWaterHistory;
+  const setCalorieHistory = _setCalorieHistory;
+  const setActivityHistory = _setActivityHistory;
+  const setSleepHistory = _setSleepHistory;
+  const setMoodHistory = _setMoodHistory;
+  const setHabitHistory = _setHabitHistory;
+  const setSocialHistory = _setSocialHistory;
+
+  // --- Sync Effects (Save to Sheets when state changes) ---
+  // Using a helper to prevent saving on initial load (when isDataSynced is false)
+  const useSyncToSheet = (data: any, type: string) => {
+      const isFirstRun = useRef(true);
+      useEffect(() => {
+          if (isFirstRun.current) {
+              isFirstRun.current = false;
+              return;
+          }
+          if (isDataSynced && scriptUrl && currentUser && currentUser.role !== 'admin' && data.length > 0) {
+              saveDataToSheet(scriptUrl, type, data, currentUser);
+          }
+      }, [data, type]); // Dependencies: data updates trigger save
+  };
+
+  useSyncToSheet(bmiHistory, 'bmiHistory');
+  useSyncToSheet(tdeeHistory, 'tdeeHistory');
+  useSyncToSheet(foodHistory, 'foodHistory');
+  useSyncToSheet(plannerHistory, 'plannerHistory');
+  useSyncToSheet(waterHistory, 'waterHistory');
+  useSyncToSheet(calorieHistory, 'calorieHistory');
+  useSyncToSheet(activityHistory, 'activityHistory');
+  useSyncToSheet(sleepHistory, 'sleepHistory');
+  useSyncToSheet(moodHistory, 'moodHistory');
+  useSyncToSheet(habitHistory, 'habitHistory');
+  useSyncToSheet(socialHistory, 'socialHistory');
   
-  const setTdeeHistory = useCallback((value: React.SetStateAction<TDEEHistoryEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(tdeeHistory) : value;
-    _setTdeeHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'tdeeHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setTdeeHistory, tdeeHistory, currentUser]);
-
-  const setFoodHistory = useCallback((value: React.SetStateAction<FoodHistoryEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(foodHistory) : value;
-    _setFoodHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'foodHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setFoodHistory, foodHistory, currentUser]);
-  
-  const setPlannerHistory = useCallback((value: React.SetStateAction<PlannerHistoryEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(plannerHistory) : value;
-    _setPlannerHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'plannerHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setPlannerHistory, plannerHistory, currentUser]);
-
-  const setWaterHistory = useCallback((value: React.SetStateAction<WaterHistoryEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(waterHistory) : value;
-    _setWaterHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'waterHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setWaterHistory, waterHistory, currentUser]);
-
-  const setCalorieHistory = useCallback((value: React.SetStateAction<CalorieHistoryEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(calorieHistory) : value;
-    _setCalorieHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'calorieHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setCalorieHistory, calorieHistory, currentUser]);
-
-  const setActivityHistory = useCallback((value: React.SetStateAction<ActivityHistoryEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(activityHistory) : value;
-    _setActivityHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'activityHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setActivityHistory, activityHistory, currentUser]);
-
-  // --- Wellness Setters ---
-  const setSleepHistory = useCallback((value: React.SetStateAction<SleepEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(sleepHistory) : value;
-    _setSleepHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'sleepHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setSleepHistory, sleepHistory, currentUser]);
-
-  const setMoodHistory = useCallback((value: React.SetStateAction<MoodEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(moodHistory) : value;
-    _setMoodHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'moodHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setMoodHistory, moodHistory, currentUser]);
-
-  const setHabitHistory = useCallback((value: React.SetStateAction<HabitEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(habitHistory) : value;
-    _setHabitHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'habitHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setHabitHistory, habitHistory, currentUser]);
-
-  const setSocialHistory = useCallback((value: React.SetStateAction<SocialEntry[]>) => {
-    if (!currentUser) return;
-    const newHistory = value instanceof Function ? value(socialHistory) : value;
-    _setSocialHistory(newHistory);
-    if (scriptUrl && newHistory.length > 0 && currentUser.role !== 'admin') {
-        saveDataToSheet(scriptUrl, 'socialHistory', newHistory, currentUser);
-    }
-  }, [scriptUrl, _setSocialHistory, socialHistory, currentUser]);
-
-  // --- Evaluation Logic ---
+  // Evaluation Logic
   const saveEvaluation = useCallback((satisfaction: SatisfactionData, outcomes: OutcomeData) => {
       if (!currentUser) return;
       const newEntry: EvaluationEntry = {
@@ -279,107 +219,89 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           satisfaction,
           outcomes
       };
-      const newHistory = [newEntry, ...evaluationHistory];
-      _setEvaluationHistory(newHistory);
+      _setEvaluationHistory(prev => [newEntry, ...prev]);
+      // Explicit save for evaluation as it's a one-off event usually
       if (scriptUrl && currentUser.role !== 'admin') {
-          saveDataToSheet(scriptUrl, 'evaluationHistory', newHistory, currentUser);
+          saveDataToSheet(scriptUrl, 'evaluationHistory', [newEntry], currentUser);
       }
-  }, [currentUser, evaluationHistory, scriptUrl, _setEvaluationHistory]);
+  }, [currentUser, scriptUrl, _setEvaluationHistory]);
 
   // --- Clear Functions ---
-  const clearBmiHistory = useCallback(() => {
-    if (!currentUser) return;
-    _setBmiHistory([]);
-    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'bmiHistory', currentUser);
-  }, [scriptUrl, _setBmiHistory, currentUser]);
-  
-  const clearTdeeHistory = useCallback(() => {
-     if (!currentUser) return;
-    _setTdeeHistory([]);
-    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'tdeeHistory', currentUser);
-  }, [scriptUrl, _setTdeeHistory, currentUser]);
-  
-  const clearFoodHistory = useCallback(() => {
-     if (!currentUser) return;
-    _setFoodHistory([]);
-    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'foodHistory', currentUser);
-  }, [scriptUrl, _setFoodHistory, currentUser]);
+  const clearHistory = useCallback((type: string, setter: any) => {
+      if (!currentUser) return;
+      setter([]);
+      if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, type, currentUser);
+  }, [currentUser, scriptUrl]);
 
-  const clearWaterHistory = useCallback(() => {
-    if (!currentUser) return;
-    _setWaterHistory([]);
-    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'waterHistory', currentUser);
- }, [scriptUrl, _setWaterHistory, currentUser]);
- 
-  const clearCalorieHistory = useCallback(() => {
-    if (!currentUser) return;
-    _setCalorieHistory([]);
-    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'calorieHistory', currentUser);
-  }, [scriptUrl, _setCalorieHistory, currentUser]);
-
-  const clearActivityHistory = useCallback(() => {
-    if (!currentUser) return;
-    _setActivityHistory([]);
-    if (scriptUrl && currentUser.role !== 'admin') clearHistoryInSheet(scriptUrl, 'activityHistory', currentUser);
-  }, [scriptUrl, _setActivityHistory, currentUser]);
-
+  const clearBmiHistory = () => clearHistory('bmiHistory', _setBmiHistory);
+  const clearTdeeHistory = () => clearHistory('tdeeHistory', _setTdeeHistory);
+  const clearFoodHistory = () => clearHistory('foodHistory', _setFoodHistory);
+  const clearWaterHistory = () => clearHistory('waterHistory', _setWaterHistory);
+  const clearCalorieHistory = () => clearHistory('calorieHistory', _setCalorieHistory);
+  const clearActivityHistory = () => clearHistory('activityHistory', _setActivityHistory);
   const clearWellnessHistory = useCallback(() => {
       if (!currentUser) return;
       _setSleepHistory([]);
       _setMoodHistory([]);
       _setHabitHistory([]);
       _setSocialHistory([]);
-  }, [currentUser]);
+      // Not clearing sheet for all wellness at once to avoid complexity, user can clear individually if needed or we add a bulk clear endpoint later
+  }, [currentUser, _setSleepHistory, _setMoodHistory, _setHabitHistory, _setSocialHistory]);
 
 
   // --- Gamification Logic ---
   const gainXP = useCallback((amount: number) => {
     if (!currentUser || currentUser.role === 'guest') return;
 
-    let currentXP = userProfile.xp || 0;
-    let currentLevel = userProfile.level || 1;
-    let currentBadges = userProfile.badges || ['novice'];
-    
-    const newXP = currentXP + amount;
-    let newLevel = currentLevel;
-    let leveledUp = false;
-    let unlockedBadges: Achievement[] = [];
+    // Use functional update to ensure we are working with the absolute latest profile state
+    _setUserProfile(currentProfile => {
+        let currentXP = currentProfile.xp || 0;
+        let currentLevel = currentProfile.level || 1;
+        let currentBadges = currentProfile.badges || ['novice'];
+        
+        const newXP = currentXP + amount;
+        let newLevel = currentLevel;
+        let leveledUp = false;
+        
+        // Check Level Up
+        while (newLevel < LEVEL_THRESHOLDS.length - 1 && newXP >= LEVEL_THRESHOLDS[newLevel]) {
+            newLevel++;
+            leveledUp = true;
+        }
 
-    // Check Level Up
-    // Level 1 threshold is index 1 (100 XP)
-    while (newLevel < LEVEL_THRESHOLDS.length - 1 && newXP >= LEVEL_THRESHOLDS[newLevel]) {
-        newLevel++;
-        leveledUp = true;
-    }
+        // Check Achievements (Note: This relies on history states. 
+        // In a perfect world we'd pass history into this calc, but reading from closure is generally ok for gamification non-critical consistency)
+        const badgesToUnlock = [];
+        if (newLevel >= 5 && !currentBadges.includes('level5')) badgesToUnlock.push('level5');
+        if (newLevel >= 10 && !currentBadges.includes('master')) badgesToUnlock.push('master');
+        
+        // Simple counters based on current session/loaded history to avoid heavy recalculation
+        if (!currentBadges.includes('explorer') && (foodHistory.length) >= 4) badgesToUnlock.push('explorer'); // +1 current
+        if (!currentBadges.includes('hydrated') && (waterHistory.length) >= 4) badgesToUnlock.push('hydrated');
+        if (!currentBadges.includes('active') && (activityHistory.length) >= 4) badgesToUnlock.push('active');
+        if (!currentBadges.includes('mindful') && (moodHistory.length) >= 4) badgesToUnlock.push('mindful');
 
-    // Check Achievements
-    const badgesToUnlock = [];
+        const newBadges = [...currentBadges, ...badgesToUnlock];
+        
+        // Trigger Modals (Side Effect)
+        if (leveledUp) {
+            setShowLevelUp({ type: 'level', data: newLevel });
+        } else if (badgesToUnlock.length > 0) {
+            const badgeData = ACHIEVEMENTS.find(b => b.id === badgesToUnlock[0]);
+            if (badgeData) setShowLevelUp({ type: 'badge', data: badgeData });
+        }
 
-    // 1. Level Based
-    if (newLevel >= 5 && !currentBadges.includes('level5')) badgesToUnlock.push('level5');
-    if (newLevel >= 10 && !currentBadges.includes('master')) badgesToUnlock.push('master');
+        const updatedProfile = { ...currentProfile, xp: newXP, level: newLevel, badges: newBadges };
+        
+        // Sync profile to sheet
+        if (scriptUrl && currentUser.role !== 'admin') {
+             saveDataToSheet(scriptUrl, 'profile', updatedProfile, currentUser);
+        }
 
-    // 2. Activity Based (Check history length + 1 for the current action)
-    if (!currentBadges.includes('explorer') && (foodHistory.length + 1) >= 5) badgesToUnlock.push('explorer');
-    if (!currentBadges.includes('hydrated') && (waterHistory.length + 1) >= 5) badgesToUnlock.push('hydrated'); // Simplified: 5 logs
-    if (!currentBadges.includes('active') && (activityHistory.length + 1) >= 5) badgesToUnlock.push('active');
-    if (!currentBadges.includes('mindful') && (moodHistory.length + 1) >= 5) badgesToUnlock.push('mindful');
+        return updatedProfile;
+    });
 
-    // Apply Updates
-    const newBadges = [...currentBadges, ...badgesToUnlock];
-    const updatedProfile = { ...userProfile, xp: newXP, level: newLevel, badges: newBadges };
-    
-    setUserProfile(updatedProfile, { displayName: currentUser.displayName, profilePicture: currentUser.profilePicture });
-
-    // Trigger Modals
-    if (leveledUp) {
-        setShowLevelUp({ type: 'level', data: newLevel });
-    } else if (badgesToUnlock.length > 0) {
-        const badgeData = ACHIEVEMENTS.find(b => b.id === badgesToUnlock[0]);
-        if (badgeData) setShowLevelUp({ type: 'badge', data: badgeData });
-    }
-
-  }, [userProfile, currentUser, foodHistory, waterHistory, activityHistory, moodHistory, setUserProfile]);
+  }, [currentUser, foodHistory, waterHistory, activityHistory, moodHistory, scriptUrl, _setUserProfile]);
 
   const closeLevelUpModal = () => setShowLevelUp(null);
 

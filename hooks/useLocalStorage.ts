@@ -1,3 +1,4 @@
+
 // FIX: Import React to make React types available for type annotations.
 import React, { useState, useEffect } from 'react';
 
@@ -17,11 +18,15 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<Re
 
   const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
     try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      }
+      // Use the functional update form of setState to ensure we always have the latest state
+      setStoredValue((currentStoredValue) => {
+          const valueToStore = value instanceof Function ? (value as Function)(currentStoredValue) : value;
+          
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem(key, JSON.stringify(valueToStore));
+          }
+          return valueToStore;
+      });
     } catch (error) {
       console.error(error);
     }

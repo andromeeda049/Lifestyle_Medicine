@@ -21,21 +21,24 @@ import GamificationRules from './components/GamificationRules';
 import AboutApp from './components/AboutApp';
 import EvaluationForm from './components/EvaluationForm';
 import { AppProvider, AppContext } from './context/AppContext';
-import { AppView, User } from './types';
+import { AppView, User, WaterHistoryEntry } from './types';
 import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon } from './components/icons';
 import { sendMissionCompleteNotification, saveDataToSheet } from './services/googleSheetService';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import useLocalStorage from './hooks/useLocalStorage';
+import { XP_VALUES } from './constants';
 
 // !!! สำคัญ !!! แทนที่ด้วย Google Client ID ของคุณที่นี่
 // ไปที่ console.cloud.google.com -> APIs & Services -> Credentials -> Create OAuth Client ID
 const GOOGLE_CLIENT_ID = "968529250528-sp2uu4uu05peu6tvc2frpug7tfq3s5dg.apps.googleusercontent.com";
 
 const AppContent: React.FC = () => {
-  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl } = useContext(AppContext);
+  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false); // State for Quick Action Modal
+  
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
   
@@ -63,6 +66,8 @@ const AppContent: React.FC = () => {
     setActiveView(view);
     setIsMenuOpen(false);
     setIsNotificationOpen(false);
+    setIsQuickActionOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const renderView = () => {
@@ -359,6 +364,91 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // --- Quick Action Handlers ---
+  const handleQuickAddWater = () => {
+      const newEntry: WaterHistoryEntry = {
+          id: Date.now().toString(),
+          date: new Date().toISOString(),
+          amount: 250 // Add 1 glass
+      };
+      setWaterHistory(prev => [newEntry, ...prev]);
+      gainXP(XP_VALUES.WATER);
+      setIsQuickActionOpen(false);
+      alert('บันทึกการดื่มน้ำ +250ml เรียบร้อย!');
+  };
+
+  const BottomNavigation = () => {
+      if (!currentUser || currentUser.role !== 'user') return null;
+
+      return (
+          <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around items-center h-20 px-2 z-40 pb-2 md:hidden animate-slide-up">
+              <button onClick={() => navigate('home')} className={`flex flex-col items-center justify-center w-16 h-full ${activeView === 'home' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <HomeIcon className="w-6 h-6" />
+                  <span className="text-[10px] mt-1">หน้าแรก</span>
+              </button>
+              
+              <button onClick={() => navigate('dashboard')} className={`flex flex-col items-center justify-center w-16 h-full ${activeView === 'dashboard' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <SquaresIcon className="w-6 h-6" />
+                  <span className="text-[10px] mt-1">สรุปผล</span>
+              </button>
+
+              <div className="relative -top-6">
+                  <button 
+                    onClick={() => setIsQuickActionOpen(true)}
+                    className="w-14 h-14 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white shadow-lg border-4 border-gray-50 dark:border-gray-800 transform active:scale-95 transition-transform"
+                  >
+                      <span className="text-3xl font-light mb-1">+</span>
+                  </button>
+              </div>
+
+              <button onClick={() => navigate('wellness')} className={`flex flex-col items-center justify-center w-16 h-full ${activeView === 'wellness' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <HeartIcon className="w-6 h-6" />
+                  <span className="text-[10px] mt-1">ภารกิจ</span>
+              </button>
+
+              <button onClick={() => setIsMenuOpen(true)} className="flex flex-col items-center justify-center w-16 h-full text-gray-400 dark:text-gray-500">
+                  <MenuIcon className="w-6 h-6" />
+                  <span className="text-[10px] mt-1">เมนู</span>
+              </button>
+          </div>
+      );
+  };
+
+  const QuickActionModal = () => {
+      if (!isQuickActionOpen) return null;
+      
+      return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsQuickActionOpen(false)}></div>
+              <div className="bg-white dark:bg-gray-800 w-full max-w-sm mx-auto rounded-t-3xl sm:rounded-3xl p-6 relative z-10 animate-slide-up shadow-2xl">
+                  <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-6"></div>
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-6 text-center">บันทึกด่วน (Quick Log)</h3>
+                  
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                      <button onClick={handleQuickAddWater} className="flex flex-col items-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-2xl">💧</div>
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">ดื่มน้ำ 1 แก้ว</span>
+                      </button>
+                      
+                      <button onClick={() => navigate('calorieTracker')} className="flex flex-col items-center gap-2 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-2xl hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors">
+                          <div className="w-12 h-12 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center text-2xl">🥗</div>
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">บันทึกอาหาร</span>
+                      </button>
+
+                      <button onClick={() => navigate('wellness')} className="flex flex-col items-center gap-2 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">
+                          <div className="w-12 h-12 bg-rose-100 dark:bg-rose-800 rounded-full flex items-center justify-center text-2xl">😊</div>
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">เช็คอารมณ์</span>
+                      </button>
+                  </div>
+                  
+                  <button onClick={() => setIsQuickActionOpen(false)} className="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                      ยกเลิก
+                  </button>
+              </div>
+          </div>
+      );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-sky-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900 text-gray-800 dark:text-gray-200">
       <SideMenu />
@@ -370,14 +460,14 @@ const AppContent: React.FC = () => {
         ></div>
       )}
 
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 pb-24">
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               <div className="flex items-center justify-between h-16">
                  <div className="flex-1 flex justify-start items-center gap-1">
                     <button
                         onClick={() => setIsMenuOpen(true)}
-                        className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 -ml-2"
+                        className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 -ml-2 hidden md:block" // Hide on mobile
                         aria-label="เปิดเมนู"
                     >
                         <MenuIcon className="w-6 h-6" />
@@ -385,15 +475,20 @@ const AppContent: React.FC = () => {
                      {activeView !== 'home' && (
                         <button
                             onClick={() => navigate('home')}
-                            className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 rounded-full"
+                            className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 rounded-full md:block hidden" // Hide on mobile
                             aria-label="กลับไปหน้าแรก"
                         >
                             <HomeIcon className="w-6 h-6" />
                         </button>
                     )}
+                    {/* App Logo/Name for Mobile */}
+                    <div className="md:hidden flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow">SLW</div>
+                        <span className="font-bold text-gray-800 dark:text-white text-sm">Smart Wellness</span>
+                    </div>
                  </div>
                   
-                  <div className="flex-1 flex justify-center">
+                  <div className="flex-1 flex justify-center hidden md:flex">
                     <h1 className="text-xl font-bold text-gray-800 dark:text-white truncate">{viewTitles[activeView]}</h1>
                   </div>
 
@@ -409,12 +504,15 @@ const AppContent: React.FC = () => {
             <div className={activeView === 'adminDashboard' ? 'w-full' : 'max-w-4xl mx-auto'}>
               {renderView()}
             </div>
-            <footer className="text-center mt-12 text-gray-500 dark:text-gray-400 text-sm">
+            <footer className="text-center mt-12 text-gray-500 dark:text-gray-400 text-sm mb-8 md:mb-0">
               <p>พัฒนาโดย นายธงชัย ทำเผือก</p>
               <p>กลุ่มงานสุขภาพดิจิทัล สำนักงานสาธารณสุขจังหวัดสตูล</p>
             </footer>
         </main>
       </div>
+      
+      <BottomNavigation />
+      <QuickActionModal />
     </div>
   );
 };

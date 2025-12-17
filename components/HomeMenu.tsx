@@ -109,24 +109,6 @@ const menuItems = [
     borderColor: 'hover:border-rose-500'
   },
   { 
-    view: 'bmi' as AppView, 
-    title: 'เครื่องมือ BMI', 
-    description: 'วัดดัชนีมวลกาย', 
-    icon: <ScaleIcon className="w-10 h-10" />, 
-    color: 'text-red-500',
-    bgColor: 'bg-red-50 dark:bg-red-900/50',
-    borderColor: 'hover:border-red-500'
-  },
-  { 
-    view: 'tdee' as AppView, 
-    title: 'เครื่องมือ TDEE', 
-    description: 'การเผาผลาญพลังงาน', 
-    icon: <FireIcon className="w-10 h-10" />, 
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-50 dark:bg-orange-900/50',
-    borderColor: 'hover:border-orange-500'
-  },
-  { 
     view: 'evaluation' as AppView, 
     title: 'ประเมินผลการใช้งาน', 
     description: 'ความพึงพอใจ & ผลลัพธ์', 
@@ -134,15 +116,6 @@ const menuItems = [
     color: 'text-violet-600',
     bgColor: 'bg-violet-50 dark:bg-violet-900/50',
     borderColor: 'hover:border-violet-600'
-  },
-  { 
-    view: 'about' as AppView, 
-    title: 'เกี่ยวกับนวัตกรรม & คู่มือ', 
-    description: 'แนวคิดและการใช้งาน', 
-    icon: <InformationCircleIcon className="w-10 h-10" />, 
-    color: 'text-teal-600',
-    bgColor: 'bg-teal-50 dark:bg-teal-900/50',
-    borderColor: 'hover:border-teal-600'
   },
 ];
 
