@@ -1,14 +1,17 @@
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MOOD_EMOJIS, SLEEP_HYGIENE_CHECKLIST, XP_VALUES } from '../constants';
-import { MoonIcon, FaceSmileIcon, NoSymbolIcon, UserGroupIcon, SparklesIcon, HeartIcon, XIcon, PhoneIcon } from './icons';
+import { MoonIcon, FaceSmileIcon, NoSymbolIcon, UserGroupIcon, SparklesIcon, HeartIcon, XIcon, PhoneIcon, ClipboardCheckIcon } from './icons';
 import CrisisModal from './CrisisModal';
 import { GoogleGenAI } from "@google/genai";
 
 const WellnessCheckin: React.FC = () => {
     const { 
-        setSleepHistory, setMoodHistory, setHabitHistory, setSocialHistory,
+        sleepHistory, setSleepHistory, 
+        moodHistory, setMoodHistory, 
+        habitHistory, setHabitHistory, 
+        socialHistory, setSocialHistory,
         gainXP, openSOS
     } = useContext(AppContext);
 
@@ -16,6 +19,20 @@ const WellnessCheckin: React.FC = () => {
     const [showCrisisModal, setShowCrisisModal] = useState(false);
     const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
     const [analyzing, setAnalyzing] = useState(false);
+
+    // --- Check if done today ---
+    const isToday = (dateString: string) => {
+        const d = new Date(dateString);
+        const today = new Date();
+        return d.getDate() === today.getDate() &&
+               d.getMonth() === today.getMonth() &&
+               d.getFullYear() === today.getFullYear();
+    };
+
+    const isSleepDone = useMemo(() => sleepHistory.some(h => isToday(h.date)), [sleepHistory]);
+    const isMoodDone = useMemo(() => moodHistory.some(h => isToday(h.date)), [moodHistory]);
+    const isHabitDone = useMemo(() => habitHistory.some(h => isToday(h.date)), [habitHistory]);
+    const isSocialDone = useMemo(() => socialHistory.some(h => isToday(h.date)), [socialHistory]);
 
     // --- State Management ---
     const [sleepData, setSleepData] = useState({ 
@@ -64,7 +81,6 @@ const WellnessCheckin: React.FC = () => {
             hygieneChecklist: sleepData.checks
         }, ...prev]);
         gainXP(XP_VALUES.SLEEP);
-        alert(`บันทึกการนอน ${duration} ชม. เรียบร้อย!`);
     };
 
     const handleMoodSave = () => {
@@ -76,26 +92,19 @@ const WellnessCheckin: React.FC = () => {
             gratitude: moodData.gratitude
         }, ...prev]);
         gainXP(XP_VALUES.MOOD);
-        alert('บันทึกอารมณ์เรียบร้อย!');
     };
 
     const handleHabitSave = () => {
-        // If clean day is checked, reset counts
-        const finalHabitData = habitData.isClean 
-            ? { alcohol: 0, smoking: 0, chemicals: 0, accidents: 0 } 
-            : habitData;
-
         // Save entry for each non-zero type or a single "clean" entry
         if (habitData.isClean) {
              setHabitHistory(prev => [{
                 id: Date.now().toString(),
                 date: new Date().toISOString(),
-                type: 'alcohol', // Dummy type, but amount 0 + isClean=true signifies all good
+                type: 'alcohol', // Dummy type
                 amount: 0,
                 isClean: true
             }, ...prev]);
         } else {
-            // Save specific risks
             (['alcohol', 'smoking', 'chemicals', 'accidents'] as const).forEach(type => {
                 if (habitData[type] > 0) {
                     setHabitHistory(prev => [{
@@ -108,8 +117,7 @@ const WellnessCheckin: React.FC = () => {
                 }
             });
         }
-        gainXP(XP_VALUES.WELLNESS); // Use general wellness XP for habits
-        alert('บันทึกพฤติกรรมเรียบร้อย!');
+        gainXP(XP_VALUES.WELLNESS);
     };
 
     const handleSocialSave = () => {
@@ -122,7 +130,6 @@ const WellnessCheckin: React.FC = () => {
         }, ...prev]);
         gainXP(XP_VALUES.WELLNESS);
         setSocialData({...socialData, interaction: ''}); // Reset text
-        alert('บันทึกกิจกรรมสังคมเรียบร้อย!');
     };
 
     const handleWellnessAnalyze = async () => {
@@ -147,6 +154,30 @@ const WellnessCheckin: React.FC = () => {
         finally { setAnalyzing(false); }
     };
 
+    // Helper for Tab Buttons
+    const TabButton: React.FC<{ 
+        id: typeof activeTab, 
+        label: string, 
+        icon: React.ReactNode, 
+        isDone: boolean,
+        activeColor: string 
+    }> = ({ id, label, icon, isDone, activeColor }) => (
+        <button 
+            onClick={() => setActiveTab(id)} 
+            className={`flex-1 py-3 px-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1.5 transition-all relative ${
+                activeTab === id 
+                ? `${activeColor} text-white shadow-md` 
+                : isDone 
+                    ? 'bg-green-50 text-green-700 border-2 border-green-200' 
+                    : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+        >
+            {isDone && activeTab !== id ? <span className="font-bold text-lg">✓</span> : icon} 
+            <span className="hidden sm:inline">{label}</span>
+            {isDone && activeTab !== id && <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>}
+        </button>
+    );
+
     return (
         <div className="w-full space-y-6 animate-fade-in relative">
             {showCrisisModal && <CrisisModal onClose={() => setShowCrisisModal(false)} onOpenSOS={openSOS} onBreathing={() => {}} score={moodData.stress} />}
@@ -157,19 +188,11 @@ const WellnessCheckin: React.FC = () => {
                 <p className="text-sm text-gray-500 dark:text-gray-400">บันทึก 4 มิติเพื่อสมดุลชีวิต</p>
             </div>
 
-            <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 shadow-sm overflow-x-auto border border-gray-200 dark:border-gray-700">
-                <button onClick={() => setActiveTab('sleep')} className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'sleep' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500'}`}>
-                    <MoonIcon className="w-4 h-4" /> การนอน
-                </button>
-                <button onClick={() => setActiveTab('mood')} className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'mood' ? 'bg-rose-100 text-rose-700' : 'text-gray-500'}`}>
-                    <FaceSmileIcon className="w-4 h-4" /> อารมณ์
-                </button>
-                <button onClick={() => setActiveTab('habit')} className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'habit' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'}`}>
-                    <NoSymbolIcon className="w-4 h-4" /> เสี่ยง
-                </button>
-                <button onClick={() => setActiveTab('social')} className={`flex-1 py-3 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'social' ? 'bg-teal-100 text-teal-700' : 'text-gray-500'}`}>
-                    <UserGroupIcon className="w-4 h-4" /> สังคม
-                </button>
+            <div className="flex bg-white dark:bg-gray-800 rounded-xl p-1 shadow-sm overflow-x-auto border border-gray-200 dark:border-gray-700 gap-1">
+                <TabButton id="sleep" label="การนอน" icon={<MoonIcon className="w-4 h-4" />} isDone={isSleepDone} activeColor="bg-indigo-600" />
+                <TabButton id="mood" label="อารมณ์" icon={<FaceSmileIcon className="w-4 h-4" />} isDone={isMoodDone} activeColor="bg-rose-500" />
+                <TabButton id="habit" label="เสี่ยง" icon={<NoSymbolIcon className="w-4 h-4" />} isDone={isHabitDone} activeColor="bg-orange-500" />
+                <TabButton id="social" label="สังคม" icon={<UserGroupIcon className="w-4 h-4" />} isDone={isSocialDone} activeColor="bg-teal-600" />
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg min-h-[350px] border border-gray-100 dark:border-gray-700">
@@ -224,9 +247,21 @@ const WellnessCheckin: React.FC = () => {
                             </div>
                         </div>
 
-                        <button onClick={handleSleepSave} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">
-                            บันทึกการนอน ({calculateDuration(sleepData.bedTime, sleepData.wakeTime)} ชม.)
+                        <button 
+                            onClick={handleSleepSave} 
+                            className={`w-full py-3 font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
+                                isSleepDone 
+                                ? 'bg-green-500 text-white hover:bg-green-600' 
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            }`}
+                        >
+                            {isSleepDone ? (
+                                <><span>✓ บันทึกวันนี้เรียบร้อยแล้ว</span></>
+                            ) : (
+                                `บันทึกการนอน (${calculateDuration(sleepData.bedTime, sleepData.wakeTime)} ชม.)`
+                            )}
                         </button>
+                        {isSleepDone && <p className="text-center text-xs text-gray-400">กดบันทึกซ้ำเพื่ออัปเดตข้อมูล</p>}
                     </div>
                 )}
 
@@ -278,16 +313,28 @@ const WellnessCheckin: React.FC = () => {
                             />
                         </div>
 
-                        <button onClick={handleMoodSave} className="w-full py-3 bg-rose-500 text-white font-bold rounded-xl shadow-lg hover:bg-rose-600 active:scale-95 transition-all">
-                            บันทึกอารมณ์
+                        <button 
+                            onClick={handleMoodSave} 
+                            className={`w-full py-3 font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
+                                isMoodDone
+                                ? 'bg-green-500 text-white hover:bg-green-600'
+                                : 'bg-rose-500 text-white hover:bg-rose-600'
+                            }`}
+                        >
+                            {isMoodDone ? (
+                                <><span>✓ บันทึกวันนี้เรียบร้อยแล้ว</span></>
+                            ) : (
+                                'บันทึกอารมณ์'
+                            )}
                         </button>
+                        {isMoodDone && <p className="text-center text-xs text-gray-400">กดบันทึกซ้ำเพื่ออัปเดตข้อมูล</p>}
                     </div>
                 )}
 
                 {/* --- HABIT TAB --- */}
                 {activeTab === 'habit' && (
                     <div className="space-y-6 animate-fade-in">
-                        <div className="flex items-center gap-3 bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                        <div className={`flex items-center gap-3 p-4 rounded-xl border transition-colors ${habitData.isClean ? 'bg-green-100 border-green-300 dark:bg-green-900/40 dark:border-green-700' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'}`}>
                             <input 
                                 type="checkbox" 
                                 checked={habitData.isClean} 
@@ -323,9 +370,21 @@ const WellnessCheckin: React.FC = () => {
                             </div>
                         )}
 
-                        <button onClick={handleHabitSave} className="w-full py-3 bg-orange-500 text-white font-bold rounded-xl shadow-lg hover:bg-orange-600 active:scale-95 transition-all">
-                            บันทึกพฤติกรรม
+                        <button 
+                            onClick={handleHabitSave} 
+                            className={`w-full py-3 font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
+                                isHabitDone
+                                ? 'bg-green-500 text-white hover:bg-green-600'
+                                : 'bg-orange-500 text-white hover:bg-orange-600'
+                            }`}
+                        >
+                            {isHabitDone ? (
+                                <><span>✓ บันทึกวันนี้เรียบร้อยแล้ว</span></>
+                            ) : (
+                                'บันทึกพฤติกรรม'
+                            )}
                         </button>
+                        {isHabitDone && <p className="text-center text-xs text-gray-400">กดบันทึกซ้ำเพื่ออัปเดตข้อมูล</p>}
                     </div>
                 )}
 
@@ -367,9 +426,21 @@ const WellnessCheckin: React.FC = () => {
                             </div>
                         </div>
 
-                        <button onClick={handleSocialSave} className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg hover:bg-teal-700 active:scale-95 transition-all">
-                            บันทึกกิจกรรมสังคม
+                        <button 
+                            onClick={handleSocialSave} 
+                            className={`w-full py-3 font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
+                                isSocialDone
+                                ? 'bg-green-500 text-white hover:bg-green-600'
+                                : 'bg-teal-600 text-white hover:bg-teal-700'
+                            }`}
+                        >
+                            {isSocialDone ? (
+                                <><span>✓ บันทึกวันนี้เรียบร้อยแล้ว</span></>
+                            ) : (
+                                'บันทึกกิจกรรมสังคม'
+                            )}
                         </button>
+                        {isSocialDone && <p className="text-center text-xs text-gray-400">กดบันทึกซ้ำเพื่ออัปเดตข้อมูล</p>}
                     </div>
                 )}
             </div>
