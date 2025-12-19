@@ -9,13 +9,14 @@ import { extractHealthDataFromImage } from '../services/geminiService';
 const MAX_HISTORY_ITEMS = 100;
 
 const ActivityTracker: React.FC = () => {
-    const { activityHistory, setActivityHistory, clearActivityHistory, gainXP, apiKey } = useContext(AppContext);
+    const { activityHistory, setActivityHistory, clearActivityHistory, gainXP } = useContext(AppContext);
     
     const [customName, setCustomName] = useState('');
     const [customCalories, setCustomCalories] = useState('');
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [stepsInput, setStepsInput] = useState(''); // NEW: Steps state
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const todaysEntries = useMemo(() => {
@@ -77,6 +78,17 @@ const ActivityTracker: React.FC = () => {
             setCustomCalories('');
         }
     };
+
+    // NEW: Handle Steps Calculation
+    const handleStepsConvert = () => {
+        const steps = parseInt(stepsInput);
+        if (steps > 0) {
+            const estimatedCalories = Math.round(steps * 0.04); // Approx 0.04 kcal per step
+            setCustomName(`เดิน ${steps.toLocaleString()} ก้าว`);
+            setCustomCalories(estimatedCalories.toString());
+            setStepsInput('');
+        }
+    };
     
     const handleDeleteHistoryItem = (id: string) => {
         setActivityHistory(prev => prev.filter(item => item.id !== id));
@@ -108,7 +120,7 @@ const ActivityTracker: React.FC = () => {
             reader.onloadend = async () => {
                 if (typeof reader.result === 'string') {
                     const base64 = reader.result.split(',')[1];
-                    const data = await extractHealthDataFromImage(base64, file.type, 'activity', apiKey);
+                    const data = await extractHealthDataFromImage(base64, file.type, 'activity');
                     
                     if (data.calories) setCustomCalories(data.calories.toString());
                     if (data.steps) setCustomName(`เดิน ${data.steps.toLocaleString()} ก้าว (Synced)`);
@@ -142,6 +154,30 @@ const ActivityTracker: React.FC = () => {
                     <p className="text-lg font-semibold text-yellow-700 dark:text-yellow-300">kcal</p>
                 </div>
                 
+                {/* Steps Calculator - NEW FEATURE */}
+                <div className="mb-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+                    <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <span>👣</span> คำนวณจากก้าวเดิน (Steps)
+                    </h3>
+                    <div className="flex gap-2">
+                        <input 
+                            type="number" 
+                            value={stepsInput}
+                            onChange={(e) => setStepsInput(e.target.value)}
+                            placeholder="ระบุจำนวนก้าววันนี้"
+                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-800 rounded-lg text-sm"
+                        />
+                        <button 
+                            onClick={handleStepsConvert}
+                            disabled={!stepsInput}
+                            className="bg-teal-500 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-600 disabled:bg-gray-400"
+                        >
+                            แปลงเป็นแคลอรี่
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">*คำนวณโดยประมาณ (0.04 kcal / ก้าว)</p>
+                </div>
+
                 {/* AI Sync Button */}
                 <div className="mb-6">
                     <input 
@@ -164,9 +200,6 @@ const ActivityTracker: React.FC = () => {
                         <span>{isSyncing ? 'AI กำลังอ่านภาพ...' : 'Sync จากภาพหน้าจอ (Smart Watch/App)'}</span>
                         {!isSyncing && <SparklesIcon className="w-4 h-4 text-yellow-400" />}
                     </button>
-                    <p className="text-xs text-center text-gray-500 mt-2">
-                        *ถ่ายภาพหน้าจอสรุปผลจาก Apple Health, Google Fit หรือแอปนาฬิกา แล้วให้ AI กรอกข้อมูลให้
-                    </p>
                 </div>
                 
                 {/* Quick Add */}
@@ -192,7 +225,7 @@ const ActivityTracker: React.FC = () => {
                             type="text" 
                             value={customName} 
                             onChange={(e) => setCustomName(e.target.value)} 
-                            placeholder="ชื่อกิจกรรม / จำนวนก้าว" 
+                            placeholder="ชื่อกิจกรรม" 
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-yellow-500"
                         />
                          <input 
@@ -209,8 +242,9 @@ const ActivityTracker: React.FC = () => {
                 </form>
             </div>
 
-            {/* History Chart */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg">
+            {/* History Chart & Logs code remains same... */}
+            {/* ... (Keeping Chart & Logs Logic for brevity, it's unchanged) ... */}
+             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg">
                  <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">สถิติย้อนหลัง 7 วัน</h3>
                  <div className="flex items-end justify-between h-40 gap-2">
                     {chartData.map((data, index) => {

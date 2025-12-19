@@ -240,7 +240,8 @@ const AppContent: React.FC = () => {
               </div>
           )}
 
-          {currentUser?.role === 'user' && (
+          {/* Show common menu items for both User and Admin (to let admin test) */}
+          {(currentUser?.role === 'user' || currentUser?.role === 'admin') && (
             <>
               <NavLink view="profile" label="ข้อมูลส่วนตัว" icon={<UserCircleIcon className="w-6 h-6" />} />
               <NavLink view="dashboard" label="แดชบอร์ดสุขภาพ" icon={<SquaresIcon className="w-6 h-6" />} />
@@ -282,7 +283,8 @@ const AppContent: React.FC = () => {
 
   // Daily Task Logic & Auto Notification
   const pendingTasks = useMemo(() => {
-      if (!currentUser || currentUser.role !== 'user') return [];
+      // Allow any non-guest user (User + Admin) to see tasks
+      if (!currentUser || currentUser.role === 'guest') return [];
       
       const isToday = (dateString: string) => {
         const d = new Date(dateString);
@@ -305,7 +307,8 @@ const AppContent: React.FC = () => {
 
   // Check for Mission Complete
   useEffect(() => {
-      if (!currentUser || currentUser.role !== 'user' || !scriptUrl) return;
+      // Allow notification check for User & Admin
+      if (!currentUser || currentUser.role === 'guest' || !scriptUrl) return;
 
       const todayStr = new Date().toDateString();
       
@@ -389,7 +392,8 @@ const AppContent: React.FC = () => {
                         <span className="text-xl">{currentUser.profilePicture}</span>
                     )}
                 </div>
-                {currentUser.role === 'user' && (
+                {/* Show Level for Admin too if they want to play */}
+                {currentUser.role !== 'guest' && (
                      <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-white text-[10px] font-bold px-1.5 rounded-full border border-white dark:border-gray-800">
                          {currentLevel}
                      </div>
@@ -401,7 +405,8 @@ const AppContent: React.FC = () => {
                         <p className="font-bold text-gray-800 dark:text-white truncate">{currentUser.displayName}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">@{currentUser.username.slice(0, 8)}</p>
                     </div>
-                    {currentUser.role === 'user' && (
+                    {/* Show stats for Admin too */}
+                    {currentUser.role !== 'guest' && (
                         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <div className="bg-yellow-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
@@ -441,7 +446,8 @@ const AppContent: React.FC = () => {
   };
 
   const BottomNavigation = () => {
-      if (!currentUser || currentUser.role !== 'user') return null;
+      // Show bottom nav for Admin too for testing convenience
+      if (!currentUser || currentUser.role === 'guest') return null;
 
       return (
           <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around items-center h-20 px-2 z-40 pb-2 md:hidden animate-slide-up">
@@ -526,8 +532,8 @@ const AppContent: React.FC = () => {
       {/* PDPA Modal */}
       {showPDPA && <PDPAModal onAccept={handlePDPAAccept} />}
       
-      {/* SOS Modal & Button */}
-      {currentUser?.role === 'user' && <SOSButton />}
+      {/* SOS Modal & Button (Enable for Admin too for testing) */}
+      {currentUser?.role !== 'guest' && <SOSButton />}
       {isSOSOpen && <SOSModal onClose={closeSOS} />}
 
       <div className="flex flex-col flex-1 pb-24">
@@ -563,7 +569,8 @@ const AppContent: React.FC = () => {
                   </div>
 
                   <div className="flex-1 flex justify-end items-center gap-2">
-                    {currentUser?.role === 'user' && <NotificationBell />}
+                    {/* Show NotificationBell for Admin as well */}
+                    {currentUser?.role !== 'guest' && <NotificationBell />}
                     {currentUser && <ProfileMenu />}
                   </div>
               </div>

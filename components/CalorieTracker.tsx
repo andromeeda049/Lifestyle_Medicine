@@ -2,13 +2,13 @@
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { CalorieHistoryEntry } from '../types';
-import { TrashIcon, BeakerIcon } from './icons';
+import { TrashIcon, BeakerIcon, CameraIcon, SparklesIcon } from './icons';
 import { COMMON_MEALS, XP_VALUES } from '../constants';
 
 const MAX_HISTORY_ITEMS = 100;
 
 const CalorieTracker: React.FC = () => {
-    const { calorieHistory, setCalorieHistory, clearCalorieHistory, tdeeHistory, gainXP } = useContext(AppContext);
+    const { calorieHistory, setCalorieHistory, clearCalorieHistory, tdeeHistory, gainXP, setActiveView } = useContext(AppContext);
     
     const [customName, setCustomName] = useState('');
     const [customCalories, setCustomCalories] = useState('');
@@ -109,8 +109,18 @@ const CalorieTracker: React.FC = () => {
             <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center flex items-center justify-center gap-2">
                     <BeakerIcon className="w-8 h-8 text-orange-500" />
-                    บันทึกแคลอรี่วันนี้
+                    บันทึกแคลอรี่ & โภชนาการ
                 </h2>
+
+                {/* AI Scan Button - COMBINED FEATURE */}
+                <button
+                    onClick={() => setActiveView('food')}
+                    className="w-full mb-6 py-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl shadow-md flex items-center justify-center gap-2 hover:shadow-lg transition-all transform hover:scale-[1.02] active:scale-95"
+                >
+                    <CameraIcon className="w-6 h-6" />
+                    <span className="font-bold text-lg">สแกนอาหารด้วย AI</span>
+                    <SparklesIcon className="w-5 h-5 text-yellow-300 animate-pulse" />
+                </button>
 
                 {/* Progress Bar */}
                 <div className="mb-6">

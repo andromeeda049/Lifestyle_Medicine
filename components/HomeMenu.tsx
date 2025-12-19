@@ -28,7 +28,7 @@ const HomeMenu: React.FC = () => {
           { id: 'water', label: 'ดื่มน้ำ', completed: waterHistory.some(h => isToday(h.date)), total: 1, icon: '💧' },
           { id: 'food', label: 'บันทึกอาหาร', completed: calorieHistory.some(h => isToday(h.date)), total: 1, icon: '🥗' },
           { id: 'move', label: 'ขยับร่างกาย', completed: activityHistory.some(h => isToday(h.date)), total: 1, icon: '⚡' },
-          { id: 'mind', label: 'เช็คอินใจ', completed: moodHistory.some(h => isToday(h.date)) || sleepHistory.some(h => isToday(h.date)), total: 1, icon: '🧠' },
+          { id: 'mind', label: 'เช็คอินสุขภาพ', completed: moodHistory.some(h => isToday(h.date)) || sleepHistory.some(h => isToday(h.date)), total: 1, icon: '🧠' },
       ];
 
       const completedCount = missions.filter(m => m.completed).length;
@@ -149,10 +149,10 @@ const HomeMenu: React.FC = () => {
             </h3>
             <div className="grid grid-cols-2 gap-3">
                 <QuickActionButton 
-                    view="food" 
-                    label="สแกนอาหาร" 
-                    subLabel="AI วิเคราะห์โภชนาการ"
-                    icon={<CameraIcon className="w-6 h-6 text-purple-600" />} 
+                    view="calorieTracker" 
+                    label="โภชนาการ" 
+                    subLabel="บันทึก/สแกนอาหาร"
+                    icon={<BeakerIcon className="w-6 h-6 text-purple-600" />} 
                     colorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
                     completed={dailyProgress.missions.find(m => m.id === 'food')?.completed}
                 />
@@ -174,7 +174,7 @@ const HomeMenu: React.FC = () => {
                 />
                 <QuickActionButton 
                     view="wellness" 
-                    label="เช็คอินใจ" 
+                    label="เช็คอินสุขภาพ" 
                     subLabel="อารมณ์ & การนอน"
                     icon={<HeartIcon className="w-6 h-6 text-rose-500" />} 
                     colorClass="bg-rose-100 dark:bg-rose-900/30 text-rose-500"
@@ -183,7 +183,7 @@ const HomeMenu: React.FC = () => {
             </div>
         </div>
 
-        {/* 3. Challenge Banner */}
+        {/* 3. Challenge Banner (Renamed) */}
         <div 
             onClick={() => setActiveView('community')}
             className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 text-white shadow-lg cursor-pointer transform transition-transform hover:scale-[1.02] relative overflow-hidden"
@@ -194,8 +194,8 @@ const HomeMenu: React.FC = () => {
                     <TrophyIcon className="w-8 h-8 text-yellow-300" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-lg">Organizational Challenge</h3>
-                    <p className="text-orange-100 text-xs">ดูอันดับของคุณและทีมในองค์กร</p>
+                    <h3 className="font-bold text-lg">ลำดับคนรักสุขภาพ</h3>
+                    <p className="text-orange-100 text-xs">ดูอันดับของคุณและผู้มาแรงประจำสัปดาห์</p>
                 </div>
                 <div className="ml-auto bg-white text-orange-600 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
                     Go!

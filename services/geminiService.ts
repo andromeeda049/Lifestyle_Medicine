@@ -1,9 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { NutrientInfo, BMIHistoryEntry, TDEEHistoryEntry, MealPlan, PlannerResults, LocalFoodSuggestion, UserProfile, SpecialistId, SleepEntry, MoodEntry, FoodHistoryEntry } from '../types';
+import { NutrientInfo, LocalFoodSuggestion, UserProfile, SpecialistId, FoodHistoryEntry, MealPlan, PlannerResults } from '../types';
 import { SPECIALIST_TEAM } from "../constants";
-
-// ... (Existing foodAnalysisSchema and related functions keep unchanged) ...
 
 const foodAnalysisSchema = {
   type: Type.OBJECT,
@@ -24,24 +22,23 @@ const foodAnalysisSchema = {
         type: Type.OBJECT,
         description: "การวิเคราะห์เจาะลึก 6 เสาหลักเวชศาสตร์วิถีชีวิต",
         properties: {
-            nutrition: { type: Type.STRING, description: "วิเคราะห์ด้านโภชนาการ (ดี/ไม่ดี อย่างไร)" },
-            physicalActivity: { type: Type.STRING, description: "อาหารนี้เหมาะก่อน/หลังออกกำลังกายไหม? ให้พลังงานอย่างไร?" },
-            sleep: { type: Type.STRING, description: "อาหารนี้ส่งผลต่อการนอนหลับอย่างไร? (เช่น มีคาเฟอีน, ย่อยยาก)" },
-            stress: { type: Type.STRING, description: "ส่งผลต่อความเครียด/อารมณ์อย่างไร?" },
-            substance: { type: Type.STRING, description: "มีความเสี่ยงจากสารปรุงแต่ง/แปรรูป หรือแอลกอฮอล์ไหม?" },
-            social: { type: Type.STRING, description: "แง่มุมทางสังคม (เช่น อาหารที่เหมาะแก่การแบ่งปัน หรือควรเลี่ยงงานปาร์ตี้)" },
-            overallRisk: { type: Type.STRING, enum: ["Low", "Medium", "High"], description: "ระดับความเสี่ยงต่อ NCDs" }
+            nutrition: { type: Type.STRING, description: "วิเคราะห์ด้านโภชนาการ" },
+            physicalActivity: { type: Type.STRING, description: "วิเคราะห์ด้านกิจกรรมทางกาย" },
+            sleep: { type: Type.STRING, description: "วิเคราะห์ด้านการนอน" },
+            stress: { type: Type.STRING, description: "วิเคราะห์ด้านความเครียด" },
+            substance: { type: Type.STRING, description: "วิเคราะห์ด้านสารเสพติด" },
+            social: { type: Type.STRING, description: "วิเคราะห์ด้านสังคม" },
+            overallRisk: { type: Type.STRING, enum: ["Low", "Medium", "High"], description: "ระดับความเสี่ยง" }
         },
         required: ['nutrition', 'physicalActivity', 'sleep', 'stress', 'substance', 'social', 'overallRisk']
     },
     items: {
       type: Type.ARRAY,
-      description: "รายการอาหารแต่ละอย่าง",
       items: {
         type: Type.OBJECT,
         properties: {
-          name: { type: Type.STRING, description: "ชื่ออาหาร" },
-          calories: { type: Type.NUMBER, description: "แคลอรี่" }
+          name: { type: Type.STRING },
+          calories: { type: Type.NUMBER }
         },
         required: ['name', 'calories']
       }
@@ -50,190 +47,97 @@ const foodAnalysisSchema = {
   required: ['calories', 'protein', 'carbohydrates', 'fat', 'sugar', 'sodium', 'saturatedFat', 'description', 'healthImpact', 'items', 'lifestyleAnalysis']
 };
 
-export const analyzeFoodFromImage = async (base64Image: string, mimeType: string, apiKey: string): Promise<NutrientInfo> => {
-  if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
-  const ai = new GoogleGenAI({ apiKey });
+export const analyzeFoodFromImage = async (base64Image: string, mimeType: string): Promise<NutrientInfo> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          parts: [
-            {
-              inlineData: {
-                data: base64Image,
-                mimeType: mimeType
-              }
-            },
-            {
-              text: "Analyze this food image based on Lifestyle Medicine principles (6 Pillars). Identify nutrients and assess impact on NCDs (Diabetes, Hypertension, etc.). Return JSON."
-            }
-          ]
-        }
-      ],
+      model: 'gemini-3-flash-preview',
+      contents: [{
+        parts: [
+          { inlineData: { data: base64Image, mimeType } },
+          { text: "Analyze this food image based on Lifestyle Medicine principles. Identify nutrients and assessment on NCDs. Return JSON." }
+        ]
+      }],
       config: {
         responseMimeType: 'application/json',
         responseSchema: foodAnalysisSchema,
       }
     });
-
-    const jsonText = response.text.trim();
-    const parsedJson = JSON.parse(jsonText);
-    return parsedJson as NutrientInfo;
+    return JSON.parse(response.text);
   } catch (error) {
-    console.error("Error analyzing food image with Gemini:", error);
-    throw new Error('ไม่สามารถวิเคราะห์รูปภาพได้ กรุณาลองใหม่อีกครั้ง');
+    console.error("AI Analysis Error:", error);
+    throw new Error('ไม่สามารถวิเคราะห์รูปภาพได้ในขณะนี้');
   }
 };
 
-export const analyzeFoodFromText = async (text: string, apiKey: string): Promise<NutrientInfo> => {
-  if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
-  const ai = new GoogleGenAI({ apiKey });
+export const analyzeFoodFromText = async (text: string): Promise<NutrientInfo> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Analyze this food text: "${text}" based on Lifestyle Medicine principles. Identify nutrients and assess impact on NCDs. Return JSON.`,
+      model: 'gemini-3-flash-preview',
+      contents: `Analyze this food text: "${text}" based on Lifestyle Medicine principles. Return JSON.`,
       config: {
         responseMimeType: 'application/json',
         responseSchema: foodAnalysisSchema,
       }
     });
-
-    const jsonText = response.text.trim();
-    const parsedJson = JSON.parse(jsonText);
-    return parsedJson as NutrientInfo;
+    return JSON.parse(response.text);
   } catch (error) {
-    console.error("Error analyzing food text with Gemini:", error);
-    throw new Error('ไม่สามารถวิเคราะห์ข้อความได้ กรุณาลองใหม่อีกครั้ง');
+    console.error("AI Text Analysis Error:", error);
+    throw new Error('ไม่สามารถวิเคราะห์ข้อความได้ในขณะนี้');
   }
 };
 
-const localFoodSuggestionSchema = {
-    type: Type.ARRAY,
-    description: "รายการแนะนำอาหารท้องถิ่น",
-    items: {
-        type: Type.OBJECT,
-        properties: {
-            name: { type: Type.STRING, description: "ชื่อเมนูอาหารท้องถิ่น" },
-            description: { type: Type.STRING, description: "คำอธิบายและประโยชน์ทางสุขภาพ" },
-            calories: { type: Type.NUMBER, description: "แคลอรี่โดยประมาณ" },
-        },
-        required: ['name', 'description', 'calories']
-    }
-};
-
-export const getLocalFoodSuggestions = async (lat: number, lon: number, apiKey: string): Promise<LocalFoodSuggestion[]> => {
-    if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = `
-From coordinates ${lat}, ${lon}, suggest 5-7 healthy local dishes (Lifestyle Medicine compliant: Low Sodium, Low Sugar, Good Fats).
-Return JSON array.
-`;
+export const getLocalFoodSuggestions = async (lat: number, lon: number): Promise<LocalFoodSuggestion[]> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
+            model: 'gemini-3-flash-preview',
+            contents: `From coordinates ${lat}, ${lon}, suggest 5 healthy local dishes (Lifestyle Medicine compliant). Return JSON array with name, description, calories.`,
             config: {
                 responseMimeType: 'application/json',
-                responseSchema: localFoodSuggestionSchema,
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            calories: { type: Type.NUMBER }
+                        },
+                        required: ['name', 'description', 'calories']
+                    }
+                }
             }
         });
-        return JSON.parse(response.text.trim()) as LocalFoodSuggestion[];
+        return JSON.parse(response.text);
     } catch (error) {
-        console.error("Error getting local food suggestions:", error);
-        throw new Error('ไม่สามารถค้นหาอาหารท้องถิ่นได้ในขณะนี้');
+        throw new Error('ไม่สามารถค้นหาเมนูท้องถิ่นได้ในขณะนี้');
     }
-}
+};
 
 export const getHealthCoachingTip = async (data: { 
-    bmi?: BMIHistoryEntry; 
-    tdee?: TDEEHistoryEntry; 
+    bmi?: any; 
+    tdee?: any; 
     food?: NutrientInfo | null; 
     waterIntake?: number;
     userProfile?: UserProfile;
     specialistId?: SpecialistId;
-}, apiKey: string): Promise<string> => {
-  if (!apiKey) return "กรุณาตั้งค่า API Key ในหน้าตั้งค่าก่อนใช้งานฟีเจอร์นี้";
-  const ai = new GoogleGenAI({ apiKey });
-
+}): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const specialist = SPECIALIST_TEAM.find(s => s.id === data.specialistId) || SPECIALIST_TEAM[0];
+  const prompt = `Act as a ${specialist.name} (${specialist.role}). User Data: Condition: ${data.userProfile?.healthCondition}, BMI: ${data.bmi?.value}, Water: ${data.waterIntake}ml. Last Meal: ${data.food?.description}. Give actionable advice in Thai (2-3 sentences).`;
   
-  let prompt = `Act as a ${specialist.name} (${specialist.role}) in a Lifestyle Medicine Team.\n`;
-  prompt += "Give a personalized, empathetic, and actionable advice (2-3 sentences) in Thai.\n\n";
-  prompt += "User Data:\n";
-  if (data.userProfile?.healthCondition) prompt += `- Condition: ${data.userProfile.healthCondition} (Critically important context)\n`;
-  if (data.bmi) prompt += `- BMI: ${data.bmi.value.toFixed(2)}\n`;
-  if (data.waterIntake !== undefined) prompt += `- Water Today: ${data.waterIntake} ml\n`;
-  if (data.food) {
-    prompt += `- Last Meal: ${data.food.description} (Risk: ${data.food.lifestyleAnalysis?.overallRisk || 'Unknown'})\n`;
-  }
-  
-  prompt += `\nFocus your advice on your area of expertise (${specialist.role}) to help prevent/manage NCDs.`;
-
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    return response.text.trim();
+    return response.text;
   } catch (error) {
-    console.error("Error getting health coaching tip:", error);
-    throw new Error('ไม่สามารถรับคำแนะนำจาก AI ได้ในขณะนี้');
+    return "ขออภัย ระบบปรึกษาชั่วคราวไม่พร้อมใช้งาน";
   }
 };
-
-const mealSchema = {
-  type: Type.OBJECT,
-  properties: {
-    menu: { type: Type.STRING, description: "ชื่อเมนู (เน้นวัตถุดิบท้องถิ่น)" },
-    protein: { type: Type.NUMBER, description: "โปรตีน (g)" },
-    carbohydrate: { type: Type.NUMBER, description: "คาร์บ (g)" },
-    fat: { type: Type.NUMBER, description: "ไขมัน (g)" },
-    calories: { type: Type.NUMBER, description: "แคลอรี่ (kcal)" },
-  },
-  required: ['menu', 'protein', 'carbohydrate', 'fat', 'calories']
-};
-
-const activitySchema = {
-    type: Type.OBJECT,
-    properties: {
-        activity: { type: Type.STRING, description: "กิจกรรมแนะนำ (เช่น เดินเร็ว, สมาธิ)" },
-        duration: { type: Type.STRING, description: "ระยะเวลา (เช่น 30 นาที)" },
-        benefit: { type: Type.STRING, description: "ประโยชน์ต่อเป้าหมายสุขภาพ" },
-        caloriesBurned: { type: Type.NUMBER, description: "จำนวนแคลอรี่ที่เผาผลาญโดยประมาณจากกิจกรรมนี้" },
-    },
-    required: ['activity', 'duration', 'benefit', 'caloriesBurned']
-};
-
-const mealPlanSchema = {
-    type: Type.ARRAY,
-    items: {
-        type: Type.OBJECT,
-        properties: {
-            day: { type: Type.STRING },
-            breakfast: mealSchema,
-            lunch: mealSchema,
-            dinner: mealSchema,
-            activities: { 
-                type: Type.ARRAY, 
-                items: activitySchema,
-                description: "กิจกรรม Lifestyle Medicine ประจำวัน (1-2 อย่าง)" 
-            },
-            dailyTotal: {
-                type: Type.OBJECT,
-                properties: {
-                    protein: { type: Type.NUMBER },
-                    carbohydrate: { type: Type.NUMBER },
-                    fat: { type: Type.NUMBER },
-                    calories: { type: Type.NUMBER },
-                },
-                required: ['protein', 'carbohydrate', 'fat', 'calories']
-            }
-        },
-        required: ['day', 'breakfast', 'lunch', 'dinner', 'activities', 'dailyTotal']
-    }
-};
-
 
 export const generateMealPlan = async (
   results: PlannerResults,
@@ -241,102 +145,72 @@ export const generateMealPlan = async (
   diet: string,
   healthCondition: string,
   lifestyleGoal: string,
-  foodHistory: FoodHistoryEntry[], // Added Context
-  apiKey: string
+  foodHistory: FoodHistoryEntry[]
 ): Promise<MealPlan> => {
-  if (!apiKey) throw new Error('กรุณาตั้งค่า API Key ก่อนใช้งาน');
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const pastMeals = foodHistory.slice(0, 5).map(f => f.analysis.description).join(", ");
+  
+  // Prompt instructions enforcing Thai language
+  const prompt = `Create a 7-day Meal & Activity Plan for TDEE Goal: ${results.tdee} kcal.
+  Context:
+  - Cuisine Preference: ${cuisine}
+  - Diet Type: ${diet}
+  - Health Condition: ${healthCondition}
+  - Goal: ${lifestyleGoal}
+  - User's Past meals: [${pastMeals}]
 
-  // Process history to find preferences
-  const pastMeals = foodHistory.slice(0, 10).map(f => f.analysis.description).join(", ");
+  IMPORTANT INSTRUCTION:
+  - STRICTLY RETURN ALL TEXT IN THAI LANGUAGE ONLY (ภาษาไทยเท่านั้น).
+  - Menu names MUST be in Thai (e.g. "ข้าวกะเพราไก่ไข่ดาว", "แกงส้มผักรวม"). Do not use English names.
+  - Activity names MUST be in Thai (e.g. "เดินเร็ว", "โยคะ").
+  - For the "day" field, use Thai format: "วันที่ 1", "วันที่ 2", etc.
 
-  const prompt = `
-You are a Lifestyle Medicine Planner. Create a 7-day "Local Ingredient" Meal & Activity Plan.
-**User Context:**
-- TDEE Goal: ${results.tdee.toFixed(0)} kcal
-- Cuisine: ${cuisine}
-- Diet: ${diet}
-- **Health Condition:** ${healthCondition} (Crucial! Adjust food/activity to be safe)
-- **Lifestyle Goal:** ${lifestyleGoal} (e.g., Better Sleep -> add calming foods/activities)
-- **Eating Preferences (Inferred from History):** The user previously ate: [${pastMeals}]. 
-  *Analyze this*: If they eat a lot of specific meat/veg, include similar (but healthy) options. If they eat unhealthy stuff, suggest healthier alternatives that taste similar.
-
-**Requirements:**
-1. Meals: Use local ingredients, easy to cook.
-2. Activities: Suggest 1-2 activities per day (Exercise, Stress Relief, Social) aligning with the goal. **Estimate and include the calories burned (caloriesBurned) for each activity.**
-3. Return JSON.
-`;
+  Return JSON following the schema.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        responseSchema: mealPlanSchema,
+        responseSchema: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    day: { type: Type.STRING },
+                    breakfast: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
+                    lunch: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
+                    dinner: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
+                    activities: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { activity: {type: Type.STRING}, duration: {type: Type.STRING}, benefit: {type: Type.STRING}, caloriesBurned: {type: Type.NUMBER} }, required: ['activity'] } },
+                    dailyTotal: { type: Type.OBJECT, properties: { protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} } }
+                },
+                required: ['day', 'breakfast', 'lunch', 'dinner', 'activities', 'dailyTotal']
+            }
+        },
       }
     });
-
-    const jsonText = response.text.trim();
-    const parsedJson = JSON.parse(jsonText);
-
-    if (!Array.isArray(parsedJson) || parsedJson.length !== 7) {
-      throw new Error('API response is not a 7-day array.');
-    }
-
-    return parsedJson as MealPlan;
+    return JSON.parse(response.text);
   } catch (error) {
-    console.error("Error generating meal plan with Gemini:", error);
-    throw new Error('ไม่สามารถสร้างแผนอาหารได้ กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง');
+    throw new Error('ไม่สามารถสร้างแผนได้ โปรดลองใหม่อีกครั้ง');
   }
 };
 
-// --- Proactive AI Service ---
-
 export const generateProactiveInsight = async (
     data: {
-        bmiHistory: BMIHistoryEntry[];
-        sleepHistory: SleepEntry[];
-        moodHistory: MoodEntry[];
-        foodHistory: FoodHistoryEntry[];
+        bmiHistory: any[];
+        sleepHistory: any[];
+        moodHistory: any[];
+        foodHistory: any[];
         userName: string;
-    },
-    apiKey: string
+    }
 ): Promise<{ title: string; message: string; type: 'warning' | 'info' | 'success' }> => {
-    if (!apiKey) return { title: "พร้อมดูแลคุณ", message: "กรุณาตั้งค่า API Key เพื่อรับคำแนะนำเชิงรุก", type: 'info' };
-    
-    const ai = new GoogleGenAI({ apiKey });
-    
-    // Simplistic trend analysis for prompt context
-    const recentBmi = data.bmiHistory.slice(0, 3);
-    const weightTrend = recentBmi.length >= 2 && recentBmi[0].value > recentBmi[1].value ? "Increasing" : "Stable/Decreasing";
-    
-    const recentSleep = data.sleepHistory.slice(0, 3);
-    const avgSleep = recentSleep.length > 0 ? recentSleep.reduce((a,b) => a + b.duration, 0) / recentSleep.length : 7;
-    
-    const recentMood = data.moodHistory.slice(0, 3);
-    const highStress = recentMood.some(m => m.stressLevel >= 7);
-
-    const prompt = `
-    Act as a "Proactive Health Guardian" for ${data.userName}.
-    Analyze recent trends:
-    - Weight Trend: ${weightTrend}
-    - Recent Sleep Avg: ${avgSleep.toFixed(1)} hrs
-    - Recent Stress: ${highStress ? "High detected" : "Normal"}
-    
-    Task: Generate ONE proactive, short, and caring insight/warning (Thai language).
-    Logic:
-    - If weight increasing -> Warn about dinner/sugar today.
-    - If sleep < 6 -> Suggest cutting caffeine/early bed.
-    - If stress high -> Suggest a specific breathing technique.
-    - If all good -> Compliment consistency.
-    
-    Return JSON: { "title": "...", "message": "...", "type": "warning" | "info" | "success" }
-    `;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `Act as Health Guardian for ${data.userName}. Trends: Weight: ${data.bmiHistory.length}, Stress: ${data.moodHistory.length}. Generate ONE short proactive insight (Thai). Return JSON {title, message, type: 'warning'|'info'|'success'}.`;
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: 'application/json',
@@ -350,70 +224,35 @@ export const generateProactiveInsight = async (
                 }
             }
         });
-        return JSON.parse(response.text.trim());
+        return JSON.parse(response.text);
     } catch (error) {
-        console.error("Proactive Insight Error:", error);
-        return { title: "สวัสดีครับ", message: "อย่าลืมดูแลสุขภาพวันนี้นะครับ", type: "info" };
+        return { title: "สุขภาพดีเริ่มต้นที่นี่", message: "อย่าลืมบันทึกข้อมูลสุขภาพวันนี้นะครับ", type: "info" };
     }
-}
-
-// --- Health Data Sync via OCR ---
+};
 
 export const extractHealthDataFromImage = async (
     base64Image: string, 
     mimeType: string, 
-    type: 'activity' | 'sleep',
-    apiKey: string
+    type: 'activity' | 'sleep'
 ): Promise<any> => {
-    if (!apiKey) throw new Error('กรุณาตั้งค่า API Key');
-    const ai = new GoogleGenAI({ apiKey });
-
-    let prompt = "";
-    let schema: any = {};
-
-    if (type === 'activity') {
-        prompt = "Extract health data from this screenshot (e.g. Apple Health, Garmin, Mi Fit). Look for Steps, Calories Burned (Active Energy), and Distance. Ignore irrelevant text. Return JSON.";
-        schema = {
-            type: Type.OBJECT,
-            properties: {
-                steps: { type: Type.NUMBER, description: "Total steps count" },
-                calories: { type: Type.NUMBER, description: "Active calories burned (kcal)" },
-                distance: { type: Type.NUMBER, description: "Distance in km" }
-            },
-            required: []
-        };
-    } else {
-        prompt = "Extract sleep data from this screenshot. Look for Sleep Duration (Total time asleep), Bed Time, and Wake Time. Return JSON.";
-        schema = {
-            type: Type.OBJECT,
-            properties: {
-                durationHours: { type: Type.NUMBER, description: "Total sleep hours (e.g. 7.5)" },
-                bedTime: { type: Type.STRING, description: "Bed time in HH:mm format" },
-                wakeTime: { type: Type.STRING, description: "Wake time in HH:mm format" }
-            },
-            required: []
-        };
-    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = type === 'activity' ? "Extract Steps, Calories, Distance from screenshot. Return JSON." : "Extract Sleep Duration, Bed/Wake time. Return JSON.";
+    const schema = type === 'activity' ? {
+        type: Type.OBJECT,
+        properties: { steps: {type: Type.NUMBER}, calories: {type: Type.NUMBER}, distance: {type: Type.NUMBER} }
+    } : {
+        type: Type.OBJECT,
+        properties: { durationHours: {type: Type.NUMBER}, bedTime: {type: Type.STRING}, wakeTime: {type: Type.STRING} }
+    };
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [
-                {
-                    parts: [
-                        { inlineData: { data: base64Image, mimeType: mimeType } },
-                        { text: prompt }
-                    ]
-                }
-            ],
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: schema
-            }
+            model: 'gemini-3-flash-preview',
+            contents: [{ parts: [{ inlineData: { data: base64Image, mimeType } }, { text: prompt }] }],
+            config: { responseMimeType: 'application/json', responseSchema: schema }
         });
-        return JSON.parse(response.text.trim());
+        return JSON.parse(response.text);
     } catch (error) {
-        console.error("Health OCR Error:", error);
-        throw new Error("ไม่สามารถอ่านข้อมูลจากภาพได้");
+        throw new Error("AI อ่านภาพล้มเหลว");
     }
-}
+};

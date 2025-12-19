@@ -13,35 +13,60 @@ interface LeaderboardUser {
     xp: number;
     level: number;
     badges: string[];
-    organization?: string; // Add org field
+    organization?: string;
 }
 
 const Community: React.FC = () => {
     const { scriptUrl, userProfile, currentUser } = useContext(AppContext);
     const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'leaderboard' | 'challenge' | 'org'>('leaderboard');
+    const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
 
     useEffect(() => {
         const loadData = async () => {
             if (scriptUrl) {
-                const data = await fetchLeaderboard(scriptUrl);
-                setLeaderboard(data);
+                try {
+                    const data = await fetchLeaderboard(scriptUrl);
+                    
+                    // Deduplicate logic: Keep only the entry with the highest XP for each username
+                    // This handles cases where Google Sheets might return multiple rows for the same user history
+                    const uniqueUsersMap = new Map<string, LeaderboardUser>();
+                    
+                    if (Array.isArray(data)) {
+                        data.forEach((user: LeaderboardUser) => {
+                            if (!user.username) return; // Skip invalid data
+
+                            const existingUser = uniqueUsersMap.get(user.username);
+                            
+                            if (!existingUser) {
+                                uniqueUsersMap.set(user.username, user);
+                            } else {
+                                // If duplicate exists, keep the one with higher XP (assuming it's the latest updated state)
+                                if ((user.xp || 0) > (existingUser.xp || 0)) {
+                                    uniqueUsersMap.set(user.username, user);
+                                }
+                            }
+                        });
+
+                        // Convert Map back to Array and sort by XP descending
+                        const sortedUniqueData = Array.from(uniqueUsersMap.values())
+                            .sort((a, b) => (b.xp || 0) - (a.xp || 0));
+                        
+                        setLeaderboard(sortedUniqueData);
+                    }
+                } catch (error) {
+                    console.error("Failed to load leaderboard", error);
+                }
             }
             setLoading(false);
         };
         loadData();
     }, [scriptUrl]);
 
-    // Calculate community aggregate stats
-    const totalXP = leaderboard.reduce((sum, user) => sum + (user.xp || 0), 0);
-    const totalMembers = leaderboard.length;
-
     // Calculate Organization Stats
     const orgStats = React.useMemo(() => {
         const stats: { [key: string]: { name: string, totalXP: number, memberCount: number } } = {};
         
-        // Initialize from constants to have nice names
         ORGANIZATIONS.forEach(org => {
             stats[org.id] = { name: org.name, totalXP: 0, memberCount: 0 };
         });
@@ -60,16 +85,29 @@ const Community: React.FC = () => {
             .sort((a, b) => b.totalXP - a.totalXP);
     }, [leaderboard]);
 
-    const RankItem: React.FC<{ user: LeaderboardUser; rank: number }> = ({ user, rank }) => {
+    // Mock Weekly Trending (Simulated based on randomized shuffle of top users to show dynamism)
+    const trendingUsers = React.useMemo(() => {
+        // In a real app, this would calculate XP gained in the last 7 days.
+        // Here we just pick a few users and randomize for display effect or sort by badge count.
+        return [...leaderboard]
+            .sort((a, b) => (b.badges?.length || 0) - (a.badges?.length || 0)) // Sort by badges count as a proxy for activity
+            .slice(0, 10); 
+    }, [leaderboard]);
+
+    const RankItem: React.FC<{ user: LeaderboardUser; rank: number; isTrending?: boolean }> = ({ user, rank, isTrending }) => {
         const isMe = user.username === currentUser?.username;
         let rankDisplay;
         let bgClass = isMe ? "bg-teal-50 border-teal-500 dark:bg-teal-900/30" : "bg-white dark:bg-gray-700 border-transparent";
         
-        switch(rank) {
-            case 1: rankDisplay = "🥇"; bgClass = "bg-yellow-50 border-yellow-400 dark:bg-yellow-900/20"; break;
-            case 2: rankDisplay = "🥈"; bgClass = "bg-gray-50 border-gray-400 dark:bg-gray-800"; break;
-            case 3: rankDisplay = "🥉"; bgClass = "bg-orange-50 border-orange-400 dark:bg-orange-900/20"; break;
-            default: rankDisplay = <span className="font-bold text-gray-500 w-6 text-center">{rank}</span>;
+        if (isTrending) {
+             rankDisplay = <span className="text-green-500 font-bold">▲</span>;
+        } else {
+            switch(rank) {
+                case 1: rankDisplay = "🥇"; bgClass = "bg-yellow-50 border-yellow-400 dark:bg-yellow-900/20"; break;
+                case 2: rankDisplay = "🥈"; bgClass = "bg-gray-50 border-gray-400 dark:bg-gray-800"; break;
+                case 3: rankDisplay = "🥉"; bgClass = "bg-orange-50 border-orange-400 dark:bg-orange-900/20"; break;
+                default: rankDisplay = <span className="font-bold text-gray-500 w-6 text-center">{rank}</span>;
+            }
         }
 
         return (
@@ -99,6 +137,7 @@ const Community: React.FC = () => {
                 </div>
                 <div className="text-right">
                     <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{user.xp.toLocaleString()} XP</p>
+                    {isTrending && <p className="text-[10px] text-green-500">กำลังมาแรง!</p>}
                 </div>
             </div>
         );
@@ -112,7 +151,7 @@ const Community: React.FC = () => {
                         <UserGroupIcon className="w-12 h-12 text-indigo-600 dark:text-indigo-400" />
                     </div>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">ชุมชนคนรักสุขภาพ</h2>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">ลำดับคนรักสุขภาพ</h2>
                 <p className="text-gray-600 dark:text-gray-300 mt-2 text-sm">
                     ร่วมสร้างสุขภาพดีไปพร้อมกับเพื่อนๆ ในหน่วยงานและชุมชน
                 </p>
@@ -124,7 +163,13 @@ const Community: React.FC = () => {
                     onClick={() => setActiveTab('leaderboard')}
                     className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'leaderboard' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
                 >
-                    🏆 บุคคล
+                    🏆 รวมยอด
+                </button>
+                <button 
+                    onClick={() => setActiveTab('trending')}
+                    className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'trending' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
+                >
+                    🔥 มาแรงวีคนี้
                 </button>
                 <button 
                     onClick={() => setActiveTab('org')}
@@ -132,19 +177,12 @@ const Community: React.FC = () => {
                 >
                     🏢 หน่วยงาน
                 </button>
-                <button 
-                    onClick={() => setActiveTab('challenge')}
-                    className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'challenge' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
-                >
-                    🔥 ภารกิจรวม
-                </button>
             </div>
 
             {activeTab === 'leaderboard' && (
                 <div className="animate-fade-in">
                     <div className="flex justify-between items-center mb-4 px-2">
                         <h3 className="font-bold text-gray-700 dark:text-gray-200">Top 20 Active Users</h3>
-                        <span className="text-xs text-gray-500">อัปเดตล่าสุด: วันนี้</span>
                     </div>
                     
                     {loading ? (
@@ -162,25 +200,24 @@ const Community: React.FC = () => {
                             )}
                         </div>
                     )}
-                    
-                    {/* User's current standing (if not in top list) */}
-                    {!loading && leaderboard.length > 0 && !leaderboard.find(u => u.username === currentUser?.username) && (
-                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-center text-gray-500 mb-2">อันดับของคุณ</p>
-                            <RankItem 
-                                user={{
-                                    username: currentUser?.username || '',
-                                    displayName: currentUser?.displayName || 'Guest',
-                                    profilePicture: currentUser?.profilePicture || '👤',
-                                    xp: userProfile.xp || 0,
-                                    level: userProfile.level || 1,
-                                    badges: userProfile.badges || [],
-                                    organization: userProfile.organization
-                                }} 
-                                rank={999} 
-                            />
-                        </div>
-                    )}
+                </div>
+            )}
+
+            {activeTab === 'trending' && (
+                <div className="animate-fade-in">
+                    <div className="flex justify-between items-center mb-4 px-2">
+                        <h3 className="font-bold text-gray-700 dark:text-gray-200">Star of the Week</h3>
+                        <span className="text-xs text-gray-500">วัดจากความสม่ำเสมอ</span>
+                    </div>
+                    <div className="space-y-1">
+                        {trendingUsers.length > 0 ? (
+                            trendingUsers.map((user, index) => (
+                                <RankItem key={index} user={user} rank={index + 1} isTrending={true} />
+                            ))
+                        ) : (
+                            <p className="text-center text-gray-500 py-4">กำลังประมวลผลข้อมูลประจำสัปดาห์</p>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -208,63 +245,6 @@ const Community: React.FC = () => {
                             </div>
                         </div>
                     ))}
-                </div>
-            )}
-
-            {activeTab === 'challenge' && (
-                <div className="animate-fade-in space-y-6">
-                    {/* Community Goal 1 */}
-                    <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-3 opacity-20">
-                            <WaterDropIcon className="w-24 h-24" />
-                        </div>
-                        <h3 className="font-bold text-lg mb-1">เป้าหมาย: ดื่มน้ำ 10,000 ลิตร</h3>
-                        <p className="text-blue-100 text-sm mb-4">พลังรวมของชุมชนเดือนนี้</p>
-                        
-                        <div className="relative pt-1">
-                            <div className="flex mb-2 items-center justify-between">
-                                <div className="text-right">
-                                    <span className="text-xs font-semibold inline-block text-blue-100">
-                                        {(totalXP * 0.5).toLocaleString()} / 10,000 ลิตร (จำลอง)
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="overflow-hidden h-3 mb-4 text-xs flex rounded bg-blue-800/30">
-                                <div style={{ width: "65%" }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-white/30"></div>
-                            </div>
-                        </div>
-                        <p className="text-xs text-blue-100 italic">"น้ำคือชีวิต ช่วยกันดื่มน้ำให้เพียงพอนะครับ"</p>
-                    </div>
-
-                    {/* Community Goal 2 */}
-                    <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-3 opacity-20">
-                            <FireIcon className="w-24 h-24" />
-                        </div>
-                        <h3 className="font-bold text-lg mb-1">เป้าหมาย: เผาผลาญ 1 ล้าน Kcal</h3>
-                        <p className="text-orange-100 text-sm mb-4">ภารกิจพิชิตพุงระดับจังหวัด</p>
-                        
-                        <div className="relative pt-1">
-                            <div className="flex mb-2 items-center justify-between">
-                                <div className="text-right">
-                                    <span className="text-xs font-semibold inline-block text-orange-100">
-                                        {(totalXP * 1.2).toLocaleString()} / 1,000,000 Kcal (จำลอง)
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="overflow-hidden h-3 mb-4 text-xs flex rounded bg-red-900/30">
-                                <div style={{ width: "42%" }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-white/30"></div>
-                            </div>
-                        </div>
-                        <p className="text-xs text-orange-100 italic">"ขยับกายวันละนิด จิตแจ่มใส"</p>
-                    </div>
-
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl text-center">
-                        <TrophyIcon className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                        <h4 className="font-bold text-gray-700 dark:text-gray-200">สมาชิกชุมชน</h4>
-                        <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 my-1">{totalMembers.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500">คนรักสุขภาพ</p>
-                    </div>
                 </div>
             )}
         </div>

@@ -190,7 +190,7 @@ export const OUTCOME_OPTIONS = [
     { value: 'worse', label: 'แย่ลง' },
 ];
 
-// --- HEALTH LITERACY QUIZ ---
+// --- HEALTH LITERACY QUIZ (UPDATED TO 10 QUESTIONS) ---
 export const HEALTH_LITERACY_QUESTIONS: QuizQuestion[] = [
     {
         id: 1,
@@ -238,6 +238,38 @@ export const HEALTH_LITERACY_QUESTIONS: QuizQuestion[] = [
         options: ["พันธุกรรม 100%", "การติดเชื้อแบคทีเรีย", "พฤติกรรมการใช้ชีวิตที่ไม่เหมาะสม", "อุบัติเหตุ"],
         correctIndex: 2,
         explanation: "NCDs เกิดจากพฤติกรรมเสี่ยง เช่น กินหวานมันเค็ม ไม่ออกกำลังกาย ดื่มเหล้า สูบบุหรี่",
+        category: "general"
+    },
+    {
+        id: 7,
+        question: "อาหารชนิดใดมี 'น้ำตาลแฝง' มากที่สุด?",
+        options: ["ผลไม้สด", "ข้าวกล้อง", "น้ำอัดลมและชานมไข่มุก", "ถั่วลิสงต้ม"],
+        correctIndex: 2,
+        explanation: "เครื่องดื่มรสหวานมักมีน้ำตาลทรายและ High Fructose Corn Syrup ในปริมาณสูงมาก",
+        category: "nutrition"
+    },
+    {
+        id: 8,
+        question: "การอ่านฉลากโภชนาการ สิ่งแรกที่ควรดูคืออะไร?",
+        options: ["ยี่ห้อสินค้า", "จำนวนหน่วยบริโภค (Serving Size)", "เปอร์เซ็นต์ไขมัน", "วิตามิน"],
+        correctIndex: 1,
+        explanation: "ต้องดูจำนวนหน่วยบริโภคก่อน เพื่อทราบว่าคุณค่าทางโภชนาการที่ระบุนั้นสำหรับปริมาณเท่าใด",
+        category: "nutrition"
+    },
+    {
+        id: 9,
+        question: "ภาวะ 'อ้วนลงพุง' (Metabolic Syndrome) วัดจากรอบเอวในชายและหญิงไทยที่เท่าไหร่?",
+        options: ["ชาย > 80 ซม., หญิง > 70 ซม.", "ชาย > 90 ซม., หญิง > 80 ซม.", "ชาย > 100 ซม., หญิง > 90 ซม.", "วัดจากน้ำหนักอย่างเดียว"],
+        correctIndex: 1,
+        explanation: "เกณฑ์อ้วนลงพุงมาตรฐานคนไทยคือ ชายรอบเอวเกิน 90 ซม. หญิงเกิน 80 ซม.",
+        category: "general"
+    },
+    {
+        id: 10,
+        question: "การดื่มน้ำสะอาดให้เพียงพอ มีประโยชน์สูงสุดในข้อใด?",
+        options: ["ทำให้ตัวขาวขึ้นทันที", "ช่วยระบบไหลเวียนโลหิตและการขับถ่ายของเสีย", "ทำให้อ้วนขึ้น", "ช่วยให้นอนหลับตลอดวัน"],
+        correctIndex: 1,
+        explanation: "น้ำเป็นองค์ประกอบหลักของเลือด ช่วยนำพาสารอาหารและขับของเสียออกจากร่างกาย",
         category: "general"
     }
 ];
