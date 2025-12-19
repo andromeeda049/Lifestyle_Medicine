@@ -23,6 +23,7 @@ import EvaluationForm from './components/EvaluationForm';
 import HealthLiteracyQuiz from './components/HealthLiteracyQuiz';
 import PDPAModal from './components/PDPAModal';
 import SOSModal from './components/SOSModal';
+import LevelUpModal from './components/LevelUpModal';
 import Community from './components/Community';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User, WaterHistoryEntry } from './types';
@@ -54,7 +55,7 @@ const SOSButton: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP, isSOSOpen, closeSOS } = useContext(AppContext);
+  const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP, isSOSOpen, closeSOS, showLevelUp, closeLevelUpModal } = useContext(AppContext);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -283,6 +284,7 @@ const AppContent: React.FC = () => {
                         <MenuCard view="water" label="บันทึกน้ำดื่ม" icon={<WaterDropIcon className="w-6 h-6" />} colorClass="text-blue-500 bg-blue-100" />
                         <MenuCard view="calorieTracker" label="บันทึกแคลอรี่" icon={<BeakerIcon className="w-6 h-6" />} colorClass="text-green-600 bg-green-100" />
                         <MenuCard view="activityTracker" label="บันทึกกิจกรรม" icon={<BoltIcon className="w-6 h-6" />} colorClass="text-yellow-600 bg-yellow-100" />
+                        <MenuCard view="evaluation" label="ประเมินการใช้งาน" desc="ความพึงพอใจ" icon={<ClipboardCheckIcon className="w-6 h-6" />} colorClass="text-purple-600 bg-purple-100" />
                         {currentUser?.role === 'admin' && (
                              <MenuCard view="adminDashboard" label="Admin Zone" desc="จัดการข้อมูล" icon={<UserGroupIcon className="w-6 h-6" />} colorClass="text-red-600 bg-red-100" />
                         )}
@@ -365,7 +367,7 @@ const AppContent: React.FC = () => {
       
       // If no pending tasks AND we haven't notified today
       if (pendingTasks.length === 0 && lastMissionCompleteDate !== todayStr) {
-          // Trigger notification to backend
+          // Trigger backend notification
           sendMissionCompleteNotification(scriptUrl, currentUser);
           // Mark as notified locally
           setLastMissionCompleteDate(todayStr);
@@ -572,6 +574,7 @@ const AppContent: React.FC = () => {
           <QuickActionModal />
           {showPDPA && <PDPAModal onAccept={handlePDPAAccept} />}
           {isSOSOpen && <SOSModal onClose={closeSOS} />}
+          {showLevelUp && <LevelUpModal type={showLevelUp.type} data={showLevelUp.data} onClose={closeLevelUpModal} />}
         </>
       ) : (
         <Auth />

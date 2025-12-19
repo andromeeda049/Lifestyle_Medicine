@@ -5,7 +5,6 @@ import { AppView, PillarScore } from '../types';
 import { ScaleIcon, FireIcon, CameraIcon, ShareIcon, WaterDropIcon, BeakerIcon, BoltIcon, ChartBarIcon, BookOpenIcon, StarIcon, TrophyIcon, ClipboardCheckIcon, UserCircleIcon, UserGroupIcon, PrinterIcon, HeartIcon } from './icons';
 import { PILLAR_LABELS, LEVEL_THRESHOLDS } from '../constants';
 import GamificationCard from './GamificationCard';
-import LevelUpModal from './LevelUpModal';
 
 // --- Health Status Logic (Medical Context) ---
 const getHealthStatus = (score: number) => {
@@ -220,7 +219,7 @@ const TrendAnalysis: React.FC<{ bmiHistory: any[] }> = ({ bmiHistory }) => {
 }
 
 const Dashboard: React.FC = () => {
-  const { setActiveView, bmiHistory, waterHistory, waterGoal, activityHistory, userProfile, quizHistory, showLevelUp, closeLevelUpModal } = useContext(AppContext);
+  const { setActiveView, bmiHistory, waterHistory, waterGoal, activityHistory, userProfile, quizHistory } = useContext(AppContext);
 
   const sortedBmiHistory = useMemo(() => {
       return [...bmiHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -246,8 +245,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in relative">
-        {showLevelUp && <LevelUpModal type={showLevelUp.type} data={showLevelUp.data} onClose={closeLevelUpModal} />}
-        
         <GamificationCard />
         
         {/* REPORT CARD (NOW HEALTH SUMMARY) */}

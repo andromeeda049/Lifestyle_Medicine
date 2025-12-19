@@ -255,6 +255,7 @@ const HomeMenu: React.FC = () => {
                     <ToolListItem view="assessment" title="ประเมิน 6 เสาหลัก" icon={<ClipboardDocumentCheckIcon className="w-5 h-5"/>} color="bg-teal-100 text-teal-600" />
                     <ToolListItem view="quiz" title="ทดสอบความรู้ (Quiz)" icon={<StarIcon className="w-5 h-5"/>} color="bg-yellow-100 text-yellow-600" />
                     <ToolListItem view="literacy" title="คลังความรู้สุขภาพ" icon={<BookOpenIcon className="w-5 h-5"/>} color="bg-rose-100 text-rose-600" />
+                    <ToolListItem view="evaluation" title="แบบประเมินความพึงพอใจ" icon={<ClipboardCheckIcon className="w-5 h-5"/>} color="bg-purple-100 text-purple-600" />
                 </div>
             </div>
 
