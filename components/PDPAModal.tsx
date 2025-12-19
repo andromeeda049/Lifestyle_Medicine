@@ -1,19 +1,32 @@
 
 import React, { useState } from 'react';
-import { ClipboardDocumentCheckIcon } from './icons';
+import { ClipboardDocumentCheckIcon, XIcon } from './icons';
 
 interface PDPAModalProps {
     onAccept: () => void;
+    onRevoke?: () => void;
+    isSettingsMode?: boolean;
+    onClose?: () => void;
 }
 
-const PDPAModal: React.FC<PDPAModalProps> = ({ onAccept }) => {
-    const [checkedTerms, setCheckedTerms] = useState(false);
-    const [checkedResearch, setCheckedResearch] = useState(false);
+const PDPAModal: React.FC<PDPAModalProps> = ({ onAccept, onRevoke, isSettingsMode = false, onClose }) => {
+    const [checkedTerms, setCheckedTerms] = useState(isSettingsMode);
+    const [checkedResearch, setCheckedResearch] = useState(isSettingsMode);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative">
                 
+                {/* Close Button for Settings Mode */}
+                {isSettingsMode && onClose && (
+                    <button 
+                        onClick={onClose} 
+                        className="absolute top-4 right-4 text-white hover:text-gray-200 z-10 bg-black/20 rounded-full p-1 transition-colors"
+                    >
+                        <XIcon className="w-5 h-5" />
+                    </button>
+                )}
+
                 {/* Header */}
                 <div className="bg-teal-600 p-6 text-white text-center">
                     <div className="flex justify-center mb-3">
@@ -49,7 +62,7 @@ const PDPAModal: React.FC<PDPAModalProps> = ({ onAccept }) => {
                     </div>
 
                     <p className="text-xs text-gray-500">
-                        *ท่านสามารถยกเลิกความยินยอมได้ภายหลัง โดยติดต่อผู้ดูแลระบบหรือลบการติดตั้งแอปพลิเคชัน
+                        *ท่านสามารถยกเลิกความยินยอมได้ภายหลัง โดยติดต่อผู้ดูแลระบบหรือลบการติดตั้งแอปพลิเคชัน หรือกดปุ่ม "ยกเลิกความยินยอม" ด้านล่าง
                     </p>
                 </div>
 
@@ -62,6 +75,7 @@ const PDPAModal: React.FC<PDPAModalProps> = ({ onAccept }) => {
                                 className="mt-1 w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
                                 checked={checkedTerms}
                                 onChange={(e) => setCheckedTerms(e.target.checked)}
+                                disabled={isSettingsMode}
                             />
                             <span className="text-sm">ข้าพเจ้าได้อ่านและเข้าใจเงื่อนไขการใช้งาน และยอมรับให้เก็บรวบรวมข้อมูลตามวัตถุประสงค์ข้างต้น</span>
                         </label>
@@ -72,6 +86,7 @@ const PDPAModal: React.FC<PDPAModalProps> = ({ onAccept }) => {
                                 className="mt-1 w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
                                 checked={checkedResearch}
                                 onChange={(e) => setCheckedResearch(e.target.checked)}
+                                disabled={isSettingsMode}
                             />
                             <span className="text-sm">ข้าพเจ้ายินยอมให้ใช้ข้อมูลสุขภาพเพื่อการศึกษาวิจัยและพัฒนา (Research Consent)</span>
                         </label>
@@ -82,8 +97,17 @@ const PDPAModal: React.FC<PDPAModalProps> = ({ onAccept }) => {
                         disabled={!checkedTerms || !checkedResearch}
                         className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-95"
                     >
-                        ยอมรับและเริ่มต้นใช้งาน
+                        {isSettingsMode ? 'ปิดหน้าต่าง' : 'ยอมรับและเริ่มต้นใช้งาน'}
                     </button>
+
+                    {isSettingsMode && onRevoke && (
+                        <button
+                            onClick={onRevoke}
+                            className="w-full mt-3 py-3 bg-transparent border border-red-500 text-red-500 font-bold rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-95"
+                        >
+                            ยกเลิกความยินยอม (Revoke Consent)
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

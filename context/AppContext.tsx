@@ -1,4 +1,3 @@
-
 import React, { createContext, ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, QuizEntry, User, AppContextType, SatisfactionData, OutcomeData } from '../types';
@@ -84,7 +83,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsDataSynced(false);
         const fetchedData = await fetchAllDataFromSheet(scriptUrl, currentUser);
         if (fetchedData) {
-          _setUserProfile(fetchedData.profile || defaultProfile);
+          // Merge logic: Preserve local PDPA acceptance if cloud data is outdated
+          _setUserProfile(prev => {
+              const cloudProfile = fetchedData.profile || defaultProfile;
+              return {
+                  ...cloudProfile,
+                  pdpaAccepted: cloudProfile.pdpaAccepted || prev.pdpaAccepted,
+                  pdpaAcceptedDate: cloudProfile.pdpaAcceptedDate || prev.pdpaAcceptedDate
+              };
+          });
+          
           _setBmiHistory(fetchedData.bmiHistory); _setTdeeHistory(fetchedData.tdeeHistory);
           _setFoodHistory(fetchedData.foodHistory); _setPlannerHistory(fetchedData.plannerHistory);
           _setWaterHistory(fetchedData.waterHistory); _setCalorieHistory(fetchedData.calorieHistory);

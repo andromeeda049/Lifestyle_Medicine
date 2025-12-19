@@ -1,16 +1,18 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
-import { SunIcon, MoonIcon, BellIcon, LineIcon, SparklesIcon } from './icons';
+import { SunIcon, MoonIcon, BellIcon, LineIcon, SparklesIcon, ClipboardDocumentCheckIcon } from './icons';
 import { sendTestNotification } from '../services/googleSheetService';
+import PDPAModal from './PDPAModal';
 
 const Settings: React.FC = () => {
-    const { scriptUrl, setScriptUrl, isDataSynced, theme, setTheme, currentUser, userProfile, setUserProfile } = useContext(AppContext);
+    const { scriptUrl, setScriptUrl, isDataSynced, theme, setTheme, currentUser, userProfile, setUserProfile, logout } = useContext(AppContext);
     
     const [currentScriptUrl, setCurrentScriptUrl] = useState(scriptUrl);
     const [saved, setSaved] = useState<'none' | 'sheets' | 'notifications'>('none');
     const [showGoogleSheetsSettings, setShowGoogleSheetsSettings] = useState(false);
     const [testingNotif, setTestingNotif] = useState(false);
+    const [showPDPA, setShowPDPA] = useState(false);
 
     useEffect(() => {
         setCurrentScriptUrl(scriptUrl);
@@ -49,6 +51,27 @@ const Settings: React.FC = () => {
         }
     };
 
+    const handleRevokePDPA = () => {
+        if (window.confirm("คุณต้องการยกเลิกความยินยอมใช่หรือไม่? \n\nหากยกเลิก คุณจะไม่สามารถใช้งานแอปพลิเคชันได้และระบบจะลงชื่อออกอัตโนมัติ เพื่อคุ้มครองข้อมูลของคุณตามนโยบาย PDPA")) {
+            if (!currentUser) return;
+            
+            const updatedProfile = { 
+                ...userProfile, 
+                pdpaAccepted: false, 
+                pdpaAcceptedDate: '' 
+            };
+            setUserProfile(updatedProfile, { 
+                displayName: currentUser.displayName, 
+                profilePicture: currentUser.profilePicture 
+            });
+            
+            setShowPDPA(false);
+            setTimeout(() => {
+                logout();
+            }, 500);
+        }
+    };
+
     const isRemindersOn = !!userProfile.receiveDailyReminders;
     const hasLineId = !!userProfile.lineUserId;
 
@@ -79,31 +102,54 @@ const Settings: React.FC = () => {
             </div>
 
             {currentUser?.role !== 'guest' && (
-                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-teal-500">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-full ${isRemindersOn ? 'bg-teal-100 dark:bg-teal-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                                <BellIcon className={`w-6 h-6 ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`} />
+                <>
+                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-teal-500">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className={`p-3 rounded-full ${isRemindersOn ? 'bg-teal-100 dark:bg-teal-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                                    <BellIcon className={`w-6 h-6 ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">การแจ้งเตือนรายวัน</h2>
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">รับภารกิจสุขภาพตอนเช้าผ่าน LINE</p>
+                                    {!hasLineId && <p className="text-red-500 text-xs mt-1 font-bold">⚠️ กรุณา Log in ด้วย LINE</p>}
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-800 dark:text-white">การแจ้งเตือนรายวัน</h2>
-                                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">รับภารกิจสุขภาพตอนเช้าผ่าน LINE</p>
-                                {!hasLineId && <p className="text-red-500 text-xs mt-1 font-bold">⚠️ กรุณา Log in ด้วย LINE</p>}
+                            <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" className="sr-only peer" checked={isRemindersOn} onChange={toggleNotifications} disabled={!hasLineId} />
+                                    <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
+                                </label>
+                                {hasLineId && (
+                                    <button onClick={handleTestNotification} disabled={testingNotif} className="text-xs text-blue-500 hover:underline">
+                                        {testingNotif ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความ LINE'}
+                                    </button>
+                                )}
                             </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" className="sr-only peer" checked={isRemindersOn} onChange={toggleNotifications} disabled={!hasLineId} />
-                                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                            </label>
-                            {hasLineId && (
-                                <button onClick={handleTestNotification} disabled={testingNotif} className="text-xs text-blue-500 hover:underline">
-                                    {testingNotif ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความ LINE'}
-                                </button>
-                            )}
                         </div>
                     </div>
-                </div>
+
+                    {/* PDPA Section */}
+                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-indigo-500">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+                                    <ClipboardDocumentCheckIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">PDPA & Privacy</h2>
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">จัดการความยินยอมและข้อมูลส่วนบุคคล</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setShowPDPA(true)}
+                                className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors w-full sm:w-auto"
+                            >
+                                ตรวจสอบ / แก้ไข
+                            </button>
+                        </div>
+                    </div>
+                </>
             )}
 
             {currentUser?.role === 'admin' && (
@@ -122,6 +168,15 @@ const Settings: React.FC = () => {
                         </form>
                     )}
                 </div>
+            )}
+
+            {showPDPA && (
+                <PDPAModal 
+                    onAccept={() => setShowPDPA(false)}
+                    onRevoke={handleRevokePDPA}
+                    isSettingsMode={true}
+                    onClose={() => setShowPDPA(false)}
+                />
             )}
         </div>
     );
