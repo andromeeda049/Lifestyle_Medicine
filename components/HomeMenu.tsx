@@ -1,5 +1,5 @@
 
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { AppView } from '../types';
 import { AppContext } from '../context/AppContext';
 import { 
@@ -7,12 +7,20 @@ import {
     SquaresIcon, UserCircleIcon, BookOpenIcon, CogIcon, WaterDropIcon, 
     ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, 
     InformationCircleIcon, ClipboardCheckIcon, UserGroupIcon, StarIcon,
-    TrophyIcon, ChartBarIcon
+    TrophyIcon, ChartBarIcon, XIcon
 } from './icons';
 import ProactiveInsight from './ProactiveInsight';
 
 const HomeMenu: React.FC = () => {
   const { setActiveView, currentUser, userProfile, waterHistory, calorieHistory, activityHistory, moodHistory, sleepHistory } = useContext(AppContext);
+  const [showProfileAlert, setShowProfileAlert] = useState(true);
+
+  // --- Check for Missing Profile Data ---
+  const isProfileIncomplete = useMemo(() => {
+      if (!userProfile) return true;
+      // Check essential fields for AI analysis
+      return !userProfile.age || !userProfile.weight || !userProfile.height || !userProfile.healthCondition;
+  }, [userProfile]);
 
   // --- Daily Mission Progress Logic ---
   const dailyProgress = useMemo(() => {
@@ -96,6 +104,31 @@ const HomeMenu: React.FC = () => {
 
   return (
     <div className="animate-fade-in space-y-6 pb-20">
+        
+        {/* --- Profile Completion Alert --- */}
+        {isProfileIncomplete && showProfileAlert && (
+            <div className="p-4 rounded-xl border-l-4 shadow-sm mb-2 flex items-start gap-4 bg-blue-50 border-blue-500 dark:bg-blue-900/20 dark:border-blue-400 relative animate-bounce-in">
+                <div className="p-2 bg-white dark:bg-gray-800 rounded-full text-blue-500 shadow-sm mt-1">
+                    <UserCircleIcon className="w-6 h-6" />
+                </div>
+                <div className="flex-1 cursor-pointer" onClick={() => setActiveView('profile')}>
+                    <h4 className="font-bold text-sm text-gray-800 dark:text-white">ข้อมูลสุขภาพยังไม่ครบถ้วน</h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
+                        เพื่อให้ <strong>AI Coach</strong> วิเคราะห์และวางแผนสุขภาพให้คุณได้อย่างแม่นยำ กรุณาระบุ <span className="font-bold">อายุ, น้ำหนัก, ส่วนสูง และโรคประจำตัว</span> ให้ครบถ้วนนะครับ
+                    </p>
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-2 inline-flex items-center gap-1 hover:underline">
+                        ไปที่หน้าตั้งค่าข้อมูลส่วนตัว →
+                    </span>
+                </div>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setShowProfileAlert(false); }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 absolute top-2 right-2 p-1"
+                >
+                    <XIcon className="w-4 h-4" />
+                </button>
+            </div>
+        )}
+
         <ProactiveInsight />
 
         {/* 1. Hero Section: User Status & Daily Mission */}
