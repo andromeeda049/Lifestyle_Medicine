@@ -27,7 +27,7 @@ import LevelUpModal from './components/LevelUpModal';
 import Community from './components/Community';
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User, WaterHistoryEntry } from './types';
-import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon, UserGroupIcon, PhoneIcon } from './components/icons';
+import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon, UserGroupIcon, PhoneIcon, TrophyIcon } from './components/icons';
 import { sendMissionCompleteNotification, saveDataToSheet } from './services/googleSheetService';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import useLocalStorage from './hooks/useLocalStorage';
@@ -56,14 +56,10 @@ const SOSButton: React.FC = () => {
 
 const AppContent: React.FC = () => {
   const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP, isSOSOpen, closeSOS, showLevelUp, closeLevelUpModal } = useContext(AppContext);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false); // State for Quick Action Modal
   const [showPDPA, setShowPDPA] = useState(false);
-  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false); // For accordion in menu
   
-  const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
   
   // Track if we've already notified the backend today
@@ -113,9 +109,6 @@ const AppContent: React.FC = () => {
 
    useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
-        setIsProfileMenuOpen(false);
-      }
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setIsNotificationOpen(false);
       }
@@ -130,16 +123,141 @@ const AppContent: React.FC = () => {
 
   const navigate = (view: AppView) => {
     setActiveView(view);
-    setIsMenuOpen(false);
     setIsNotificationOpen(false);
     setIsQuickActionOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const renderView = () => {
+  // Facebook-style Card Menu Component
+  const MenuCard: React.FC<{
+      view: AppView;
+      label: string;
+      icon: React.ReactNode;
+      colorClass?: string;
+      desc?: string;
+  }> = ({ view, label, icon, colorClass, desc }) => (
+      <button 
+          onClick={() => navigate(view)}
+          className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm flex flex-col items-start gap-3 h-full min-h-[90px] relative overflow-hidden transition-all active:scale-95 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+      >
+          <div className={`${colorClass || 'text-teal-600 bg-teal-100 dark:bg-teal-900/30'} p-2 rounded-full bg-opacity-20 w-10 h-10 flex items-center justify-center`}>
+              {icon}
+          </div>
+          <div className="w-full">
+              <p className="font-bold text-gray-800 dark:text-white text-sm text-left leading-tight">{label}</p>
+              {desc && <p className="text-[10px] text-gray-500 dark:text-gray-400 text-left mt-1 truncate">{desc}</p>}
+          </div>
+      </button>
+  );
+
+  const MenuGridPage = () => {
+      const isImage = currentUser?.profilePicture.startsWith('data:image/') || currentUser?.profilePicture.startsWith('http');
+      const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
+
+      return (
+        <div className="animate-fade-in space-y-6 pb-20">
+            {/* Header */}
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white px-2">เมนู (Menu)</h2>
+
+            {/* Profile Card */}
+            <button 
+                onClick={() => navigate('profile')}
+                className="w-full bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4 transition-transform active:scale-95"
+            >
+                <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden border border-gray-300 dark:border-gray-600">
+                    {isImage ? (
+                        <img src={currentUser?.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                        <span className="text-2xl">{currentUser?.profilePicture || '👤'}</span>
+                    )}
+                </div>
+                <div className="text-left flex-1">
+                    <h3 className="font-bold text-lg text-gray-800 dark:text-white">{currentUser?.displayName}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">ดูและแก้ไขโปรไฟล์ของคุณ</p>
+                </div>
+            </button>
+
+            {/* Shortcuts */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1">ทางลัดของคุณ</h3>
+                <div className="grid grid-cols-2 gap-3">
+                    <MenuCard view="home" label="หน้าแรก" desc="ภาพรวมวันนี้" icon={<HomeIcon className="w-6 h-6" />} colorClass="text-blue-600 bg-blue-100" />
+                    <MenuCard view="dashboard" label="Dashboard" desc="สรุปผลสุขภาพ" icon={<SquaresIcon className="w-6 h-6" />} colorClass="text-indigo-600 bg-indigo-100" />
+                    <MenuCard view="community" label="ชุมชนสุขภาพ" desc="Leaderboard" icon={<UserGroupIcon className="w-6 h-6" />} colorClass="text-orange-600 bg-orange-100" />
+                    <MenuCard view="wellness" label="เช็คอินประจำวัน" desc="อารมณ์ & การนอน" icon={<HeartIcon className="w-6 h-6" />} colorClass="text-rose-600 bg-rose-100" />
+                    <MenuCard view="quiz" label="ทดสอบความรู้" desc="Health Literacy" icon={<StarIcon className="w-6 h-6" />} colorClass="text-yellow-600 bg-yellow-100" />
+                    <MenuCard view="assessment" label="ประเมิน 6 เสาหลัก" desc="Lifestyle Index" icon={<ClipboardDocumentCheckIcon className="w-6 h-6" />} colorClass="text-teal-600 bg-teal-100" />
+                </div>
+            </div>
+
+            {/* All Tools */}
+            <div>
+                <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1">เครื่องมือทั้งหมด</h3>
+                <div className="grid grid-cols-2 gap-3">
+                    <MenuCard view="food" label="Food AI" desc="วิเคราะห์อาหาร" icon={<CameraIcon className="w-6 h-6" />} colorClass="text-purple-600 bg-purple-100" />
+                    <MenuCard view="coach" label="AI Coach" desc="ปรึกษาสุขภาพ" icon={<SparklesIcon className="w-6 h-6" />} colorClass="text-pink-600 bg-pink-100" />
+                    <MenuCard view="planner" label="Meal Planner" desc="แผนการกินส่วนตัว" icon={<ClipboardListIcon className="w-6 h-6" />} colorClass="text-emerald-600 bg-emerald-100" />
+                    <MenuCard view="literacy" label="คลังความรู้" desc="บทความสุขภาพ" icon={<BookOpenIcon className="w-6 h-6" />} colorClass="text-cyan-600 bg-cyan-100" />
+                    <MenuCard view="bmi" label="BMI Calculator" icon={<ScaleIcon className="w-6 h-6" />} colorClass="text-gray-600 bg-gray-200" />
+                    <MenuCard view="tdee" label="TDEE Calculator" icon={<FireIcon className="w-6 h-6" />} colorClass="text-orange-600 bg-orange-200" />
+                    <MenuCard view="water" label="บันทึกน้ำดื่ม" icon={<WaterDropIcon className="w-6 h-6" />} colorClass="text-blue-500 bg-blue-100" />
+                    <MenuCard view="calorieTracker" label="บันทึกแคลอรี่" icon={<BeakerIcon className="w-6 h-6" />} colorClass="text-green-600 bg-green-100" />
+                    <MenuCard view="activityTracker" label="บันทึกกิจกรรม" icon={<BoltIcon className="w-6 h-6" />} colorClass="text-yellow-600 bg-yellow-100" />
+                    <MenuCard view="evaluation" label="ประเมินการใช้งาน" desc="ความพึงพอใจ" icon={<ClipboardCheckIcon className="w-6 h-6" />} colorClass="text-purple-600 bg-purple-100" />
+                    {currentUser?.role === 'admin' && (
+                            <MenuCard view="adminDashboard" label="Admin Zone" desc="จัดการข้อมูล" icon={<UserGroupIcon className="w-6 h-6" />} colorClass="text-red-600 bg-red-100" />
+                    )}
+                </div>
+            </div>
+
+            {/* Help & Settings Accordion */}
+            <div className="border-t border-gray-300 dark:border-gray-700 pt-4">
+                <button 
+                    onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
+                    className="w-full flex justify-between items-center p-3 bg-transparent rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800"
+                >
+                    <div className="flex items-center gap-3 font-semibold text-gray-700 dark:text-gray-200">
+                        <InformationCircleIcon className="w-6 h-6 text-gray-500" />
+                        ความช่วยเหลือและการตั้งค่า
+                    </div>
+                    <span className={`transform transition-transform ${isSettingsExpanded ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+                
+                {isSettingsExpanded && (
+                    <div className="mt-2 space-y-1 pl-4 animate-fade-in-down">
+                        <button onClick={() => navigate('settings')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                            <CogIcon className="w-5 h-5"/> การตั้งค่า & ความเป็นส่วนตัว
+                        </button>
+                        <button onClick={() => navigate('about')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                            <InformationCircleIcon className="w-5 h-5"/> เกี่ยวกับแอปพลิเคชัน
+                        </button>
+                        <button onClick={() => navigate('gamificationRules')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                            <TrophyIcon className="w-5 h-5"/> กติกาการสะสมแต้ม
+                        </button>
+                            <button onClick={toggleTheme} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                            <span>{theme === 'light' ? 'โหมดกลางคืน (Dark Mode)' : 'โหมดสว่าง (Light Mode)'}</span>
+                            {theme === 'light' ? <MoonIcon className="w-4 h-4"/> : <SunIcon className="w-4 h-4" />}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <button 
+                onClick={logout} 
+                className="w-full py-3 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+            >
+                <LogoutIcon className="w-5 h-5" /> ออกจากระบบ
+            </button>
+        </div>
+      );
+  }
+
+  const renderContent = () => {
     switch (activeView) {
       case 'home':
         return <HomeMenu />;
+      case 'menu':
+        return <MenuGridPage />;
       case 'profile':
         return <UserProfile />;
       case 'dashboard':
@@ -187,6 +305,7 @@ const AppContent: React.FC = () => {
 
   const viewTitles: { [key in AppView]?: string } = {
     home: 'หน้าแรก',
+    menu: 'เมนูหลัก',
     profile: 'ข้อมูลส่วนตัว',
     dashboard: 'แดชบอร์ดสุขภาพ',
     community: 'ชุมชนคนรักสุขภาพ',
@@ -209,147 +328,6 @@ const AppContent: React.FC = () => {
     adminDashboard: 'จัดการหน่วยงาน (Admin)',
   };
   
-  // Facebook-style Card Menu Component
-  const MenuCard: React.FC<{
-      view: AppView;
-      label: string;
-      icon: React.ReactNode;
-      colorClass?: string;
-      desc?: string;
-  }> = ({ view, label, icon, colorClass, desc }) => (
-      <button 
-          onClick={() => navigate(view)}
-          className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm flex flex-col items-start gap-3 h-full min-h-[90px] relative overflow-hidden transition-all active:scale-95 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-      >
-          <div className={`${colorClass || 'text-teal-600 bg-teal-100 dark:bg-teal-900/30'} p-2 rounded-full bg-opacity-20 w-10 h-10 flex items-center justify-center`}>
-              {icon}
-          </div>
-          <div className="w-full">
-              <p className="font-bold text-gray-800 dark:text-white text-sm text-left leading-tight">{label}</p>
-              {desc && <p className="text-[10px] text-gray-500 dark:text-gray-400 text-left mt-1 truncate">{desc}</p>}
-          </div>
-      </button>
-  );
-
-  const FullScreenMenu = () => {
-      const isImage = currentUser?.profilePicture.startsWith('data:image/') || currentUser?.profilePicture.startsWith('http');
-      
-      return (
-        <div className="fixed inset-0 z-50 bg-gray-100 dark:bg-gray-900 overflow-y-auto animate-fade-in flex flex-col">
-            {/* Header */}
-            <div className="sticky top-0 bg-gray-100 dark:bg-gray-900 px-4 py-4 flex justify-between items-center z-10">
-                <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Menu</h2>
-                <div className="flex items-center gap-3">
-                    <button 
-                        onClick={() => navigate('settings')}
-                        className="p-2 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-700"
-                    >
-                        <CogIcon className="w-6 h-6" />
-                    </button>
-                    <button 
-                        onClick={() => setIsMenuOpen(false)} 
-                        className="p-2 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-700"
-                    >
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="px-4 pb-24 space-y-6">
-                {/* Profile Card */}
-                <button 
-                    onClick={() => navigate('profile')}
-                    className="w-full bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4 transition-transform active:scale-95"
-                >
-                    <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden border border-gray-300 dark:border-gray-600">
-                        {isImage ? (
-                            <img src={currentUser?.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="text-2xl">{currentUser?.profilePicture || '👤'}</span>
-                        )}
-                    </div>
-                    <div className="text-left flex-1">
-                        <h3 className="font-bold text-lg text-gray-800 dark:text-white">{currentUser?.displayName}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">ดูโปรไฟล์ของคุณ</p>
-                    </div>
-                </button>
-
-                {/* Shortcuts */}
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1">Your shortcuts</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                        <MenuCard view="home" label="หน้าแรก" desc="ภาพรวมวันนี้" icon={<HomeIcon className="w-6 h-6" />} colorClass="text-blue-600 bg-blue-100" />
-                        <MenuCard view="dashboard" label="Dashboard" desc="สรุปผลสุขภาพ" icon={<SquaresIcon className="w-6 h-6" />} colorClass="text-indigo-600 bg-indigo-100" />
-                        <MenuCard view="community" label="ชุมชนสุขภาพ" desc="Leaderboard" icon={<UserGroupIcon className="w-6 h-6" />} colorClass="text-orange-600 bg-orange-100" />
-                        <MenuCard view="wellness" label="เช็คอินประจำวัน" desc="อารมณ์ & การนอน" icon={<HeartIcon className="w-6 h-6" />} colorClass="text-rose-600 bg-rose-100" />
-                        <MenuCard view="quiz" label="ทดสอบความรู้" desc="Health Literacy" icon={<StarIcon className="w-6 h-6" />} colorClass="text-yellow-600 bg-yellow-100" />
-                        <MenuCard view="assessment" label="ประเมิน 6 เสาหลัก" desc="Lifestyle Index" icon={<ClipboardDocumentCheckIcon className="w-6 h-6" />} colorClass="text-teal-600 bg-teal-100" />
-                    </div>
-                </div>
-
-                {/* All Tools */}
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-1">All shortcuts</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                        <MenuCard view="food" label="Food AI" desc="วิเคราะห์อาหาร" icon={<CameraIcon className="w-6 h-6" />} colorClass="text-purple-600 bg-purple-100" />
-                        <MenuCard view="coach" label="AI Coach" desc="ปรึกษาสุขภาพ" icon={<SparklesIcon className="w-6 h-6" />} colorClass="text-pink-600 bg-pink-100" />
-                        <MenuCard view="planner" label="Meal Planner" desc="แผนการกินส่วนตัว" icon={<ClipboardListIcon className="w-6 h-6" />} colorClass="text-emerald-600 bg-emerald-100" />
-                        <MenuCard view="literacy" label="คลังความรู้" desc="บทความสุขภาพ" icon={<BookOpenIcon className="w-6 h-6" />} colorClass="text-cyan-600 bg-cyan-100" />
-                        <MenuCard view="bmi" label="BMI Calculator" icon={<ScaleIcon className="w-6 h-6" />} colorClass="text-gray-600 bg-gray-200" />
-                        <MenuCard view="tdee" label="TDEE Calculator" icon={<FireIcon className="w-6 h-6" />} colorClass="text-orange-600 bg-orange-200" />
-                        <MenuCard view="water" label="บันทึกน้ำดื่ม" icon={<WaterDropIcon className="w-6 h-6" />} colorClass="text-blue-500 bg-blue-100" />
-                        <MenuCard view="calorieTracker" label="บันทึกแคลอรี่" icon={<BeakerIcon className="w-6 h-6" />} colorClass="text-green-600 bg-green-100" />
-                        <MenuCard view="activityTracker" label="บันทึกกิจกรรม" icon={<BoltIcon className="w-6 h-6" />} colorClass="text-yellow-600 bg-yellow-100" />
-                        <MenuCard view="evaluation" label="ประเมินการใช้งาน" desc="ความพึงพอใจ" icon={<ClipboardCheckIcon className="w-6 h-6" />} colorClass="text-purple-600 bg-purple-100" />
-                        {currentUser?.role === 'admin' && (
-                             <MenuCard view="adminDashboard" label="Admin Zone" desc="จัดการข้อมูล" icon={<UserGroupIcon className="w-6 h-6" />} colorClass="text-red-600 bg-red-100" />
-                        )}
-                    </div>
-                </div>
-
-                {/* Help & Settings Accordion */}
-                <div className="border-t border-gray-300 dark:border-gray-700 pt-4">
-                    <button 
-                        onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
-                        className="w-full flex justify-between items-center p-3 bg-transparent rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800"
-                    >
-                        <div className="flex items-center gap-3 font-semibold text-gray-700 dark:text-gray-200">
-                            <InformationCircleIcon className="w-6 h-6 text-gray-500" />
-                            Help & Settings
-                        </div>
-                        <span className={`transform transition-transform ${isSettingsExpanded ? 'rotate-180' : ''}`}>▼</span>
-                    </button>
-                    
-                    {isSettingsExpanded && (
-                        <div className="mt-2 space-y-1 pl-4 animate-fade-in-down">
-                            <button onClick={() => navigate('settings')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700">
-                                การตั้งค่า & ความเป็นส่วนตัว
-                            </button>
-                            <button onClick={() => navigate('about')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700">
-                                เกี่ยวกับแอปพลิเคชัน
-                            </button>
-                            <button onClick={() => navigate('gamificationRules')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700">
-                                กติกาการสะสมแต้ม
-                            </button>
-                             <button onClick={toggleTheme} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                                <span>{theme === 'light' ? 'โหมดกลางคืน (Dark Mode)' : 'โหมดสว่าง (Light Mode)'}</span>
-                                {theme === 'light' ? <MoonIcon className="w-4 h-4"/> : <SunIcon className="w-4 h-4" />}
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                <button 
-                    onClick={logout} 
-                    className="w-full py-3 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-                >
-                    ออกจากระบบ
-                </button>
-            </div>
-        </div>
-      );
-  }
-
   // Daily Task Logic & Auto Notification
   const pendingTasks = useMemo(() => {
       // Allow any non-guest user (User + Admin) to see tasks
@@ -462,34 +440,34 @@ const AppContent: React.FC = () => {
       if (!currentUser || currentUser.role === 'guest') return null;
 
       return (
-          <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around items-center h-20 px-2 z-40 pb-2 md:hidden animate-slide-up">
-              <button onClick={() => navigate('home')} className={`flex flex-col items-center justify-center w-16 h-full ${activeView === 'home' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around items-center h-16 px-2 z-40 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <button onClick={() => navigate('home')} className={`flex flex-col items-center justify-center w-full h-full ${activeView === 'home' || activeView === 'dashboard' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   <HomeIcon className="w-6 h-6" />
-                  <span className="text-[10px] mt-1">หน้าแรก</span>
+                  <span className="text-[10px] mt-1 font-medium">หน้าหลัก</span>
               </button>
               
-              <button onClick={() => navigate('dashboard')} className={`flex flex-col items-center justify-center w-16 h-full ${activeView === 'dashboard' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                  <SquaresIcon className="w-6 h-6" />
-                  <span className="text-[10px] mt-1">สรุปผล</span>
+              <button onClick={() => navigate('community')} className={`flex flex-col items-center justify-center w-full h-full ${activeView === 'community' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <UserGroupIcon className="w-6 h-6" />
+                  <span className="text-[10px] mt-1 font-medium">ชุมชน</span>
               </button>
 
-              <div className="relative -top-6">
+              <div className="relative -top-5">
                   <button 
                     onClick={() => setIsQuickActionOpen(true)}
-                    className="w-14 h-14 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white shadow-lg border-4 border-gray-50 dark:border-gray-800 transform active:scale-95 transition-transform"
+                    className="w-14 h-14 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white shadow-lg border-4 border-gray-50 dark:border-gray-800 transform active:scale-95 transition-transform hover:scale-105"
                   >
                       <span className="text-3xl font-light mb-1">+</span>
                   </button>
               </div>
 
-              <button onClick={() => navigate('wellness')} className={`flex flex-col items-center justify-center w-16 h-full ${activeView === 'wellness' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                  <HeartIcon className="w-6 h-6" />
-                  <span className="text-[10px] mt-1">ภารกิจ</span>
+              <button onClick={() => navigate('coach')} className={`flex flex-col items-center justify-center w-full h-full ${activeView === 'coach' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <SparklesIcon className="w-6 h-6" />
+                  <span className="text-[10px] mt-1 font-medium">โค้ช AI</span>
               </button>
 
-              <button onClick={() => setIsMenuOpen(true)} className="flex flex-col items-center justify-center w-16 h-full text-gray-400 dark:text-gray-500">
+              <button onClick={() => navigate('menu')} className={`flex flex-col items-center justify-center w-full h-full ${activeView === 'menu' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   <MenuIcon className="w-6 h-6" />
-                  <span className="text-[10px] mt-1">เมนู</span>
+                  <span className="text-[10px] mt-1 font-medium">เมนู</span>
               </button>
           </div>
       );
@@ -537,31 +515,31 @@ const AppContent: React.FC = () => {
           {/* Header Bar */}
           <header className="fixed top-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm z-30 px-4 py-3 flex justify-between items-center transition-colors duration-300">
              <div className="flex items-center gap-3">
-                {/* Desktop Menu Button */}
-                <button 
-                    onClick={() => setIsMenuOpen(true)}
-                    className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-all hidden md:block"
-                >
-                    <MenuIcon className="w-6 h-6" />
-                </button>
-
-                {activeView !== 'home' && (
-                    <button onClick={() => navigate('home')} className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white hidden md:block">
-                        <HomeIcon className="w-6 h-6" />
-                    </button>
-                )}
-                
-                {/* Mobile Logo */}
-                <div className="md:hidden flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow">SLW</div>
-                    <span className="font-bold text-gray-800 dark:text-white text-sm">Smart Wellness</span>
+                {/* Mobile Logo/Title */}
+                <div className="flex items-center gap-2" onClick={() => navigate('home')}>
+                    <div className="w-8 h-8 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow cursor-pointer">SLW</div>
+                    <span className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer">Smart Wellness</span>
                 </div>
-
-                <h1 className="text-lg font-bold text-teal-600 dark:text-teal-400 truncate max-w-[200px] hidden md:block">{viewTitles[activeView]}</h1>
              </div>
              
-             <div className="flex items-center gap-2">
+             <div className="flex items-center gap-3">
+                {/* Notification Bell */}
                 {currentUser?.role !== 'guest' && <NotificationBell />}
+                
+                {/* Profile Icon (Right of Notification) */}
+                <button onClick={() => navigate('profile')} className="relative flex items-center justify-center">
+                    {currentUser?.profilePicture && (currentUser.profilePicture.startsWith('data') || currentUser.profilePicture.startsWith('http')) ? (
+                        <img 
+                            src={currentUser.profilePicture} 
+                            alt="Profile" 
+                            className={`w-9 h-9 rounded-full object-cover border-2 ${activeView === 'profile' ? 'border-teal-500' : 'border-transparent'}`} 
+                        />
+                    ) : (
+                        <div className={`p-1 rounded-full ${activeView === 'profile' ? 'text-teal-600 bg-teal-50' : 'text-gray-500 bg-gray-100 dark:bg-gray-700'}`}>
+                            <UserCircleIcon className="w-7 h-7" />
+                        </div>
+                    )}
+                </button>
              </div>
           </header>
 
@@ -570,7 +548,7 @@ const AppContent: React.FC = () => {
 
           {/* Main Content Area */}
           <main className="p-4 max-w-3xl mx-auto w-full pb-24">
-            {renderView()}
+            {renderContent()}
             <footer className="text-center mt-12 text-gray-500 dark:text-gray-400 text-sm mb-8 md:mb-0">
               <p>พัฒนาโดย นายธงชัย ทำเผือก</p>
               <p>กลุ่มงานสุขภาพดิจิทัล สำนักงานสาธารณสุขจังหวัดสตูล</p>
@@ -579,9 +557,6 @@ const AppContent: React.FC = () => {
 
           {/* Floating SOS Button */}
           {activeView !== 'home' && currentUser?.role !== 'guest' && <SOSButton />}
-
-          {/* Full Screen Menu Modal */}
-          {isMenuOpen && <FullScreenMenu />}
 
           {/* Bottom Navigation */}
           <BottomNavigation />

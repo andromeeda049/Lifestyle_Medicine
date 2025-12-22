@@ -30,7 +30,7 @@ export interface NutrientInfo {
   items: FoodItem[];
 }
 
-export type AppView = 'home' | 'profile' | 'dashboard' | 'community' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment' | 'calorieTracker' | 'activityTracker' | 'wellness' | 'gamificationRules' | 'about' | 'evaluation' | 'quiz';
+export type AppView = 'home' | 'menu' | 'profile' | 'dashboard' | 'community' | 'bmi' | 'tdee' | 'food' | 'coach' | 'planner' | 'literacy' | 'settings' | 'adminDashboard' | 'water' | 'assessment' | 'calorieTracker' | 'activityTracker' | 'wellness' | 'gamificationRules' | 'about' | 'evaluation' | 'quiz';
 export type Theme = 'light' | 'dark';
 
 export interface User {
