@@ -128,10 +128,16 @@ export const getHealthCoachingTip = async (data: {
   const specialist = SPECIALIST_TEAM.find(s => s.id === data.specialistId) || SPECIALIST_TEAM[0];
   const prompt = `Act as a ${specialist.name} (${specialist.role}). User Data: Condition: ${data.userProfile?.healthCondition}, BMI: ${data.bmi?.value}, Water: ${data.waterIntake}ml. Last Meal: ${data.food?.description}. Give actionable advice in Thai (2-3 sentences).`;
   
+  const config: any = {};
+  if (data.userProfile?.aiSystemInstruction) {
+      config.systemInstruction = data.userProfile.aiSystemInstruction;
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
+      config: config
     });
     return response.text;
   } catch (error) {

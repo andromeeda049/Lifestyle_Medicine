@@ -81,6 +81,7 @@ export interface UserProfile {
   pdpaAcceptedDate?: string; // NEW: วันที่ยอมรับ
   streak?: number; // New: Current streak days
   lastLogDate?: string; // New: Date string of last activity
+  aiSystemInstruction?: string; // NEW: Custom System Prompt for AI
 }
 
 export interface UserGamification {

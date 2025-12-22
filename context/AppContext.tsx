@@ -1,3 +1,4 @@
+
 import React, { createContext, ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, QuizEntry, User, AppContextType, SatisfactionData, OutcomeData } from '../types';
@@ -21,7 +22,8 @@ const defaultProfile: UserProfile = {
   receiveDailyReminders: true,
   organization: 'general',
   streak: 0,
-  lastLogDate: ''
+  lastLogDate: '',
+  aiSystemInstruction: ''
 };
 
 const getInitialTheme = (): Theme => {
@@ -89,7 +91,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               return {
                   ...cloudProfile,
                   pdpaAccepted: cloudProfile.pdpaAccepted || prev.pdpaAccepted,
-                  pdpaAcceptedDate: cloudProfile.pdpaAcceptedDate || prev.pdpaAcceptedDate
+                  pdpaAcceptedDate: cloudProfile.pdpaAcceptedDate || prev.pdpaAcceptedDate,
+                  // Keep local AI instruction if not set in cloud (optional logic, usually cloud wins)
+                  aiSystemInstruction: cloudProfile.aiSystemInstruction || prev.aiSystemInstruction
               };
           });
           

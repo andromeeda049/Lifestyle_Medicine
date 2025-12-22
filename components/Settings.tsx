@@ -9,20 +9,35 @@ const Settings: React.FC = () => {
     const { scriptUrl, setScriptUrl, isDataSynced, theme, setTheme, currentUser, userProfile, setUserProfile, logout } = useContext(AppContext);
     
     const [currentScriptUrl, setCurrentScriptUrl] = useState(scriptUrl);
-    const [saved, setSaved] = useState<'none' | 'sheets' | 'notifications'>('none');
+    const [saved, setSaved] = useState<'none' | 'sheets' | 'notifications' | 'ai'>('none');
     const [showGoogleSheetsSettings, setShowGoogleSheetsSettings] = useState(false);
     const [testingNotif, setTestingNotif] = useState(false);
     const [showPDPA, setShowPDPA] = useState(false);
+    
+    // AI System Instruction State
+    const [aiInstruction, setAiInstruction] = useState(userProfile.aiSystemInstruction || '');
 
     useEffect(() => {
         setCurrentScriptUrl(scriptUrl);
-    }, [scriptUrl]);
+        setAiInstruction(userProfile.aiSystemInstruction || '');
+    }, [scriptUrl, userProfile]);
 
     const handleSheetsSave = (e: React.FormEvent) => {
         e.preventDefault();
         setScriptUrl(currentScriptUrl);
         setSaved('sheets');
         setTimeout(() => setSaved('none'), 3000);
+    };
+
+    const handleAISave = () => {
+        if (!currentUser) return;
+        const updatedProfile = { ...userProfile, aiSystemInstruction: aiInstruction };
+        setUserProfile(updatedProfile, { 
+            displayName: currentUser.displayName, 
+            profilePicture: currentUser.profilePicture 
+        });
+        setSaved('ai');
+        setTimeout(() => setSaved('none'), 2000);
     };
 
     const toggleNotifications = () => {
@@ -74,6 +89,7 @@ const Settings: React.FC = () => {
 
     const isRemindersOn = !!userProfile.receiveDailyReminders;
     const hasLineId = !!userProfile.lineUserId;
+    const isSuperAdmin = currentUser?.role === 'admin' && currentUser?.organization === 'all';
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -153,21 +169,56 @@ const Settings: React.FC = () => {
             )}
 
             {currentUser?.role === 'admin' && (
-                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border border-orange-200">
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Google Sheets Connect</h2>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">เชื่อมต่อเพื่อบันทึกและซิงค์ข้อมูลวิจัย</p>
+                <>
+                    {/* AI Customization Section - SUPER ADMIN ONLY */}
+                    {isSuperAdmin && (
+                        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-purple-500">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30">
+                                    <SparklesIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">ปรับแต่ง AI Coach (Super Admin)</h2>
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">กำหนด System Prompt สำหรับ AI Coach</p>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <textarea 
+                                    value={aiInstruction}
+                                    onChange={(e) => setAiInstruction(e.target.value)}
+                                    placeholder="เช่น 'คุณเป็นโค้ชฟิตเนสที่ดุดัน เน้นวินัย', 'ช่วยตอบเป็นภาษาถิ่นใต้', 'เน้นให้กำลังใจเหมือนพี่สาว'"
+                                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-purple-500 min-h-[80px]"
+                                />
+                                <div className="flex justify-between items-center">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">*ตั้งค่า Persona ของ AI Coach กลางของระบบ</p>
+                                    <button 
+                                        onClick={handleAISave}
+                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-bold transition-colors shadow-md active:scale-95"
+                                    >
+                                        {saved === 'ai' ? 'บันทึกแล้ว!' : 'บันทึกการตั้งค่า'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <button onClick={() => setShowGoogleSheetsSettings(!showGoogleSheetsSettings)} className="text-teal-600 font-bold">จัดการ</button>
-                    </div>
-                    {showGoogleSheetsSettings && (
-                        <form onSubmit={handleSheetsSave} className="mt-6 space-y-4 animate-fade-in border-t pt-4">
-                            <input type="url" value={currentScriptUrl} onChange={(e) => setCurrentScriptUrl(e.target.value)} placeholder="Web App URL" className="w-full p-2 border rounded-md dark:bg-gray-700" required />
-                            <button type="submit" className="w-full bg-teal-500 text-white font-bold py-3 rounded-lg hover:bg-teal-600">บันทึกการเชื่อมต่อ</button>
-                        </form>
                     )}
-                </div>
+
+                    {/* Google Sheets Config */}
+                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border border-orange-200">
+                        <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Google Sheets Connect</h2>
+                                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">เชื่อมต่อเพื่อบันทึกและซิงค์ข้อมูลวิจัย</p>
+                            </div>
+                            <button onClick={() => setShowGoogleSheetsSettings(!showGoogleSheetsSettings)} className="text-teal-600 font-bold">จัดการ</button>
+                        </div>
+                        {showGoogleSheetsSettings && (
+                            <form onSubmit={handleSheetsSave} className="mt-6 space-y-4 animate-fade-in border-t pt-4">
+                                <input type="url" value={currentScriptUrl} onChange={(e) => setCurrentScriptUrl(e.target.value)} placeholder="Web App URL" className="w-full p-2 border rounded-md dark:bg-gray-700" required />
+                                <button type="submit" className="w-full bg-teal-500 text-white font-bold py-3 rounded-lg hover:bg-teal-600">บันทึกการเชื่อมต่อ</button>
+                            </form>
+                        )}
+                    </div>
+                </>
             )}
 
             {showPDPA && (
