@@ -38,6 +38,9 @@ const getInitialTheme = (): Theme => {
 export const AppContext = createContext<AppContextType>({} as AppContextType);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Capture initial URL params immediately to preserve deep links even if URL changes later (e.g. by OAuth/LIFF)
+  const initialUrlParams = useRef(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
+
   const [activeView, setActiveView] = useState<AppView>('home');
   const [currentUser, setCurrentUser] = useLocalStorage<User | null>('currentUser', null);
   const [theme, setTheme] = useLocalStorage<Theme>('theme', getInitialTheme());
@@ -75,9 +78,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     _setMoodHistory([]); _setHabitHistory([]); _setSocialHistory([]); _setEvaluationHistory([]);
     _setQuizHistory([]); setLatestFoodAnalysis(null); 
     
-    // FIX: Check URL params to prevent overwriting deep links
-    const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('view');
+    // Check URL params to handle deep links correctly
+    // 1. Try current URL
+    const currentParams = new URLSearchParams(window.location.search);
+    let viewParam = currentParams.get('view');
+
+    // 2. Fallback to initial URL (useful if LIFF/OAuth redirect stripped params)
+    if (!viewParam) {
+        viewParam = initialUrlParams.current.get('view');
+    }
+
     if (viewParam) {
         setActiveView(viewParam as AppView);
     } else {
