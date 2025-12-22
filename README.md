@@ -13,7 +13,32 @@
 2.  **สร้างชีตย่อย (Tabs)** ทั้งหมด 14 ชีต และตั้งชื่อให้ตรงตามนี้เป๊ะๆ
 3.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ใน **แถวที่ 1 (Row 1)** ดังนี้:
 
-    *   **ชีตที่ 1: `Profile`** (A1-X1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`, `receiveDailyReminders`, `researchId`, `pdpaAccepted`, `pdpaAcceptedDate`, **`organization`**
+    *   **ชีตที่ 1: `Profile`** (สำคัญมาก ลำดับต้องถูกต้อง):
+        *   A: `timestamp`
+        *   B: `username`
+        *   C: `displayName`
+        *   D: `profilePicture`
+        *   E: `gender`
+        *   F: `age`
+        *   G: `weight`
+        *   H: `height`
+        *   I: `waist`
+        *   J: `hip`
+        *   K: `activityLevel`
+        *   L: `role`
+        *   M: `xp`
+        *   N: `level`
+        *   O: `badges`
+        *   P: `email`
+        *   Q: `password`
+        *   R: `healthCondition`
+        *   S: `lineUserId`
+        *   T: `receiveDailyReminders`
+        *   **U: `researchId`** (รหัสกลุ่มตัวอย่าง/รหัสพนักงาน)
+        *   **V: `pdpaAccepted`**
+        *   **W: `pdpaAcceptedDate`**
+        *   **X: `organization`** (หน่วยงาน/สังกัด)
+
     *   **ชีตที่ 2: `BMIHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `bmi`, `category`
     *   **ชีตที่ 3: `TDEEHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `tdee`, `bmr`
     *   **ชีตที่ 4: `FoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `description`, `calories`, `analysis_json`
