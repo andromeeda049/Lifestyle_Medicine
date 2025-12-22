@@ -69,6 +69,22 @@ const AppContent: React.FC = () => {
   // Track if we've already notified the backend today
   const [lastMissionCompleteDate, setLastMissionCompleteDate] = useLocalStorage<string>('lastMissionCompleteDate', '');
   
+  // URL Parameter Handling for LIFF/Deep Linking
+  useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get('view');
+      const actionParam = params.get('action');
+
+      if (viewParam) {
+          // Cast string to AppView type (basic validation implied by UI handling)
+          setActiveView(viewParam as AppView);
+      }
+
+      if (actionParam === 'quick') {
+          setIsQuickActionOpen(true);
+      }
+  }, [setActiveView]);
+
   // Check PDPA Status on Load
   useEffect(() => {
       if (currentUser && currentUser.role !== 'guest' && currentUser.role !== 'admin') {
