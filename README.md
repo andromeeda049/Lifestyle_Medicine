@@ -13,7 +13,7 @@
 2.  **สร้างชีตย่อย (Tabs)** ทั้งหมด 14 ชีต และตั้งชื่อให้ตรงตามนี้เป๊ะๆ
 3.  ในแต่ละชีต ให้ตั้งชื่อคอลัมน์ใน **แถวที่ 1 (Row 1)** ดังนี้:
 
-    *   **ชีตที่ 1: `Profile`** (A1-W1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`, `receiveDailyReminders`, **`researchId`, `pdpaAccepted`, `pdpaAcceptedDate`**
+    *   **ชีตที่ 1: `Profile`** (A1-X1): `timestamp`, `username`, `displayName`, `profilePicture`, `gender`, `age`, `weight`, `height`, `waist`, `hip`, `activityLevel`, `role`, `xp`, `level`, `badges`, `email`, `password`, `healthCondition`, `lineUserId`, `receiveDailyReminders`, `researchId`, `pdpaAccepted`, `pdpaAcceptedDate`, **`organization`**
     *   **ชีตที่ 2: `BMIHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `bmi`, `category`
     *   **ชีตที่ 3: `TDEEHistory`** (A1-F1): `timestamp`, `username`, `displayName`, `profilePicture`, `tdee`, `bmr`
     *   **ชีตที่ 4: `FoodHistory`** (A1-G1): `timestamp`, `username`, `displayName`, `profilePicture`, `description`, `calories`, `analysis_json`
@@ -33,7 +33,7 @@
 
 1.  ใน Google Sheet ของคุณ ไปที่เมนู `ส่วนขยาย (Extensions)` > `Apps Script`
 
-### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (รองรับ PDPA, Leaderboard, และ Research ID)
+### ขั้นตอนที่ 3: เพิ่มโค้ดสคริปต์ (รองรับ Organization, PDPA, Leaderboard)
 
 1.  ลบโค้ดที่มีอยู่ทั้งหมดในไฟล์ `Code.gs`
 2.  คัดลอกโค้ด **ทั้งหมด** ด้านล่างนี้ไปวางแทนที่:
@@ -156,15 +156,16 @@ function handleGetLeaderboard() {
             role: row[11],
             xp: Number(row[12] || 0),
             level: Number(row[13] || 1),
-            badges: badges
+            badges: badges,
+            organization: row[23] || 'general' // Column X: Organization
         };
     });
     
-    // Filter only role 'user', sort by XP desc, take top 20
+    // Filter only role 'user', sort by XP desc, take top 50 (increased for better org stats)
     const topUsers = users
         .filter(u => u.role === 'user')
         .sort((a, b) => b.xp - a.xp)
-        .slice(0, 20);
+        .slice(0, 50);
         
     return createSuccessResponse(topUsers);
 }
@@ -390,7 +391,8 @@ function handleSocialAuth(userInfo) {
         '', 
         userInfo.userId || '',
         true,
-        '', '', '' // New Columns: ResearchID, PDPA, PDPA_Date
+        '', '', '', 
+        'general' // Default Organization
     ];
     sheet.appendRow(newRow);
 
@@ -425,7 +427,8 @@ function handleRegisterUser(user, password) {
         '', 
         '',
         true,
-        '', '', '' // New Columns: ResearchID, PDPA, PDPA_Date
+        '', '', '',
+        user.organization || 'general' // Register with Organization
     ];
     
     sheet.appendRow(newRow);
@@ -488,9 +491,10 @@ function handleSave(type, payload, user) {
           payload.healthCondition || '',
           existingLineId,
           payload.receiveDailyReminders,
-          payload.researchId || '', // Column U
-          payload.pdpaAccepted,     // Column V
-          payload.pdpaAcceptedDate  // Column W
+          payload.researchId || '', // Column U (20)
+          payload.pdpaAccepted,     // Column V (21)
+          payload.pdpaAcceptedDate,  // Column W (22)
+          payload.organization || 'general' // Column X (23) - NEW
       ];
       break;
     case 'bmiHistory': newRow = [ ...commonPrefix, item.value, item.category ]; break;
@@ -540,7 +544,8 @@ function getLatestProfileForUser(username) {
       receiveDailyReminders: String(lastEntry[19]).toLowerCase() !== 'false',
       researchId: lastEntry[20], 
       pdpaAccepted: lastEntry[21],
-      pdpaAcceptedDate: lastEntry[22]
+      pdpaAcceptedDate: lastEntry[22],
+      organization: lastEntry[23] || 'general' // NEW
   };
 }
 
@@ -607,7 +612,7 @@ function createErrorResponse(error) {
 function setupSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const schema = {
-    "Profile": ["timestamp", "username", "displayName", "profilePicture", "gender", "age", "weight", "height", "waist", "hip", "activityLevel", "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId", "receiveDailyReminders", "researchId", "pdpaAccepted", "pdpaAcceptedDate"],
+    "Profile": ["timestamp", "username", "displayName", "profilePicture", "gender", "age", "weight", "height", "waist", "hip", "activityLevel", "role", "xp", "level", "badges", "email", "password", "healthCondition", "lineUserId", "receiveDailyReminders", "researchId", "pdpaAccepted", "pdpaAcceptedDate", "organization"],
     "BMIHistory": ["timestamp", "username", "displayName", "profilePicture", "bmi", "category"],
     "TDEEHistory": ["timestamp", "username", "displayName", "profilePicture", "tdee", "bmr"],
     "FoodHistory": ["timestamp", "username", "displayName", "profilePicture", "description", "calories", "analysis_json"],
@@ -634,20 +639,3 @@ function setupSheets() {
   }
 }
 // --- END OF Code.gs ---
-```
-
-### ขั้นตอนที่ 4: ตั้งค่า Trigger (สำคัญมาก)
-
-เพื่อให้ระบบส่งข้อความแจ้งเตือนตอนเช้า คุณต้องตั้งค่าตัวกระตุ้นด้วยตนเอง:
-
-1.  ในหน้า Apps Script (ที่เพิ่งวางโค้ดไป) ให้มองหาเมนูรูปนาฬิกา (Triggers) ทางด้านซ้าย
-2.  คลิกปุ่ม **+ Add Trigger (เพิ่มทริกเกอร์)** มุมขวาล่าง
-3.  ตั้งค่าดังนี้:
-    *   Choose which function to run: **`triggerDailyReminders`**
-    *   Choose which deployment should run: **Head**
-    *   Select event source: **Time-driven (ตามเวลา)**
-    *   Select type of time based trigger: **Day timer (ตัวจับเวลารายวัน)**
-    *   Select time of day: **07:00 to 08:00** (หรือเวลาที่คุณต้องการ)
-4.  กด **Save** (ระบบอาจขอสิทธิ์เข้าถึง ให้กดอนุญาต)
-
-**เสร็จสิ้น!** ระบบจะส่งข้อความแจ้งเตือนหาผู้ใช้ที่มี LINE ID ในฐานข้อมูลทุกเช้า

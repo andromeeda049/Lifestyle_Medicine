@@ -133,8 +133,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const setUserProfile = useCallback((profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => {
     if (!currentUser) return;
-    const updatedUser = { ...currentUser, displayName: accountData.displayName, profilePicture: accountData.profilePicture };
-    setCurrentUser(updatedUser); _setUserProfile(profileData);
+    const updatedUser = { 
+        ...currentUser, 
+        displayName: accountData.displayName, 
+        profilePicture: accountData.profilePicture 
+    };
+    
+    // Sync organization to user object if present
+    if (profileData.organization) {
+        updatedUser.organization = profileData.organization;
+    }
+
+    setCurrentUser(updatedUser); 
+    _setUserProfile(profileData);
     if (scriptUrl) saveDataToSheet(scriptUrl, 'profile', profileData, updatedUser);
   }, [scriptUrl, currentUser, setCurrentUser, _setUserProfile]);
 
