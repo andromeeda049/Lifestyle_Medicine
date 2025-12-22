@@ -13,21 +13,21 @@ const foodAnalysisSchema = {
     sugar: { type: Type.NUMBER, description: "น้ำตาล (กรัม)" },
     sodium: { type: Type.NUMBER, description: "โซเดียม (มิลลิกรัม)" },
     saturatedFat: { type: Type.NUMBER, description: "ไขมันอิ่มตัว (กรัม)" },
-    description: { type: Type.STRING, description: "คำอธิบายสั้นๆ เกี่ยวกับมื้ออาหาร" },
+    description: { type: Type.STRING, description: "ชื่อเมนูอาหาร (ภาษาไทย)" },
     healthImpact: { 
         type: Type.STRING, 
-        description: "สรุปสั้นๆ 1 ประโยคเกี่ยวกับผลกระทบต่อ NCDs" 
+        description: "สรุปสั้นๆ 1 ประโยคเกี่ยวกับผลกระทบต่อ NCDs (ภาษาไทย)" 
     },
     lifestyleAnalysis: {
         type: Type.OBJECT,
         description: "การวิเคราะห์เจาะลึก 6 เสาหลักเวชศาสตร์วิถีชีวิต",
         properties: {
-            nutrition: { type: Type.STRING, description: "วิเคราะห์ด้านโภชนาการ" },
-            physicalActivity: { type: Type.STRING, description: "วิเคราะห์ด้านกิจกรรมทางกาย" },
-            sleep: { type: Type.STRING, description: "วิเคราะห์ด้านการนอน" },
-            stress: { type: Type.STRING, description: "วิเคราะห์ด้านความเครียด" },
-            substance: { type: Type.STRING, description: "วิเคราะห์ด้านสารเสพติด" },
-            social: { type: Type.STRING, description: "วิเคราะห์ด้านสังคม" },
+            nutrition: { type: Type.STRING, description: "วิเคราะห์ด้านโภชนาการ สั้นๆ เข้าใจง่าย (ภาษาไทย)" },
+            physicalActivity: { type: Type.STRING, description: "วิเคราะห์ด้านกิจกรรมทางกาย สั้นๆ เข้าใจง่าย (ภาษาไทย)" },
+            sleep: { type: Type.STRING, description: "วิเคราะห์ผลกระทบต่อการนอน สั้นๆ เข้าใจง่าย (ภาษาไทย)" },
+            stress: { type: Type.STRING, description: "วิเคราะห์ผลกระทบต่อความเครียด สั้นๆ เข้าใจง่าย (ภาษาไทย)" },
+            substance: { type: Type.STRING, description: "วิเคราะห์ความเสี่ยงสารเสพติด/พฤติกรรมเสี่ยง สั้นๆ เข้าใจง่าย (ภาษาไทย)" },
+            social: { type: Type.STRING, description: "วิเคราะห์บริบททางสังคมของอาหารนี้ สั้นๆ เข้าใจง่าย (ภาษาไทย)" },
             overallRisk: { type: Type.STRING, enum: ["Low", "Medium", "High"], description: "ระดับความเสี่ยง" }
         },
         required: ['nutrition', 'physicalActivity', 'sleep', 'stress', 'substance', 'social', 'overallRisk']
@@ -61,7 +61,7 @@ export const analyzeFoodFromImage = async (base64Image: string, mimeType: string
       contents: [{
         parts: [
           { inlineData: { data: base64Image, mimeType } },
-          { text: "Analyze this food image based on Lifestyle Medicine principles. Identify nutrients and assessment on NCDs. Return JSON." }
+          { text: "Analyze this food image based on Lifestyle Medicine. Identify nutrients. For lifestyleAnalysis, provide SHORT, SIMPLE, THAI explanations for each pillar." }
         ]
       }],
       config: config
@@ -84,7 +84,7 @@ export const analyzeFoodFromText = async (text: string, systemInstruction?: stri
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Analyze this food text: "${text}" based on Lifestyle Medicine principles. Return JSON.`,
+      contents: `Analyze this food text: "${text}" based on Lifestyle Medicine. For lifestyleAnalysis, provide SHORT, SIMPLE, THAI explanations. Return JSON.`,
       config: config
     });
     return JSON.parse(response.text);

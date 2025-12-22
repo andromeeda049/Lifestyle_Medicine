@@ -4,7 +4,7 @@ import { analyzeFoodFromImage, analyzeFoodFromText, getLocalFoodSuggestions } fr
 import { NutrientInfo, FoodHistoryEntry, LocalFoodSuggestion } from '../types';
 import { ShareIcon, CameraIcon, XCircleIcon, TrashIcon, EyeIcon, ChatBubbleLeftEllipsisIcon, MapPinIcon } from './icons';
 import { AppContext } from '../context/AppContext';
-import { XP_VALUES } from '../constants';
+import { XP_VALUES, PILLAR_LABELS } from '../constants';
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -83,6 +83,12 @@ const FoodAnalyzer: React.FC = () => {
     gainXP(XP_VALUES.FOOD);
   };
 
+  const getPillarLabel = (key: string) => {
+      if (key === 'physicalActivity') return PILLAR_LABELS.activity;
+      if (key === 'substance') return 'สารเสพติด/ความเสี่ยง'; // Short version
+      return PILLAR_LABELS[key as keyof typeof PILLAR_LABELS] || key;
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg w-full">
@@ -129,12 +135,21 @@ const FoodAnalyzer: React.FC = () => {
         {result && (
             <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl animate-fade-in">
                 <p className="text-xl font-bold text-center mb-2">{result.description}</p>
-                <p className="text-center text-purple-600 font-bold text-2xl">{result.calories} kcal</p>
-                <div className="grid grid-cols-2 gap-4 mt-6">
+                <p className="text-center text-purple-600 font-bold text-2xl mb-4">{result.calories} kcal</p>
+                
+                {result.healthImpact && (
+                    <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800">
+                        <p className="text-sm text-purple-800 dark:text-purple-200">{result.healthImpact}</p>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                     {result.lifestyleAnalysis && Object.entries(result.lifestyleAnalysis).filter(([k]) => k !== 'overallRisk').map(([key, val]) => (
-                        <div key={key} className="p-3 bg-white dark:bg-gray-800 rounded shadow-sm">
-                            <p className="text-xs text-gray-500 font-bold uppercase">{key}</p>
-                            <p className="text-sm mt-1">{val as string}</p>
+                        <div key={key} className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                            <p className="text-xs text-teal-600 dark:text-teal-400 font-bold uppercase mb-1">
+                                {getPillarLabel(key)}
+                            </p>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">{val as string}</p>
                         </div>
                     ))}
                 </div>
