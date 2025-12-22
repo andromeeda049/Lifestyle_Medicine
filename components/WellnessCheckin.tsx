@@ -12,7 +12,7 @@ const WellnessCheckin: React.FC = () => {
         moodHistory, setMoodHistory, 
         habitHistory, setHabitHistory, 
         socialHistory, setSocialHistory,
-        gainXP, openSOS
+        gainXP, openSOS, userProfile
     } = useContext(AppContext);
 
     const [activeTab, setActiveTab] = useState<'sleep' | 'mood' | 'habit' | 'social'>('sleep');
@@ -142,10 +142,16 @@ const WellnessCheckin: React.FC = () => {
             Social: ${socialData.interaction} (${socialData.feeling}).
             Provide a short, encouraging summary in Thai (2 sentences max).`;
             
+            const config: any = {};
+            if (userProfile?.aiSystemInstruction) {
+                config.systemInstruction = userProfile.aiSystemInstruction;
+            }
+
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const response = await ai.models.generateContent({ 
               model: 'gemini-3-flash-preview', 
-              contents: prompt 
+              contents: prompt,
+              config: config
             });
             setAiAnalysis(response.text || "ไม่สามารถสรุปข้อมูลได้");
             // Bonus XP for full review

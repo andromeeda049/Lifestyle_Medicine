@@ -179,7 +179,7 @@ const Settings: React.FC = () => {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">ปรับแต่ง AI Coach (Super Admin)</h2>
-                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">กำหนด System Prompt สำหรับ AI Coach</p>
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">กำหนด System Prompt สำหรับ AI ทุกส่วนในระบบ (Coach, Food, Planner, Insights)</p>
                                 </div>
                             </div>
                             <div className="space-y-3">
@@ -190,7 +190,7 @@ const Settings: React.FC = () => {
                                     className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-purple-500 min-h-[80px]"
                                 />
                                 <div className="flex justify-between items-center">
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">*ตั้งค่า Persona ของ AI Coach กลางของระบบ</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">*ตั้งค่า Persona ของ AI กลางของระบบ</p>
                                     <button 
                                         onClick={handleAISave}
                                         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-bold transition-colors shadow-md active:scale-95"

@@ -72,7 +72,7 @@ const LifestyleAssessment: React.FC = () => {
         // Calculate Total Score (Weighted or Average)
         // Normalize to 0-100 scale. There are 6 pillars, max 10 each. Total max 60.
         // Score = (Sum / 60) * 100
-        const sum = Object.values(pillarScores).reduce((a, b) => a + b, 0);
+        const sum = (Object.values(pillarScores) as number[]).reduce((a, b) => a + b, 0);
         const normalized = Math.round((sum / 60) * 100);
         setTotalScore(normalized);
     }, [pillarScores]);

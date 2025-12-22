@@ -5,7 +5,7 @@ import { generateProactiveInsight } from '../services/geminiService';
 import { SparklesIcon, XIcon, BoltIcon, HeartIcon } from './icons';
 
 const ProactiveInsight: React.FC = () => {
-    const { bmiHistory, sleepHistory, moodHistory, foodHistory, currentUser } = useContext(AppContext);
+    const { bmiHistory, sleepHistory, moodHistory, foodHistory, currentUser, userProfile } = useContext(AppContext);
     const [insight, setInsight] = useState<any>(null);
     const [visible, setVisible] = useState(false);
 
@@ -22,7 +22,10 @@ const ProactiveInsight: React.FC = () => {
 
             if (bmiHistory.length > 0 || sleepHistory.length > 0 || moodHistory.length > 0) {
                 try {
-                    const result = await generateProactiveInsight({ bmiHistory, sleepHistory, moodHistory, foodHistory, userName: currentUser.displayName });
+                    const result = await generateProactiveInsight(
+                        { bmiHistory, sleepHistory, moodHistory, foodHistory, userName: currentUser.displayName },
+                        userProfile.aiSystemInstruction
+                    );
                     const newInsight = { ...result, date: today };
                     setInsight(newInsight);
                     localStorage.setItem(`proactive_insight_${currentUser.username}`, JSON.stringify(newInsight));
@@ -31,7 +34,7 @@ const ProactiveInsight: React.FC = () => {
             }
         };
         loadInsight();
-    }, [currentUser, bmiHistory, sleepHistory, moodHistory, foodHistory]);
+    }, [currentUser, bmiHistory, sleepHistory, moodHistory, foodHistory, userProfile]);
 
     if (!visible || !insight) return null;
 

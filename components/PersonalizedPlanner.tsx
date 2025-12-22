@@ -64,7 +64,7 @@ const PersonalizedPlanner: React.FC = () => {
         setResults(calculated);
 
         try {
-            const plan = await generateMealPlan(calculated, formData.cuisine, formData.diet, formData.healthCondition, formData.lifestyleGoal, foodHistory);
+            const plan = await generateMealPlan(calculated, formData.cuisine, formData.diet, formData.healthCondition, formData.lifestyleGoal, foodHistory, userProfile.aiSystemInstruction);
             setMealPlan(plan);
             const entry: PlannerHistoryEntry = { id: new Date().toISOString(), date: new Date().toISOString(), cuisine: formData.cuisine, diet: formData.diet, tdee, plan };
             setPlannerHistory(prev => [entry, ...prev].slice(0, 10));

@@ -31,7 +31,7 @@ const FoodAnalyzer: React.FC = () => {
   const [result, setResult] = useState<NutrientInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const { setLatestFoodAnalysis, foodHistory, setFoodHistory, clearFoodHistory, currentUser, gainXP } = useContext(AppContext);
+  const { setLatestFoodAnalysis, foodHistory, setFoodHistory, clearFoodHistory, currentUser, gainXP, userProfile } = useContext(AppContext);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageAnalyze = async () => {
@@ -39,7 +39,7 @@ const FoodAnalyzer: React.FC = () => {
     setLoading(true); setError(null); setResult(null);
     try {
       const { base64, mimeType } = await fileToGenerativePart(image);
-      const res = await analyzeFoodFromImage(base64, mimeType);
+      const res = await analyzeFoodFromImage(base64, mimeType, userProfile.aiSystemInstruction);
       setResult(res); saveResultToHistory(res);
     } catch (err: any) {
       setError(err.message);
@@ -52,7 +52,7 @@ const FoodAnalyzer: React.FC = () => {
     if (!inputText.trim() || currentUser?.role === 'guest') return;
     setLoading(true); setError(null); setResult(null);
     try {
-        const res = await analyzeFoodFromText(inputText);
+        const res = await analyzeFoodFromText(inputText, userProfile.aiSystemInstruction);
         setResult(res); saveResultToHistory(res);
     } catch (err: any) {
         setError(err.message);

@@ -47,8 +47,14 @@ const foodAnalysisSchema = {
   required: ['calories', 'protein', 'carbohydrates', 'fat', 'sugar', 'sodium', 'saturatedFat', 'description', 'healthImpact', 'items', 'lifestyleAnalysis']
 };
 
-export const analyzeFoodFromImage = async (base64Image: string, mimeType: string): Promise<NutrientInfo> => {
+export const analyzeFoodFromImage = async (base64Image: string, mimeType: string, systemInstruction?: string): Promise<NutrientInfo> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const config: any = {
+    responseMimeType: 'application/json',
+    responseSchema: foodAnalysisSchema,
+  };
+  if (systemInstruction) config.systemInstruction = systemInstruction;
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -58,10 +64,7 @@ export const analyzeFoodFromImage = async (base64Image: string, mimeType: string
           { text: "Analyze this food image based on Lifestyle Medicine principles. Identify nutrients and assessment on NCDs. Return JSON." }
         ]
       }],
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: foodAnalysisSchema,
-      }
+      config: config
     });
     return JSON.parse(response.text);
   } catch (error) {
@@ -70,16 +73,19 @@ export const analyzeFoodFromImage = async (base64Image: string, mimeType: string
   }
 };
 
-export const analyzeFoodFromText = async (text: string): Promise<NutrientInfo> => {
+export const analyzeFoodFromText = async (text: string, systemInstruction?: string): Promise<NutrientInfo> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const config: any = {
+    responseMimeType: 'application/json',
+    responseSchema: foodAnalysisSchema,
+  };
+  if (systemInstruction) config.systemInstruction = systemInstruction;
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Analyze this food text: "${text}" based on Lifestyle Medicine principles. Return JSON.`,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: foodAnalysisSchema,
-      }
+      config: config
     });
     return JSON.parse(response.text);
   } catch (error) {
@@ -151,7 +157,8 @@ export const generateMealPlan = async (
   diet: string,
   healthCondition: string,
   lifestyleGoal: string,
-  foodHistory: FoodHistoryEntry[]
+  foodHistory: FoodHistoryEntry[],
+  systemInstruction?: string
 ): Promise<MealPlan> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const pastMeals = foodHistory.slice(0, 5).map(f => f.analysis.description).join(", ");
@@ -173,28 +180,31 @@ export const generateMealPlan = async (
 
   Return JSON following the schema.`;
 
+  const config: any = {
+    responseMimeType: 'application/json',
+    responseSchema: {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                day: { type: Type.STRING },
+                breakfast: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
+                lunch: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
+                dinner: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
+                activities: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { activity: {type: Type.STRING}, duration: {type: Type.STRING}, benefit: {type: Type.STRING}, caloriesBurned: {type: Type.NUMBER} }, required: ['activity'] } },
+                dailyTotal: { type: Type.OBJECT, properties: { protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} } }
+            },
+            required: ['day', 'breakfast', 'lunch', 'dinner', 'activities', 'dailyTotal']
+        }
+    },
+  };
+  if (systemInstruction) config.systemInstruction = systemInstruction;
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    day: { type: Type.STRING },
-                    breakfast: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
-                    lunch: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
-                    dinner: { type: Type.OBJECT, properties: { menu: {type: Type.STRING}, protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} }, required: ['menu', 'calories'] },
-                    activities: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { activity: {type: Type.STRING}, duration: {type: Type.STRING}, benefit: {type: Type.STRING}, caloriesBurned: {type: Type.NUMBER} }, required: ['activity'] } },
-                    dailyTotal: { type: Type.OBJECT, properties: { protein: {type: Type.NUMBER}, carbohydrate: {type: Type.NUMBER}, fat: {type: Type.NUMBER}, calories: {type: Type.NUMBER} } }
-                },
-                required: ['day', 'breakfast', 'lunch', 'dinner', 'activities', 'dailyTotal']
-            }
-        },
-      }
+      config: config
     });
     return JSON.parse(response.text);
   } catch (error) {
@@ -209,26 +219,30 @@ export const generateProactiveInsight = async (
         moodHistory: any[];
         foodHistory: any[];
         userName: string;
-    }
+    },
+    systemInstruction?: string
 ): Promise<{ title: string; message: string; type: 'warning' | 'info' | 'success' }> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `Act as Health Guardian for ${data.userName}. Trends: Weight: ${data.bmiHistory.length}, Stress: ${data.moodHistory.length}. Generate ONE short proactive insight (Thai). Return JSON {title, message, type: 'warning'|'info'|'success'}.`;
+
+    const config: any = {
+        responseMimeType: 'application/json',
+        responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+                title: { type: Type.STRING },
+                message: { type: Type.STRING },
+                type: { type: Type.STRING, enum: ['warning', 'info', 'success'] }
+            }
+        }
+    };
+    if (systemInstruction) config.systemInstruction = systemInstruction;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: prompt,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        title: { type: Type.STRING },
-                        message: { type: Type.STRING },
-                        type: { type: Type.STRING, enum: ['warning', 'info', 'success'] }
-                    }
-                }
-            }
+            config: config
         });
         return JSON.parse(response.text);
     } catch (error) {
