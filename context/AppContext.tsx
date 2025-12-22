@@ -73,7 +73,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     _setBmiHistory([]); _setTdeeHistory([]); _setFoodHistory([]); _setPlannerHistory([]);
     _setWaterHistory([]); _setCalorieHistory([]); _setActivityHistory([]); _setSleepHistory([]);
     _setMoodHistory([]); _setHabitHistory([]); _setSocialHistory([]); _setEvaluationHistory([]);
-    _setQuizHistory([]); setLatestFoodAnalysis(null); setActiveView('home');
+    _setQuizHistory([]); setLatestFoodAnalysis(null); 
+    
+    // FIX: Check URL params to prevent overwriting deep links
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    if (viewParam) {
+        setActiveView(viewParam as AppView);
+    } else {
+        setActiveView('home');
+    }
+
     if (scriptUrl) saveDataToSheet(scriptUrl, 'loginLog', user, user);
   };
 
