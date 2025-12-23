@@ -7,7 +7,8 @@ import { registerUser, verifyUser, socialAuth } from '../services/googleSheetSer
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import liff from '@line/liff';
-import { ORGANIZATIONS, ADMIN_CREDENTIALS } from '../constants';
+import { ORGANIZATIONS, ADMIN_CREDENTIALS, TELEGRAM_BOT_USERNAME } from '../constants';
+import TelegramLoginButton from './TelegramLoginButton';
 
 // !!! สำคัญ: แทนที่ด้วย LIFF ID ของคุณที่ได้จาก LINE Developers Console !!!
 const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
@@ -174,6 +175,40 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         setError('การเข้าสู่ระบบด้วย Google ล้มเหลว');
     };
 
+    // Telegram Login Logic
+    const handleTelegramLogin = async (user: any) => {
+        if (!scriptUrl) {
+            setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
+            return;
+        }
+        setLoading(true);
+        try {
+            // Construct a dummy email for Telegram users since email is not provided
+            // Use telegram_id as unique identifier
+            const dummyEmail = `${user.id}@telegram.bot`;
+            const fullName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+
+            const result = await socialAuth(scriptUrl, {
+                email: dummyEmail,
+                name: fullName,
+                picture: user.photo_url || '',
+                provider: 'telegram',
+                userId: user.id.toString()
+            });
+
+            if (result.success && result.user) {
+                onLogin({ ...result.user, authProvider: 'telegram' });
+            } else {
+                handleAuthError(result.message);
+            }
+        } catch (err: any) {
+            console.error("Telegram Login Error:", err);
+            setError('เกิดข้อผิดพลาดในการล็อกอินผ่าน Telegram');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleLineLogin = async () => {
         if (!scriptUrl) {
             setError('ไม่พบ URL การเชื่อมต่อ Google Sheets');
@@ -336,6 +371,15 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         </div>
                     )}
                 </button>
+
+                {/* Telegram Login Button */}
+                <div className="w-full max-w-[240px] flex justify-center">
+                    <TelegramLoginButton 
+                        botName={TELEGRAM_BOT_USERNAME} 
+                        onAuth={handleTelegramLogin} 
+                        cornerRadius={20}
+                    />
+                </div>
             </div>
 
             {/* Divider with Toggle Button */}

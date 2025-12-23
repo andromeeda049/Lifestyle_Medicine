@@ -68,7 +68,8 @@ export const fetchLeaderboard = async (scriptUrl: string): Promise<any[]> => {
 export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Promise<AllData | null> => {
     if (!scriptUrl || !user) return null;
     try {
-        const urlWithParams = `${scriptUrl}?username=${encodeURIComponent(user.username)}`;
+        // ADDED: Cache-busting timestamp (_t)
+        const urlWithParams = `${scriptUrl}?username=${encodeURIComponent(user.username)}&_t=${Date.now()}`;
         const response = await fetch(urlWithParams, { 
             method: 'GET', 
             redirect: 'follow',
@@ -142,7 +143,7 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
 export const fetchAllAdminDataFromSheet = async (scriptUrl: string, adminKey: string): Promise<AllAdminData | null> => {
     if (!scriptUrl || !adminKey) return null;
     try {
-        const urlWithParams = `${scriptUrl}?action=getAllData&adminKey=${encodeURIComponent(adminKey)}`;
+        const urlWithParams = `${scriptUrl}?action=getAllData&adminKey=${encodeURIComponent(adminKey)}&_t=${Date.now()}`;
         const response = await fetch(urlWithParams, {
             method: 'GET',
             redirect: 'follow',
@@ -298,10 +299,10 @@ export const verifyUser = async (scriptUrl: string, email: string, password?: st
     }
 };
 
-// Social Auth (Google/Line Login Backend Handling)
+// Social Auth (Google/Line/Telegram Login Backend Handling)
 export const socialAuth = async (
     scriptUrl: string, 
-    userInfo: { email: string, name: string, picture: string, provider: 'google' | 'line', userId?: string }
+    userInfo: { email: string, name: string, picture: string, provider: 'google' | 'line' | 'telegram', userId?: string }
 ): Promise<{success: boolean, user?: User, message?: string}> => {
     if (!scriptUrl) return { success: false, message: 'Script URL missing' };
     try {

@@ -168,9 +168,21 @@ function handleGetLeaderboard() {
     // Get all profiles (skip header)
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
     
-    // Map to safe public data (only username, displayName, XP, level, badges, picture)
-    // Avoid sensitive info like email, password, health conditions
-    const users = data.map(row => {
+    // Use a Map to only keep the LATEST entry for each username
+    // Since getValues returns top-to-bottom, the last occurrence in the loop is the latest.
+    const userMap = new Map();
+    
+    data.forEach(row => {
+        const username = row[1];
+        if (username) {
+            userMap.set(username, row);
+        }
+    });
+    
+    // Convert Map values back to array for processing
+    const uniqueRows = Array.from(userMap.values());
+
+    const users = uniqueRows.map(row => {
         let badges = [];
         try { badges = JSON.parse(row[14]); } catch(e) {}
         
@@ -186,7 +198,7 @@ function handleGetLeaderboard() {
         };
     });
     
-    // Filter only role 'user', sort by XP desc, take top 50 (increased for better org stats)
+    // Filter only role 'user', sort by XP desc, take top 50
     const topUsers = users
         .filter(u => u.role === 'user')
         .sort((a, b) => b.xp - a.xp)

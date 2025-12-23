@@ -39,7 +39,7 @@ export interface User {
   profilePicture: string;
   role: 'user' | 'admin' | 'guest';
   email?: string;
-  authProvider?: 'email' | 'google' | 'line';
+  authProvider?: 'email' | 'google' | 'line' | 'telegram';
   organization?: string; // New field for public health agency
 }
 

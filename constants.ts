@@ -1,6 +1,10 @@
 
 import { Achievement, QuizQuestion } from "./types";
 
+// --- TELEGRAM CONFIG ---
+// Create a bot via @BotFather, enable domain with /setdomain, and put username here (without @)
+export const TELEGRAM_BOT_USERNAME = "lifestyle_medicine_bot"; 
+
 // --- ORGANIZATION / AGENCIES ---
 export const ORGANIZATIONS = [
     { id: 'general', name: 'บุคคลทั่วไป (General Public)' },
