@@ -2,7 +2,7 @@
 import { Achievement, QuizQuestion } from "./types";
 
 // --- TELEGRAM CONFIG ---
-// Create a bot via @BotFather, enable domain with /setdomain, and put username here (without @)
+// ชื่อ Username ของ Bot ที่สร้างจาก @BotFather (ห้ามใส่ @ และห้ามใส่ URL)
 export const TELEGRAM_BOT_USERNAME = "lifestyle_medicine_bot"; 
 
 // --- ORGANIZATION / AGENCIES ---
@@ -17,8 +17,6 @@ export const ORGANIZATIONS = [
 ];
 
 // --- ADMIN CREDENTIALS MAPPING ---
-// Map passwords (keys) to Organization IDs. 
-// 'all' means Super Admin.
 export const ADMIN_CREDENTIALS: { [key: string]: string } = {
     "ADMIN1234!": "all",          // Super Admin
     "PHO@SATUN": "pho_satun",     // สสจ.
@@ -141,21 +139,18 @@ export const SLEEP_HYGIENE_CHECKLIST = [
     'อุณหภูมิห้องเย็นสบาย'
 ];
 
-// --- GAMIFICATION CONSTANTS ---
-
 export const XP_VALUES = {
     WATER: 10,
     FOOD: 20,
     EXERCISE: 25,
     SLEEP: 15,
     MOOD: 10,
-    WELLNESS: 30, // Completing a full check-in
+    WELLNESS: 30,
     CALORIE: 10,
     PLANNER: 50,
-    QUIZ: 100 // New: High XP for completing quiz
+    QUIZ: 100
 };
 
-// XP required to reach next level. Index 0 is Level 1 (0 XP), Index 1 is Level 2 (100 XP)...
 export const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500];
 
 export const ACHIEVEMENTS: Achievement[] = [
@@ -169,7 +164,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     { id: 'master', name: 'ปรมาจารย์', description: 'เข้าสู่เลเวล 10', icon: '👑' },
 ];
 
-// --- EVALUATION CONSTANTS ---
 export const SATISFACTION_QUESTIONS = [
     { id: 'usability', label: 'แอปพลิเคชันใช้งานง่ายและสะดวก' },
     { id: 'features', label: 'ฟีเจอร์ในแอปตอบโจทย์การดูแลสุขภาพของฉัน' },
@@ -194,7 +188,6 @@ export const OUTCOME_OPTIONS = [
     { value: 'worse', label: 'แย่ลง' },
 ];
 
-// --- HEALTH LITERACY QUIZ (UPDATED TO 10 QUESTIONS) ---
 export const HEALTH_LITERACY_QUESTIONS: QuizQuestion[] = [
     {
         id: 1,
