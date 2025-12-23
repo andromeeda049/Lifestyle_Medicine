@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface TelegramUser {
   id: number;
@@ -29,8 +29,16 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   usePic = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isLocalhost, setIsLocalhost] = useState(false);
 
   useEffect(() => {
+    // Telegram Widget does NOT work on localhost. It throws "Bot domain invalid".
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        setIsLocalhost(true);
+        return; 
+    }
+
     if (!containerRef.current) return;
     // Prevent duplicate scripts
     if (containerRef.current.innerHTML !== '') return;
@@ -52,9 +60,19 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       onAuth(user);
     };
 
-    // Cleanup: In a real SPA, deleting the global function might cause issues if re-mounted,
-    // but preventing duplicate script injection handles most cases.
   }, [botName, onAuth, buttonSize, cornerRadius, requestAccess, usePic]);
+
+  if (isLocalhost) {
+      return (
+          <div className="text-[10px] text-center text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200 w-full max-w-[240px]">
+              ⚠️ <b>Telegram Login</b>
+              <br/>
+              ไม่รองรับ Localhost
+              <br/>
+              ต้องใช้ Domain จริง (HTTPS)
+          </div>
+      );
+  }
 
   return <div ref={containerRef} className="flex justify-center" />;
 };
