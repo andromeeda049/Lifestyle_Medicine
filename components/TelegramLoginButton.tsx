@@ -32,15 +32,14 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   const [isLocalhost, setIsLocalhost] = useState(false);
 
   useEffect(() => {
-    // Telegram Widget does NOT work on localhost. It throws "Bot domain invalid".
     const hostname = window.location.hostname;
+
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
         setIsLocalhost(true);
         return; 
     }
 
     if (!containerRef.current) return;
-    // Prevent duplicate scripts
     if (containerRef.current.innerHTML !== '') return;
 
     const script = document.createElement('script');
@@ -55,7 +54,6 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
     containerRef.current.appendChild(script);
 
-    // Set global callback
     (window as any).onTelegramAuth = (user: TelegramUser) => {
       onAuth(user);
     };
@@ -68,13 +66,18 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
               ⚠️ <b>Telegram Login</b>
               <br/>
               ไม่รองรับ Localhost
-              <br/>
-              ต้องใช้ Domain จริง (HTTPS)
           </div>
       );
   }
 
-  return <div ref={containerRef} className="flex justify-center" />;
+  return (
+    <div className="flex flex-col items-center gap-2 w-full">
+        <div ref={containerRef} className="flex justify-center" />
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium animate-pulse">
+            โปรดเปิดแอปแล้วกด Confirm เพื่อเข้าใช้งาน
+        </p>
+    </div>
+  );
 };
 
 export default TelegramLoginButton;
