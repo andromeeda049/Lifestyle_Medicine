@@ -40,10 +40,16 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     }
 
     if (!containerRef.current) return;
-    if (containerRef.current.innerHTML !== '') return;
+    
+    // Clear previous widget
+    containerRef.current.innerHTML = '';
 
     const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js';
+    // Using version ?22 from your snippet
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    
+    // IMPORTANT: botName MUST be your bot username (e.g. lifestyle_medicine_bot)
+    // If you put a URL here, Telegram will not send the confirmation message.
     script.setAttribute('data-telegram-login', botName);
     script.setAttribute('data-size', buttonSize);
     script.setAttribute('data-radius', cornerRadius.toString());
@@ -54,10 +60,15 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
     containerRef.current.appendChild(script);
 
+    // Global callback for Telegram
     (window as any).onTelegramAuth = (user: TelegramUser) => {
       onAuth(user);
     };
 
+    return () => {
+        if (containerRef.current) containerRef.current.innerHTML = '';
+        delete (window as any).onTelegramAuth;
+    };
   }, [botName, onAuth, buttonSize, cornerRadius, requestAccess, usePic]);
 
   if (isLocalhost) {
@@ -65,15 +76,15 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
           <div className="text-[10px] text-center text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200 w-full max-w-[240px]">
               ⚠️ <b>Telegram Login</b>
               <br/>
-              ไม่รองรับ Localhost
+              ใช้ได้บน Domain จริงเท่านั้น
           </div>
       );
   }
 
   return (
     <div className="flex flex-col items-center gap-2 w-full">
-        <div ref={containerRef} className="flex justify-center" />
-        <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium animate-pulse">
+        <div ref={containerRef} className="flex justify-center min-h-[40px]" />
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium animate-pulse text-center px-4">
             โปรดเปิดแอปแล้วกด Confirm เพื่อเข้าใช้งาน
         </p>
     </div>
