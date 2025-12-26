@@ -37,20 +37,18 @@ export const fetchLeaderboard = async (scriptUrl: string): Promise<any[]> => {
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'getLeaderboard' }),
+            body: JSON.stringify({ action: 'getLeaderboard' }), // เปลี่ยนมาใช้ action ที่เจาะจง
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
         const result = await response.json();
         if (result.status === 'success') {
+            // ข้อมูลที่ได้จะมาจากการ QUERY ในชีต ซึ่งสะอาดและเรียงลำดับมาแล้ว
             return result.data;
         }
-        return [
-            { username: 'user1', displayName: 'พี่สมชาย รักสุขภาพ', xp: 5200, level: 5, badges: ['novice', 'active'], profilePicture: '🏃‍♂️' },
-            { username: 'user2', displayName: 'น้องน้ำใส', xp: 4800, level: 4, badges: ['hydrated'], profilePicture: '💧' },
-            { username: 'user3', displayName: 'คุณหมอใจดี', xp: 4500, level: 4, badges: ['scholar'], profilePicture: '🩺' },
-        ];
+        return [];
     } catch (error) {
+        console.error("Leaderboard fetch failed:", error);
         return [];
     }
 };
@@ -72,7 +70,7 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
              
              let parsedBadges = [];
              try {
-                parsedBadges = data.profile && data.profile.badges ? JSON.parse(data.profile.badges) : ['novice'];
+                parsedBadges = data.profile && data.profile.badges ? (typeof data.profile.badges === 'string' ? JSON.parse(data.profile.badges) : data.profile.badges) : ['novice'];
              } catch (e) {
                 parsedBadges = ['novice'];
              }
@@ -87,7 +85,7 @@ export const fetchAllDataFromSheet = async (scriptUrl: string, user: User): Prom
                 activityLevel: Number(data.profile.activityLevel),
                 healthCondition: String(data.profile.healthCondition || 'ไม่มีโรคประจำตัว'),
                 lineUserId: String(data.profile.lineUserId || ''),
-                telegramUserId: String(data.profile.telegramUserId || ''), // Add Telegram ID
+                telegramUserId: String(data.profile.telegramUserId || ''),
                 xp: Number(data.profile.xp || 0),
                 level: Number(data.profile.level || 1),
                 badges: parsedBadges,
@@ -204,7 +202,6 @@ export const sendTestNotification = async (scriptUrl: string, user: User): Promi
     }
 };
 
-// NEW: Telegram Test Notification
 export const sendTelegramTestNotification = async (scriptUrl: string, user: User): Promise<{success: boolean, message: string}> => {
     if (!scriptUrl || !user) return { success: false, message: 'Missing config' };
     try {
