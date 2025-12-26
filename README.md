@@ -1,91 +1,24 @@
 
-# การติดตั้ง Backend (Code.gs) และโครงสร้างชีต
+# การตั้งค่า Google Sheets สำหรับระบบ Leaderboard (SUM Version)
 
-กรุณาตรวจสอบว่าชื่อแผ่นงาน (Sheet Name) และสูตรใน Google Sheets ของคุณตรงตามนี้:
+เพื่อให้แอปแสดงคะแนนรวมและอันดับมาแรงได้ถูกต้อง กรุณาสร้างชีตใหม่ 2 ชีต และวางสูตรที่เซลล์ **A1** ดังนี้:
 
-### 1. ชื่อชีตข้อมูลหลัก
-- **profile**: (ไม่มี s) เก็บข้อมูลผู้ใช้ (A: username, J: xp, K: level, M: organization)
-- **loginLogs**: (มี s) เก็บประวัติการเข้าใช้งาน (A: timestamp, B: username)
-
-### 2. ชีตสำหรับแสดงผล (View Sheets)
-สร้างชีตใหม่ 2 ชีต และใส่สูตรที่เซลล์ **A1**:
-- **LeaderboardView**: 
-  `=QUERY(profile!A:M, "SELECT A, B, C, J, K, L, M WHERE A IS NOT NULL ORDER BY J DESC LIMIT 100", 1)`
-- **TrendingView**: 
-  `=QUERY(loginLogs!A:C, "SELECT B, C, COUNT(A) WHERE A > date '"&TEXT(TODAY()-7, "yyyy-mm-dd")&"' GROUP BY B, C ORDER BY COUNT(A) DESC LIMIT 50 LABEL COUNT(A) 'ActivityCount'", 1)`
-
-### 3. โค้ดใน Code.gs (Apps Script)
-คัดลอกส่วนนี้ไปไว้ในไฟล์ **Code.gs**:
-
-```javascript
-function doPost(e) {
-  try {
-    var requestData = JSON.parse(e.postData.contents);
-    var action = requestData.action;
-
-    if (action === 'getLeaderboard') {
-      return getUnifiedLeaderboard();
-    }
-    
-    // ... action อื่นๆ (save, register, etc.)
-    
-    return createErrorResponse("Invalid action: " + action);
-  } catch (err) {
-    return createErrorResponse(err.toString());
-  }
-}
-
-function getUnifiedLeaderboard() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // ดึงจากชีต View ที่เราใส่สูตร QUERY ไว้
-  const mainSheet = ss.getSheetByName("LeaderboardView");
-  const trendingSheet = ss.getSheetByName("TrendingView");
-  
-  const mainData = mainSheet ? getRowsAsObjects(mainSheet) : [];
-  const trendingData = trendingSheet ? getRowsAsObjects(trendingSheet) : [];
-  
-  return createSuccessResponse({
-    leaderboard: mainData,
-    trending: trendingData
-  });
-}
-
-function getRowsAsObjects(sheet) {
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return []; // ถ้ามีแต่หัวตาราง หรือไม่มีข้อมูลเลย จะคืนค่าอาเรย์ว่าง
-  
-  const headers = data[0];
-  const results = [];
-  
-  for (let i = 1; i < data.length; i++) {
-    let obj = {};
-    let hasData = false;
-    headers.forEach((h, idx) => {
-      let val = data[i][idx];
-      if (val !== "" && val !== null) hasData = true;
-      
-      if (h === 'badges' && typeof val === 'string' && val.startsWith('[')) {
-        try { val = JSON.parse(val); } catch(e) {}
-      }
-      obj[h] = val;
-    });
-    if (hasData) results.push(obj);
-  }
-  return results;
-}
-
-function createSuccessResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'success',
-    data: data
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-function createErrorResponse(msg) {
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'error',
-    message: msg
-  })).setMimeType(ContentService.MimeType.JSON);
-}
+### 1. ชีตชื่อ `LeaderboardView` (อันดับสะสมตลอดกาล)
+สูตรนี้จะรวม XP (Delta) ของทุกคนเข้าด้วยกัน และดึงหน่วยงานล่าสุดมาแสดง:
+```excel
+=QUERY(profile!A:M, "SELECT Col2, MAX(Col3), MAX(Col4), SUM(Col10), MAX(Col11), MAX(Col12), MAX(Col13) WHERE Col2 IS NOT NULL GROUP BY Col2 ORDER BY SUM(Col10) DESC LABEL MAX(Col3) 'displayName', MAX(Col4) 'profilePicture', SUM(Col10) 'totalXp', MAX(Col11) 'level', MAX(Col12) 'badges', MAX(Col13) 'organization'", 1)
 ```
+
+### 2. ชีตชื่อ `TrendingView` (อันดับมาแรง 7 วันล่าสุด)
+สูตรนี้จะรวม XP เฉพาะรายการที่เกิดขึ้นภายใน 7 วันที่ผ่านมาเท่านั้น:
+```excel
+=QUERY(profile!A:M, "SELECT Col2, MAX(Col3), MAX(Col4), SUM(Col10), MAX(Col13) WHERE Col2 IS NOT NULL AND Col1 > date '"&TEXT(TODAY()-7, "yyyy-mm-dd")&"' GROUP BY Col2 ORDER BY SUM(Col10) DESC LABEL MAX(Col3) 'displayName', MAX(Col4) 'profilePicture', SUM(Col10) 'weeklyXp', MAX(Col13) 'organization'", 1)
+```
+
+---
+
+### คำแนะนำเพิ่มเติม:
+- **Col1 (A):** Timestamp
+- **Col2 (B):** Username
+- **Col10 (J):** XP Delta (คะแนนที่ได้รับในครั้งนั้นๆ)
+- **Col13 (M):** Organization (หน่วยงาน)
