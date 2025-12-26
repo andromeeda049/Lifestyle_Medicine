@@ -29,8 +29,16 @@ const Community: React.FC = () => {
                 try {
                     const data = await fetchLeaderboard(scriptUrl);
                     if (data) {
-                        setLeaderboard(data.leaderboard || []);
-                        setTrending(data.trending || []);
+                        // Filter out admin users (username starts with 'admin_')
+                        const cleanLeaderboard = (data.leaderboard || []).filter((u: any) => 
+                            !String(u.username || u.Col2 || '').startsWith('admin_')
+                        );
+                        const cleanTrending = (data.trending || []).filter((u: any) => 
+                            !String(u.username || u.Col2 || '').startsWith('admin_')
+                        );
+                        
+                        setLeaderboard(cleanLeaderboard);
+                        setTrending(cleanTrending);
                     }
                 } catch (error) {
                     console.error("Failed to load community data:", error);
@@ -108,8 +116,8 @@ const Community: React.FC = () => {
                 <div className="flex flex-col items-center justify-center w-8 mr-3">
                     <span className="text-2xl">{rankDisplay}</span>
                     {!isTrendingTab && (
-                        <span className={`text-[12px] leading-none mt-1 ${hasWeeklyActivity ? 'text-green-500' : 'text-gray-300'}`}>
-                            {hasWeeklyActivity ? '▲' : '●'}
+                        <span className={`text-[12px] leading-none mt-1 font-bold ${hasWeeklyActivity ? 'text-green-500' : 'text-gray-300'}`}>
+                            {hasWeeklyActivity ? '▲' : '-'}
                         </span>
                     )}
                 </div>
@@ -160,7 +168,7 @@ const Community: React.FC = () => {
             </div>
 
             <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-xl mb-6">
-                <button onClick={() => setActiveTab('leaderboard')} className={`flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'leaderboard' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white' : 'text-gray-500'}`}>🏆 อันดับรวม (SUM)</button>
+                <button onClick={() => setActiveTab('leaderboard')} className={`flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'leaderboard' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-white' : 'text-gray-500'}`}>🏆 อันดับรวม</button>
                 <button onClick={() => setActiveTab('trending')} className={`flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'trending' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-white' : 'text-gray-500'}`}>🔥 มาแรง (7 วันล่าสุด)</button>
                 <button onClick={() => setActiveTab('org')} className={`flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'org' ? 'bg-white dark:bg-gray-600 shadow text-teal-600 dark:text-white' : 'text-gray-500'}`}>🏢 หน่วยงาน</button>
             </div>
