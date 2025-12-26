@@ -148,7 +148,7 @@ const HomeMenu: React.FC = () => {
                             Lvl {userProfile?.level || 1}
                         </span>
                         <span className="text-xs text-gray-400">
-                            {userProfile?.xp?.toLocaleString()} XP
+                            {userProfile?.xp?.toLocaleString()} HP
                         </span>
                     </div>
                 </div>

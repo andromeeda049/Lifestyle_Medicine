@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { TrophyIcon, StarIcon } from './icons';
 import { XP_VALUES, LEVEL_THRESHOLDS, ACHIEVEMENTS } from '../constants';
@@ -13,7 +14,7 @@ const GamificationRules: React.FC = () => {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">กติกาการสะสมแต้มและเลเวล</h2>
                 <p className="text-gray-600 dark:text-gray-300 mt-2">
-                    สนุกกับการดูแลสุขภาพ สะสม XP และปลดล็อกเหรียญรางวัลแห่งความสำเร็จ!
+                    สนุกกับการดูแลสุขภาพ สะสม HP (Health Points) และปลดล็อกเหรียญรางวัลแห่งความสำเร็จ!
                 </p>
             </div>
 
@@ -21,14 +22,14 @@ const GamificationRules: React.FC = () => {
             <div className="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl">
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
                     <StarIcon className="w-6 h-6 text-yellow-500" />
-                    ตารางคะแนน (XP)
+                    ตารางคะแนนสุขภาพ (HP)
                 </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b dark:border-gray-600 text-gray-500 dark:text-gray-400 text-sm">
                                 <th className="p-2">กิจกรรม</th>
-                                <th className="p-2 text-right">XP ที่ได้รับ</th>
+                                <th className="p-2 text-right">HP ที่ได้รับ</th>
                             </tr>
                         </thead>
                         <tbody className="text-gray-700 dark:text-gray-200">
@@ -76,7 +77,7 @@ const GamificationRules: React.FC = () => {
                     {LEVEL_THRESHOLDS.map((threshold, index) => (
                          <div key={index} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 text-center shadow-sm">
                              <p className="text-sm text-gray-500 dark:text-gray-400">Level {index + 1}</p>
-                             <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{threshold.toLocaleString()} XP</p>
+                             <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{threshold.toLocaleString()} HP</p>
                          </div>
                     ))}
                 </div>

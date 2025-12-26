@@ -142,11 +142,11 @@ const Community: React.FC = () => {
                     {isTrendingTab ? (
                         <>
                             <p className="text-base font-black text-orange-600 dark:text-orange-400">+{user.weeklyXp?.toLocaleString()}</p>
-                            <span className="text-[8px] bg-orange-100 dark:bg-orange-900/40 text-orange-700 px-1 rounded font-bold uppercase">Weekly XP</span>
+                            <span className="text-[8px] bg-orange-100 dark:bg-orange-900/40 text-orange-700 px-1 rounded font-bold uppercase">Weekly HP</span>
                         </>
                     ) : (
                         <>
-                            <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{user.xp.toLocaleString()} XP</p>
+                            <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{user.xp.toLocaleString()} HP</p>
                             <span className="text-[10px] text-gray-400">Level {user.level}</span>
                         </>
                     )}
@@ -164,7 +164,7 @@ const Community: React.FC = () => {
                     </div>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">ทำเนียบคนรักสุขภาพ</h2>
-                <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm italic">"สะสม XP จากทุกกิจกรรมเพื่อเป็นที่หนึ่งในชุมชน"</p>
+                <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm italic">"สะสม HP (แต้มสุขภาพ) จากทุกกิจกรรมเพื่อเป็นที่หนึ่งในชุมชน"</p>
             </div>
 
             <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-xl mb-6">
@@ -210,7 +210,7 @@ const Community: React.FC = () => {
                                 </div>
                                 <div className="text-right">
                                     <p className="font-bold text-indigo-600 dark:text-indigo-400">{org.totalXP.toLocaleString()}</p>
-                                    <p className="text-[9px] text-gray-400 uppercase font-bold tracking-tighter">Total XP</p>
+                                    <p className="text-[9px] text-gray-400 uppercase font-bold tracking-tighter">Total HP</p>
                                 </div>
                             </div>
                         ))

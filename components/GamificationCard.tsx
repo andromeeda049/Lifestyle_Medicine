@@ -1,3 +1,4 @@
+
 import React, { useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { LEVEL_THRESHOLDS, ACHIEVEMENTS } from '../constants';
@@ -42,14 +43,14 @@ const GamificationCard: React.FC = () => {
                 </div>
                 <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-lg text-sm font-semibold flex items-center gap-1">
                     <StarIcon className="w-4 h-4 text-yellow-300" />
-                    {currentXP.toLocaleString()} XP
+                    {currentXP.toLocaleString()} HP
                 </div>
             </div>
 
             <div className="mt-6 relative z-10">
                 <div className="flex justify-between text-xs font-medium text-indigo-200 mb-1">
                     <span>Level {currentLevel}</span>
-                    <span>{xpNeeded > 0 ? `อีก ${xpNeeded} XP เพื่อ Level ${currentLevel + 1}` : 'Max Level'}</span>
+                    <span>{xpNeeded > 0 ? `อีก ${xpNeeded} HP เพื่อ Level ${currentLevel + 1}` : 'Max Level'}</span>
                 </div>
                 <div className="w-full bg-black/20 rounded-full h-3">
                     <div 
