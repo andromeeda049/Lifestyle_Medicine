@@ -13,7 +13,7 @@ interface LeaderboardUser {
     level: number;
     badges: string | string[];
     organization?: string;
-    ActivityCount?: number; // สำหรับอันดับมาแรงประจำสัปดาห์
+    ActivityCount?: number; 
 }
 
 const Community: React.FC = () => {
@@ -26,17 +26,22 @@ const Community: React.FC = () => {
     useEffect(() => {
         const loadData = async () => {
             if (scriptUrl) {
-                // ข้อมูลจะได้รับเป็น {leaderboard: [...], trending: [...]}
-                const data = await fetchLeaderboard(scriptUrl);
-                setLeaderboard(data.leaderboard);
-                setTrending(data.trending);
+                setLoading(true);
+                try {
+                    const data = await fetchLeaderboard(scriptUrl);
+                    if (data) {
+                        setLeaderboard(Array.isArray(data.leaderboard) ? data.leaderboard : []);
+                        setTrending(Array.isArray(data.trending) ? data.trending : []);
+                    }
+                } catch (error) {
+                    console.error("Failed to load community data:", error);
+                }
             }
             setLoading(false);
         };
         loadData();
     }, [scriptUrl]);
 
-    // คำนวณสถิติหน่วยงานจาก Leaderboard รวม (โหลดเร็วเพราะ Leaderboard จำกัดแค่ Top 100)
     const orgStats = React.useMemo(() => {
         const stats: { [key: string]: { name: string, totalXP: number, memberCount: number } } = {};
         ORGANIZATIONS.forEach(org => { stats[org.id] = { name: org.name, totalXP: 0, memberCount: 0 }; });
@@ -70,6 +75,10 @@ const Community: React.FC = () => {
             }
         }
 
+        const xpValue = Number(user.xp || 0);
+        const levelValue = Number(user.level || 1);
+        const activityValue = Number(user.ActivityCount || 0);
+
         return (
             <div className={`flex items-center p-3 rounded-xl border-l-4 shadow-sm mb-3 ${bgClass} animate-fade-in`}>
                 <div className="flex items-center justify-center w-8 text-2xl mr-3">{rankDisplay}</div>
@@ -84,22 +93,22 @@ const Community: React.FC = () => {
                 </div>
                 <div className="ml-3 flex-1 min-w-0">
                     <p className={`text-sm font-bold truncate ${isMe ? 'text-teal-700 dark:text-teal-300' : 'text-gray-800 dark:text-white'}`}>
-                        {user.displayName} {isMe && '(ฉัน)'}
+                        {user.displayName || user.username} {isMe && '(ฉัน)'}
                     </p>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                        {ORGANIZATIONS.find(o => o.id === user.organization)?.name || 'General Public'}
+                        {ORGANIZATIONS.find(o => o.id === user.organization)?.name || 'บุคคลทั่วไป'}
                     </p>
                 </div>
                 <div className="text-right">
                     {isTrending ? (
                         <>
-                            <p className="text-sm font-bold text-orange-600 dark:text-orange-400">{user.ActivityCount || 0} ครั้ง</p>
-                            <span className="text-[9px] text-gray-400 uppercase font-bold">Active สัปดาห์นี้</span>
+                            <p className="text-sm font-bold text-orange-600 dark:text-orange-400">{activityValue.toLocaleString()} ครั้ง</p>
+                            <span className="text-[9px] text-gray-400 uppercase font-bold tracking-tighter">7 วันล่าสุด</span>
                         </>
                     ) : (
                         <>
-                            <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{Number(user.xp).toLocaleString()} XP</p>
-                            <span className="text-[9px] bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-1 rounded">Lvl {user.level}</span>
+                            <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{xpValue.toLocaleString()} XP</p>
+                            <span className="text-[9px] bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-1 rounded">Lvl {levelValue}</span>
                         </>
                     )}
                 </div>
@@ -116,7 +125,7 @@ const Community: React.FC = () => {
                     </div>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">ชุมชนคนรักสุขภาพ</h2>
-                <p className="text-gray-600 dark:text-gray-300 mt-2 text-sm italic">"ข้อมูลคำนวณล่วงหน้า เพื่อความรวดเร็วในการใช้งาน"</p>
+                <p className="text-gray-600 dark:text-gray-300 mt-2 text-sm italic">"ข้อมูลประมวลผลล่วงหน้าเพื่อความรวดเร็ว"</p>
             </div>
 
             <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-xl mb-6">
@@ -128,16 +137,30 @@ const Community: React.FC = () => {
             {loading ? (
                 <div className="flex flex-col items-center py-12">
                     <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="mt-4 text-sm text-gray-500">กำลังเชื่อมต่อฐานข้อมูลความเร็วสูง...</p>
+                    <p className="mt-4 text-sm text-gray-500">กำลังดึงข้อมูลอันดับล่าสุด...</p>
                 </div>
             ) : (
                 <div className="animate-fade-in">
                     {activeTab === 'leaderboard' && (
-                        leaderboard.length > 0 ? leaderboard.map((user, index) => <RankItem key={index} user={user} rank={index + 1} />) : <p className="text-center py-10 text-gray-400">ยังไม่มีข้อมูลอันดับ</p>
+                        leaderboard.length > 0 ? (
+                            leaderboard.map((user, index) => <RankItem key={index} user={user} rank={index + 1} />)
+                        ) : (
+                            <div className="text-center py-10">
+                                <p className="text-gray-400 italic">ยังไม่มีข้อมูลอันดับในขณะนี้</p>
+                                <p className="text-[10px] text-gray-400 mt-2">โปรดตรวจสอบว่าชีต "profile" มีข้อมูลในคอลัมน์ A หรือไม่</p>
+                            </div>
+                        )
                     )}
                     
                     {activeTab === 'trending' && (
-                        trending.length > 0 ? trending.map((user, index) => <RankItem key={index} user={user} rank={index + 1} isTrending={true} />) : <p className="text-center py-10 text-gray-400">สัปดาห์นี้ยังไม่มีการเคลื่อนไหว</p>
+                        trending.length > 0 ? (
+                            trending.map((user, index) => <RankItem key={index} user={user} rank={index + 1} isTrending={true} />)
+                        ) : (
+                            <div className="text-center py-10">
+                                <p className="text-gray-400 italic">สัปดาห์นี้ยังไม่มีความเคลื่อนไหว</p>
+                                <p className="text-[10px] text-gray-400 mt-2">คะแนนมาแรงนับจากประวัติในชีต "loginLogs"</p>
+                            </div>
+                        )
                     )}
 
                     {activeTab === 'org' && (
@@ -157,7 +180,7 @@ const Community: React.FC = () => {
                                     <p className="text-[9px] text-gray-400 uppercase font-bold tracking-tighter">Total XP</p>
                                 </div>
                             </div>
-                        )) : <p className="text-center py-10 text-gray-400">ยังไม่มีข้อมูลหน่วยงาน</p>
+                        )) : <p className="text-center py-10 text-gray-400 italic">ยังไม่มีข้อมูลหน่วยงาน</p>
                     )}
                 </div>
             )}

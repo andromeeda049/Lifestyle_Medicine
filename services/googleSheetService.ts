@@ -33,11 +33,12 @@ export interface AllAdminData {
 }
 
 /**
- * ดึงข้อมูล Leaderboard ที่คำนวณมาแล้วจาก Google Sheets
- * จะได้รับ Object ที่มีทั้ง leaderboard (อันดับรวม) และ trending (มาแรง)
+ * ดึงข้อมูล Leaderboard (อันดับรวม และ อันดับมาแรง)
+ * จะคืนค่าเป็น Object { leaderboard: Array, trending: Array } เสมอ
  */
 export const fetchLeaderboard = async (scriptUrl: string): Promise<{leaderboard: any[], trending: any[]}> => {
     if (!scriptUrl) return { leaderboard: [], trending: [] };
+    
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
@@ -45,17 +46,21 @@ export const fetchLeaderboard = async (scriptUrl: string): Promise<{leaderboard:
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
+        
         const result = await response.json();
-        if (result.status === 'success') {
-            // มั่นใจได้ว่าข้อมูลถูกจัดรูปแบบมาแล้วจาก GAS
+        
+        if (result.status === 'success' && result.data) {
+            // ตรวจสอบโครงสร้างข้อมูลที่ได้รับ
             return {
-                leaderboard: result.data.leaderboard || [],
-                trending: result.data.trending || []
+                leaderboard: Array.isArray(result.data.leaderboard) ? result.data.leaderboard : [],
+                trending: Array.isArray(result.data.trending) ? result.data.trending : []
             };
         }
+        
+        console.error("Backend returned error or invalid status:", result);
         return { leaderboard: [], trending: [] };
     } catch (error) {
-        console.error("Leaderboard fetch failed:", error);
+        console.error("Network error fetching leaderboard:", error);
         return { leaderboard: [], trending: [] };
     }
 };
