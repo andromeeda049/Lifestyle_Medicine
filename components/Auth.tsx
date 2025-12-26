@@ -94,47 +94,53 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
         const initLiff = async () => {
             try {
-                // await liff.init({ liffId: LINE_LIFF_ID });
-                // Note: Using error callback to catch init errors properly
                 await liff.init({ 
                     liffId: LINE_LIFF_ID,
-                    withLoginOnExternalBrowser: false // Don't auto login on external browser
+                    withLoginOnExternalBrowser: false 
                 });
                 
                 setIsLiffReady(true);
                 
-                // If user is already logged in (e.g. inside LINE app or previously logged in)
+                // Check if user is logged in
                 if (liff.isLoggedIn()) {
                     setLoading(true);
-                    if (!scriptUrl) {
-                        setError('ไม่พบ URL เชื่อมต่อ Google Sheets (กรุณาแจ้ง Admin)');
+                    try {
+                        const profile = await liff.getProfile();
+                        const idToken = liff.getDecodedIDToken();
+                        const userEmail = idToken?.email || `${profile.userId}@line.me`;
+
+                        if (!scriptUrl) {
+                            throw new Error('ไม่พบ URL เชื่อมต่อ Google Sheets');
+                        }
+
+                        const result = await socialAuth(scriptUrl, {
+                            email: userEmail,
+                            name: profile.displayName,
+                            picture: profile.pictureUrl || '',
+                            provider: 'line',
+                            userId: profile.userId
+                        });
+
+                        if (result.success && result.user) {
+                            onLogin({ ...result.user, authProvider: 'line' });
+                        } else {
+                            // If backend auth fails, force logout so user can retry manually
+                            liff.logout();
+                            handleAuthError(result.message);
+                        }
+                    } catch (err: any) {
+                        console.error("Auto-login error:", err);
+                        // Force logout if profile fetch or other steps fail (e.g. invalid token)
+                        liff.logout();
+                        setError("การเข้าสู่ระบบอัตโนมัติขัดข้อง กรุณากดปุ่ม Login อีกครั้ง");
+                    } finally {
                         setLoading(false);
-                        return;
                     }
-
-                    const profile = await liff.getProfile();
-                    const idToken = liff.getDecodedIDToken();
-                    const userEmail = idToken?.email || `${profile.userId}@line.me`;
-
-                    const result = await socialAuth(scriptUrl, {
-                        email: userEmail,
-                        name: profile.displayName,
-                        picture: profile.pictureUrl || '',
-                        provider: 'line',
-                        userId: profile.userId
-                    });
-
-                    if (result.success && result.user) {
-                        onLogin({ ...result.user, authProvider: 'line' });
-                    } else {
-                        handleAuthError(result.message);
-                    }
-                    setLoading(false);
                 }
             } catch (err: any) {
                 console.error("LIFF Init Error:", err);
-                // Don't block UI, just log error. User can try clicking button again which will trigger error alert.
-                setError(`LINE Login Error: ${err.message || 'Incorrect LIFF ID or Domain'}`);
+                setError(`LINE Login Error: ${err.message || 'Incorrect LIFF ID'}`);
+                setLoading(false);
             }
         };
 
@@ -216,7 +222,6 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         }
 
         try {
-            // Check if LIFF is initialized, if not try to init one last time or show error
             if (!isLiffReady) {
                  await liff.init({ liffId: LINE_LIFF_ID });
                  setIsLiffReady(true);
@@ -225,32 +230,38 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             if (!liff.isLoggedIn()) {
                 liff.login(); // Redirects to LINE
             } else {
-                // Already logged in but maybe page refresh needed or state lost
-                const profile = await liff.getProfile();
-                // ... same logic as auto-login ...
-                // Ideally this path isn't reached if useEffect works, but as fallback:
                 setLoading(true);
-                const idToken = liff.getDecodedIDToken();
-                const userEmail = idToken?.email || `${profile.userId}@line.me`;
-                
-                const result = await socialAuth(scriptUrl, {
-                    email: userEmail,
-                    name: profile.displayName,
-                    picture: profile.pictureUrl || '',
-                    provider: 'line',
-                    userId: profile.userId
-                });
-                
-                if (result.success && result.user) {
-                    onLogin({ ...result.user, authProvider: 'line' });
-                } else {
-                    handleAuthError(result.message);
+                try {
+                    const profile = await liff.getProfile();
+                    const idToken = liff.getDecodedIDToken();
+                    const userEmail = idToken?.email || `${profile.userId}@line.me`;
+                    
+                    const result = await socialAuth(scriptUrl, {
+                        email: userEmail,
+                        name: profile.displayName,
+                        picture: profile.pictureUrl || '',
+                        provider: 'line',
+                        userId: profile.userId
+                    });
+                    
+                    if (result.success && result.user) {
+                        onLogin({ ...result.user, authProvider: 'line' });
+                    } else {
+                        liff.logout(); // Ensure clean state on logic failure
+                        handleAuthError(result.message);
+                    }
+                } catch (err: any) {
+                    console.error("Manual login profile fetch error:", err);
+                    liff.logout(); // Ensure clean state on API failure
+                    throw err;
+                } finally {
+                    setLoading(false);
                 }
-                setLoading(false);
             }
         } catch (err: any) {
             console.error("LINE Login Error:", err);
             setError(`Login Failed: ${err.message}. ตรวจสอบ LIFF ID ในโค้ด`);
+            setLoading(false);
         }
     };
 
@@ -322,6 +333,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             <div className="flex flex-col items-center justify-center p-8 space-y-4 animate-fade-in">
                 <div className="w-12 h-12 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
                 <p className="text-gray-600 dark:text-gray-300">กำลังเข้าสู่ระบบ...</p>
+                <button onClick={() => { liff.logout(); setLoading(false); }} className="text-xs text-red-500 underline">ยกเลิกและ Logout</button>
             </div>
         );
     }
@@ -492,137 +504,49 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     );
 };
 
-const AdminLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
-    const [adminKey, setAdminKey] = useState('');
-    const [error, setError] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        // Check if key is Super Admin (mapped to 'all') or Org Admin (mapped to specific ID)
-        const assignedOrg = ADMIN_CREDENTIALS[adminKey];
-
-        if (assignedOrg) {
-            setError('');
-            const isSuperAdmin = assignedOrg === 'all';
-            const orgName = isSuperAdmin 
-                ? 'Super Admin' 
-                : (ORGANIZATIONS.find(o => o.id === assignedOrg)?.name || 'Admin');
-
-            onLogin({
-                username: `admin_${Date.now()}`,
-                displayName: `ผู้ดูแล: ${orgName}`,
-                profilePicture: '👑',
-                role: 'admin',
-                organization: assignedOrg // 'all' or specific ID
-            });
-        } else {
-            setError('Admin Key ไม่ถูกต้อง');
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
-            <div className="w-28 h-28 mx-auto rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/50 border-4 border-red-200 dark:border-red-800 shadow-md">
-                <span className="text-6xl">🔑</span>
-            </div>
-            <div>
-                <label htmlFor="adminKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
-                   Admin Key (รหัสหน่วยงาน)
-                </label>
-                <input
-                    type="password"
-                    id="adminKey"
-                    value={adminKey}
-                    onChange={(e) => setAdminKey(e.target.value)}
-                    placeholder="กรอกรหัสสำหรับผู้ดูแลระบบ"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-                    required
-                />
-            </div>
-
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-
-            <button
-                type="submit"
-                className="w-full bg-red-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 dark:focus:ring-red-800 transition-all duration-300 transform hover:scale-105"
-            >
-                เข้าสู่ระบบในฐานะ Admin
-            </button>
-        </form>
-    );
-};
-
-
 const Auth: React.FC = () => {
     const { login } = useContext(AppContext);
-    const [mode, setMode] = useState<'guest' | 'user' | 'admin'>('user');
-    
-    const getWelcomeMessage = () => {
-        switch(mode) {
-            case 'guest': return 'เข้าสู่ระบบเพื่อทดลองใช้งาน';
-            case 'user': return 'ยินดีต้อนรับกลับสู่สุขภาพที่ดี';
-            case 'admin': return 'ลงชื่อเข้าใช้สำหรับผู้ดูแลระบบ';
-            default: return '';
-        }
-    }
+    const [view, setView] = useState<'main' | 'guest'>('main');
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-sky-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900 p-4">
-            <div className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl animate-fade-in-down">
-                <div className="text-center mb-6">
-                    {/* Logo Section */}
-                    <div className="flex justify-center mb-4">
-                        <img 
-                            src={APP_LOGO_URL}
-                            alt="Smart Lifestyle Wellness Logo" 
-                            className="w-32 h-32 object-contain drop-shadow-md rounded-2xl"
-                            onError={(e) => {
-                                // Fallback if image fails
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                            }}
-                        />
-                        {/* Fallback Icon */}
-                        <div className="w-24 h-24 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg hidden">
-                            <span className="text-5xl">🥗</span>
-                        </div>
-                    </div>
-                    
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Smart Lifestyle Wellness</h1>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{getWelcomeMessage()}</p>
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-teal-500 to-blue-600 dark:from-gray-900 dark:to-gray-800">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl w-full max-w-md text-center animate-scale-in">
+                <div className="mb-6">
+                    <img 
+                        src={APP_LOGO_URL} 
+                        alt="Logo" 
+                        className="w-24 h-24 mx-auto rounded-2xl shadow-lg mb-4 object-cover"
+                        onError={(e) => {
+                            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2314b8a6'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z'/%3E%3C/svg%3E";
+                        }} 
+                    />
+                    <h1 className="text-3xl font-black text-gray-800 dark:text-white mb-1">Smart Lifestyle</h1>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">Health Innovation for Everyone</p>
                 </div>
-                
-                {mode === 'guest' && <GuestLogin onLogin={login} />}
-                {mode === 'user' && <UserAuth onLogin={login} />}
-                {mode === 'admin' && <AdminLogin onLogin={login} />}
 
-                {/* Footer Links for switching modes */}
-                <div className="mt-8 text-center space-y-2 border-t dark:border-gray-700 pt-4">
-                    {mode === 'user' ? (
-                        <div className="flex flex-col gap-2">
+                {view === 'guest' ? (
+                    <>
+                        <GuestLogin onLogin={login} />
+                        <button 
+                            onClick={() => setView('main')}
+                            className="mt-6 text-sm text-gray-500 underline hover:text-teal-600 dark:hover:text-teal-400"
+                        >
+                            กลับไปหน้าเข้าสู่ระบบ
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <UserAuth onLogin={login} />
+                        <div className="mt-8 pt-4 border-t border-gray-100 dark:border-gray-700">
                             <button 
-                                onClick={() => setMode('guest')} 
-                                className="text-xs text-gray-500 hover:text-teal-600 dark:text-gray-400 dark:hover:text-teal-400 underline transition-colors"
+                                onClick={() => setView('guest')}
+                                className="text-xs font-bold text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors uppercase tracking-widest"
                             >
                                 ทดลองใช้งาน (Guest Mode)
                             </button>
-                            <button 
-                                onClick={() => setMode('admin')} 
-                                className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-                            >
-                                สำหรับผู้ดูแลระบบ
-                            </button>
                         </div>
-                    ) : (
-                        <button 
-                            onClick={() => setMode('user')} 
-                            className="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
-                        >
-                            ← กลับไปหน้าเข้าสู่ระบบหลัก
-                        </button>
-                    )}
-                </div>
+                    </>
+                )}
             </div>
         </div>
     );
