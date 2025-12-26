@@ -237,7 +237,16 @@ export const registerUser = async (scriptUrl: string, user: User, password?: str
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
-        const result = await response.json();
+        
+        const text = await response.text();
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Invalid JSON from registerUser:", text);
+            return { success: false, message: 'Server returned invalid data' };
+        }
+
         return { success: result.status === 'success', message: result.message || 'Status: ' + result.status };
     } catch (error: any) {
         return { success: false, message: error.message };
@@ -253,7 +262,16 @@ export const verifyUser = async (scriptUrl: string, email: string, password?: st
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
-        const result = await response.json();
+        
+        const text = await response.text();
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Invalid JSON from verifyUser:", text);
+            return { success: false, message: 'Server returned invalid data' };
+        }
+
         // Sanitize returned user
         if (result.status === 'success' && result.data) {
             const sanitizedUser = { ...result.data, role: (typeof result.data.role === 'string') ? result.data.role : 'user' };
@@ -277,7 +295,18 @@ export const socialAuth = async (
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
-        const result = await response.json();
+        
+        const text = await response.text();
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Invalid JSON from socialAuth:", text);
+            // This is likely a Google Script error page (HTML)
+            if (text.includes("ScriptError")) return { success: false, message: 'Google Script Error' };
+            return { success: false, message: 'Server connection failed (Invalid JSON)' };
+        }
+
         // Sanitize returned user
         if (result.status === 'success' && result.data) {
             const sanitizedUser = { ...result.data, role: (typeof result.data.role === 'string') ? result.data.role : 'user' };
