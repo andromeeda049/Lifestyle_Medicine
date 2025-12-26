@@ -82,7 +82,10 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [selectedOrg, setSelectedOrg] = useState(ORGANIZATIONS[0].id); // New state for organization
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    
+    // LIFF State
     const [isLiffReady, setIsLiffReady] = useState(false);
+    const [isLiffInitializing, setIsLiffInitializing] = useState(true);
     
     // Use ref to prevent double initialization in React Strict Mode
     const liffInitialized = useRef(false);
@@ -94,47 +97,55 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
         const initLiff = async () => {
             try {
-                // await liff.init({ liffId: LINE_LIFF_ID });
-                // Note: Using error callback to catch init errors properly
                 await liff.init({ 
                     liffId: LINE_LIFF_ID,
-                    withLoginOnExternalBrowser: false // Don't auto login on external browser
+                    withLoginOnExternalBrowser: false 
                 });
                 
                 setIsLiffReady(true);
                 
-                // If user is already logged in (e.g. inside LINE app or previously logged in)
+                // Check if user is logged in (Auto Login)
                 if (liff.isLoggedIn()) {
                     setLoading(true);
-                    if (!scriptUrl) {
-                        setError('ไม่พบ URL เชื่อมต่อ Google Sheets (กรุณาแจ้ง Admin)');
+                    try {
+                        const profile = await liff.getProfile();
+                        const idToken = liff.getDecodedIDToken();
+                        const userEmail = idToken?.email || `${profile.userId}@line.me`;
+
+                        if (!scriptUrl) {
+                            throw new Error('ไม่พบ URL เชื่อมต่อ Google Sheets');
+                        }
+
+                        const result = await socialAuth(scriptUrl, {
+                            email: userEmail,
+                            name: profile.displayName,
+                            picture: profile.pictureUrl || '',
+                            provider: 'line',
+                            userId: profile.userId
+                        });
+
+                        if (result.success && result.user) {
+                            onLogin({ ...result.user, authProvider: 'line' });
+                        } else {
+                            // If backend auth fails, force logout so user can retry manually
+                            liff.logout();
+                            handleAuthError(result.message);
+                        }
+                    } catch (err: any) {
+                        console.error("Auto-login error:", err);
+                        // Force logout if profile fetch or other steps fail (e.g. invalid token)
+                        liff.logout();
+                        setError("การเข้าสู่ระบบอัตโนมัติขัดข้อง กรุณากดปุ่ม Login อีกครั้ง");
+                    } finally {
                         setLoading(false);
-                        return;
                     }
-
-                    const profile = await liff.getProfile();
-                    const idToken = liff.getDecodedIDToken();
-                    const userEmail = idToken?.email || `${profile.userId}@line.me`;
-
-                    const result = await socialAuth(scriptUrl, {
-                        email: userEmail,
-                        name: profile.displayName,
-                        picture: profile.pictureUrl || '',
-                        provider: 'line',
-                        userId: profile.userId
-                    });
-
-                    if (result.success && result.user) {
-                        onLogin({ ...result.user, authProvider: 'line' });
-                    } else {
-                        handleAuthError(result.message);
-                    }
-                    setLoading(false);
                 }
             } catch (err: any) {
                 console.error("LIFF Init Error:", err);
-                // Don't block UI, just log error. User can try clicking button again which will trigger error alert.
-                setError(`LINE Login Error: ${err.message || 'Incorrect LIFF ID or Domain'}`);
+                // Don't show critical error alert on init fail, just let the button stay available to retry
+                // setError(`LINE Init Failed: ${err.message}`); 
+            } finally {
+                setIsLiffInitializing(false); // Stop loading spinner
             }
         };
 
@@ -216,41 +227,53 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         }
 
         try {
-            // Check if LIFF is initialized, if not try to init one last time or show error
+            // Attempt Init if not ready
             if (!isLiffReady) {
-                 await liff.init({ liffId: LINE_LIFF_ID });
+                 setIsLiffInitializing(true);
+                 await liff.init({ 
+                     liffId: LINE_LIFF_ID,
+                     withLoginOnExternalBrowser: false 
+                 });
                  setIsLiffReady(true);
+                 setIsLiffInitializing(false);
             }
 
             if (!liff.isLoggedIn()) {
                 liff.login(); // Redirects to LINE
             } else {
-                // Already logged in but maybe page refresh needed or state lost
-                const profile = await liff.getProfile();
-                // ... same logic as auto-login ...
-                // Ideally this path isn't reached if useEffect works, but as fallback:
                 setLoading(true);
-                const idToken = liff.getDecodedIDToken();
-                const userEmail = idToken?.email || `${profile.userId}@line.me`;
-                
-                const result = await socialAuth(scriptUrl, {
-                    email: userEmail,
-                    name: profile.displayName,
-                    picture: profile.pictureUrl || '',
-                    provider: 'line',
-                    userId: profile.userId
-                });
-                
-                if (result.success && result.user) {
-                    onLogin({ ...result.user, authProvider: 'line' });
-                } else {
-                    handleAuthError(result.message);
+                try {
+                    const profile = await liff.getProfile();
+                    const idToken = liff.getDecodedIDToken();
+                    const userEmail = idToken?.email || `${profile.userId}@line.me`;
+                    
+                    const result = await socialAuth(scriptUrl, {
+                        email: userEmail,
+                        name: profile.displayName,
+                        picture: profile.pictureUrl || '',
+                        provider: 'line',
+                        userId: profile.userId
+                    });
+                    
+                    if (result.success && result.user) {
+                        onLogin({ ...result.user, authProvider: 'line' });
+                    } else {
+                        liff.logout(); // Ensure clean state on logic failure
+                        handleAuthError(result.message);
+                    }
+                } catch (err: any) {
+                    console.error("Manual login profile fetch error:", err);
+                    liff.logout(); // Ensure clean state on API failure
+                    throw err;
+                } finally {
+                    setLoading(false);
                 }
-                setLoading(false);
             }
         } catch (err: any) {
             console.error("LINE Login Error:", err);
+            setIsLiffInitializing(false);
             setError(`Login Failed: ${err.message}. ตรวจสอบ LIFF ID ในโค้ด`);
+            setLoading(false);
         }
     };
 
@@ -322,6 +345,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             <div className="flex flex-col items-center justify-center p-8 space-y-4 animate-fade-in">
                 <div className="w-12 h-12 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
                 <p className="text-gray-600 dark:text-gray-300">กำลังเข้าสู่ระบบ...</p>
+                <button onClick={() => { liff.logout(); setLoading(false); }} className="text-xs text-red-500 underline">ยกเลิกและ Logout</button>
             </div>
         );
     }
@@ -356,18 +380,19 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                  <button 
                     type="button"
                     onClick={handleLineLogin}
-                    className={`flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-colors gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md`}
+                    className={`flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-colors gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md ${isLiffInitializing ? 'opacity-80 cursor-wait' : ''}`}
+                    disabled={isLiffInitializing}
                 >
-                    {isLiffReady ? (
-                        <>
-                            <LineIcon className="w-5 h-5 fill-current text-white" />
-                            <span>Log in with LINE</span>
-                        </>
-                    ) : (
+                    {isLiffInitializing ? (
                         <div className="flex items-center gap-2">
                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                              <span>กำลังโหลด LINE...</span>
                         </div>
+                    ) : (
+                        <>
+                            <LineIcon className="w-5 h-5 fill-current text-white" />
+                            <span>Log in with LINE</span>
+                        </>
                     )}
                 </button>
 

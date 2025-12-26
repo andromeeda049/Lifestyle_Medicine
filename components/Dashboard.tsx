@@ -26,12 +26,13 @@ const getBmiStatus = (bmi: number) => {
 // --- Health Summary Component ---
 const HealthSummaryCard: React.FC<{ 
     userProfile: any, 
+    displayName: string,
     bmiHistory: any[], 
     waterScore: number, 
     activityScore: number,
     sleepScore: number,
     moodScore: number
-}> = ({ userProfile, bmiHistory, waterScore, activityScore, sleepScore, moodScore }) => {
+}> = ({ userProfile, displayName, bmiHistory, waterScore, activityScore, sleepScore, moodScore }) => {
     
     // Calculate Indicators
     const pillarScores: PillarScore = userProfile.pillarScores || { nutrition: 5, activity: 5, sleep: 5, stress: 5, substance: 5, social: 5 };
@@ -72,7 +73,7 @@ const HealthSummaryCard: React.FC<{
                     <div className="text-right">
                         <div className="bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
                             <p className="text-xs text-teal-100">ผู้รับบริการ</p>
-                            <p className="font-bold text-lg">{userProfile.displayName || 'Guest'}</p>
+                            <p className="font-bold text-lg">{displayName || 'Guest'}</p>
                             <p className="text-xs opacity-75">ID: {userProfile.researchId || '-'}</p>
                         </div>
                     </div>
@@ -168,7 +169,7 @@ const HealthSummaryCard: React.FC<{
                         สรุปผลและคำแนะนำ (AI Health Insight)
                     </h4>
                     <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                        "จากการประเมินเบื้องต้น คุณ{userProfile.displayName} มีภาพรวมสุขภาพอยู่ในระดับ <strong>{overallStatus.level}</strong> 
+                        "จากการประเมินเบื้องต้น คุณ{displayName} มีภาพรวมสุขภาพอยู่ในระดับ <strong>{overallStatus.level}</strong> 
                         {overallStatus.level.includes('เสี่ยง') 
                             ? ' ควรให้ความสำคัญกับการปรับพฤติกรรมในด้านที่มีคะแนนน้อยที่สุดก่อน เพื่อลดความเสี่ยงต่อโรค NCDs ในระยะยาว' 
                             : ' ถือเป็นสัญญาณที่ดีมาก ควรจดบันทึกและรักษาพฤติกรรมนี้ไว้อย่างต่อเนื่อง'} 
@@ -222,7 +223,7 @@ const TrendAnalysis: React.FC<{ bmiHistory: any[] }> = ({ bmiHistory }) => {
 }
 
 const Dashboard: React.FC = () => {
-  const { setActiveView, bmiHistory, waterHistory, waterGoal, activityHistory, userProfile, quizHistory, sleepHistory, moodHistory } = useContext(AppContext);
+  const { setActiveView, bmiHistory, waterHistory, waterGoal, activityHistory, userProfile, currentUser, quizHistory, sleepHistory, moodHistory } = useContext(AppContext);
 
   const sortedBmiHistory = useMemo(() => {
       return [...bmiHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -261,6 +262,7 @@ const Dashboard: React.FC = () => {
         {/* REPORT CARD (NOW HEALTH SUMMARY) */}
         <HealthSummaryCard 
             userProfile={userProfile} 
+            displayName={currentUser?.displayName || 'Guest'}
             bmiHistory={sortedBmiHistory} 
             waterScore={waterScore}
             activityScore={activityScore}
