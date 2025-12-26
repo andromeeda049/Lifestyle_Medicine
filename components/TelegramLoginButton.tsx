@@ -23,10 +23,10 @@ interface TelegramLoginButtonProps {
 const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   botName,
   onAuth,
-  buttonSize = 'large', // ตั้งค่าตามสคริปต์ที่ระบุ
+  buttonSize = 'large',
   cornerRadius = 20,
   requestAccess = 'write',
-  usePic = false, // ตั้งค่าเป็น false ตามสคริปต์ที่ระบุ
+  usePic = false, // ตั้งค่าเริ่มต้นเป็น false ตาม snippet ของผู้ใช้
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLocalhost, setIsLocalhost] = useState(false);
@@ -34,7 +34,7 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   useEffect(() => {
     const hostname = window.location.hostname;
 
-    // Telegram Widget จะไม่ทำงานบน localhost หรือไอพีเครื่อง
+    // Telegram Widget ไม่รองรับ localhost
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
         setIsLocalhost(true);
         return; 
@@ -42,15 +42,15 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
     if (!containerRef.current) return;
     
-    // ล้างข้อมูลเดิมในคอนเทนเนอร์
+    // ล้างข้อมูลเดิมก่อนสร้างใหม่
     containerRef.current.innerHTML = '';
 
     const script = document.createElement('script');
-    // ใช้เวอร์ชัน ?22 ตามความต้องการ
+    // ใช้เวอร์ชัน ?22 ตามที่ระบุ
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
     script.async = true;
     
-    // ตั้งค่า Attributes ให้ตรงตาม snippet เป๊ะๆ
+    // ตั้งค่า Attributes ตามที่ผู้ใช้ต้องการ
     script.setAttribute('data-telegram-login', botName);
     script.setAttribute('data-size', buttonSize);
     if (cornerRadius !== undefined) {
@@ -62,16 +62,13 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
     containerRef.current.appendChild(script);
 
-    // กำหนด Global Callback ชื่อเดียวกับที่ระบุใน data-onauth
+    // สร้าง Global Callback เพื่อรับข้อมูลจาก Widget
     (window as any).onTelegramAuth = (user: TelegramUser) => {
-      // เรียกใช้ฟังก์ชัน onAuth ที่ส่งมาจาก Props เพื่อประมวลผลการล็อกอินในแอป
       onAuth(user);
     };
 
     return () => {
         if (containerRef.current) containerRef.current.innerHTML = '';
-        // ลบ callback ออกเมื่อเลิกใช้งานคอมโพเนนต์
-        delete (window as any).onTelegramAuth;
     };
   }, [botName, onAuth, buttonSize, cornerRadius, requestAccess, usePic]);
 
@@ -89,7 +86,7 @@ const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     <div className="flex flex-col items-center gap-2 w-full">
         <div ref={containerRef} className="flex justify-center min-h-[40px]" />
         <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium animate-pulse text-center px-4">
-            โปรดเปิดแอปแล้วกด Confirm เพื่อเข้าใช้งาน
+            โปรดเปิดแอป Telegram แล้วกด Confirm เพื่อเข้าใช้งาน
         </p>
     </div>
   );

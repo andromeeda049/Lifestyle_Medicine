@@ -21,12 +21,12 @@ export interface NutrientInfo {
   protein: number;
   carbohydrates: number;
   fat: number;
-  sugar: number; // Added for NCD
-  sodium: number; // Added for NCD
-  saturatedFat: number; // Added for NCD
+  sugar: number;
+  sodium: number;
+  saturatedFat: number;
   description: string;
-  healthImpact: string; // Added for Lifestyle Medicine assessment
-  lifestyleAnalysis?: LifestyleAnalysis; // Added for 6-pillar deep dive
+  healthImpact: string;
+  lifestyleAnalysis?: LifestyleAnalysis;
   items: FoodItem[];
 }
 
@@ -40,7 +40,7 @@ export interface User {
   role: 'user' | 'admin' | 'guest';
   email?: string;
   authProvider?: 'email' | 'google' | 'line' | 'telegram';
-  organization?: string; // New field for public health agency
+  organization?: string;
 }
 
 export interface PillarScore {
@@ -69,19 +69,20 @@ export interface UserProfile {
   activityLevel: number;
   healthCondition: string;
   pillarScores?: PillarScore;
-  xp?: number; // Gamification XP
-  level?: number; // Gamification Level
-  badges?: string[]; // List of unlocked achievement IDs
-  email?: string; // Added for sync
-  lineUserId?: string; // Added for LINE Notification
-  receiveDailyReminders?: boolean; // New: Toggle for daily notifications
-  organization?: string; // New field for public health agency
-  researchId?: string; // NEW: รหัสกลุ่มตัวอย่าง (Subject ID)
-  pdpaAccepted?: boolean; // NEW: สถานะการยอมรับ PDPA
-  pdpaAcceptedDate?: string; // NEW: วันที่ยอมรับ
-  streak?: number; // New: Current streak days
-  lastLogDate?: string; // New: Date string of last activity
-  aiSystemInstruction?: string; // NEW: Custom System Prompt for AI
+  xp?: number;
+  level?: number;
+  badges?: string[];
+  email?: string;
+  lineUserId?: string;
+  telegramUserId?: string; // เพิ่มสำหรับ Telegram
+  receiveDailyReminders?: boolean;
+  organization?: string;
+  researchId?: string;
+  pdpaAccepted?: boolean;
+  pdpaAcceptedDate?: string;
+  streak?: number;
+  lastLogDate?: string;
+  aiSystemInstruction?: string;
 }
 
 export interface UserGamification {
@@ -115,7 +116,6 @@ export interface LocalFoodSuggestion {
   calories: number;
 }
 
-// Types for Personalized Planner
 export interface PlannerResults {
   bmi: number;
   whr: number;
@@ -138,7 +138,7 @@ export interface Meal {
 export interface LifestyleActivity {
   activity: string;
   duration: string;
-  benefit: string; // e.g., "Reduces stress", "Improves sleep"
+  benefit: string;
   caloriesBurned?: number;
 }
 
@@ -147,7 +147,7 @@ export interface MealPlanDay {
   breakfast: Meal;
   lunch: Meal;
   dinner: Meal;
-  activities: LifestyleActivity[]; // Added for Lifestyle Planner
+  activities: LifestyleActivity[];
   dailyTotal: {
     protein: number;
     carbohydrate: number;
@@ -169,8 +169,8 @@ export interface PlannerHistoryEntry {
 
 export interface WaterHistoryEntry {
     id: string;
-    date: string; // ISO String
-    amount: number; // ml
+    date: string;
+    amount: number;
 }
 
 export interface CalorieHistoryEntry {
@@ -187,22 +187,21 @@ export interface ActivityHistoryEntry {
     caloriesBurned: number;
 }
 
-// --- New Types for Wellness Features ---
 export interface SleepEntry {
     id: string;
     date: string;
     bedTime: string;
     wakeTime: string;
-    duration: number; // hours
-    quality: number; // 1-5
-    hygieneChecklist: string[]; // items checked
+    duration: number;
+    quality: number;
+    hygieneChecklist: string[];
 }
 
 export interface MoodEntry {
     id: string;
     date: string;
     moodEmoji: string;
-    stressLevel: number; // 1-10
+    stressLevel: number;
     gratitude: string;
 }
 
@@ -210,7 +209,7 @@ export interface HabitEntry {
     id: string;
     date: string;
     type: 'alcohol' | 'smoking' | 'chemicals' | 'accidents';
-    amount: number; // 0 means abstained
+    amount: number;
     isClean: boolean;
 }
 
@@ -223,7 +222,6 @@ export interface SocialEntry {
 
 export type SpecialistId = 'general' | 'nutritionist' | 'trainer' | 'psychologist' | 'sleep_expert' | 'ncd_doctor';
 
-// --- Evaluation Types ---
 export interface SatisfactionData {
     usability: number;
     features: number;
@@ -248,7 +246,6 @@ export interface EvaluationEntry {
     outcomes: OutcomeData;
 }
 
-// --- Health Literacy Quiz Types ---
 export interface QuizQuestion {
     id: number;
     question: string;
@@ -261,7 +258,7 @@ export interface QuizQuestion {
 export interface QuizEntry {
     id: string;
     date: string;
-    score: number; // 0-100
+    score: number;
     totalQuestions: number;
     correctAnswers: number;
     type: 'pre-test' | 'post-test' | 'practice';
@@ -290,7 +287,6 @@ export interface AppContextType {
   activityHistory: ActivityHistoryEntry[];
   setActivityHistory: React.Dispatch<React.SetStateAction<ActivityHistoryEntry[]>>;
   
-  // New Histories
   sleepHistory: SleepEntry[];
   setSleepHistory: React.Dispatch<React.SetStateAction<SleepEntry[]>>;
   moodHistory: MoodEntry[];
@@ -300,7 +296,6 @@ export interface AppContextType {
   socialHistory: SocialEntry[];
   setSocialHistory: React.Dispatch<React.SetStateAction<SocialEntry[]>>;
 
-  // Evaluation & Quiz
   evaluationHistory: EvaluationEntry[];
   saveEvaluation: (satisfaction: SatisfactionData, outcomes: OutcomeData) => void;
   quizHistory: QuizEntry[];
@@ -326,12 +321,10 @@ export interface AppContextType {
   clearActivityHistory: () => void;
   clearWellnessHistory: () => void;
 
-  // Gamification
   gainXP: (amount: number) => void;
   showLevelUp: { type: 'level' | 'badge', data: any } | null;
   closeLevelUpModal: () => void;
 
-  // SOS & Tele-Support
   isSOSOpen: boolean;
   openSOS: () => void;
   closeSOS: () => void;

@@ -2,19 +2,19 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { SunIcon, MoonIcon, BellIcon, LineIcon, SparklesIcon, ClipboardDocumentCheckIcon } from './icons';
-import { sendTestNotification } from '../services/googleSheetService';
+import { sendTestNotification, sendTelegramTestNotification } from '../services/googleSheetService';
+import { TELEGRAM_BOT_USERNAME } from '../constants';
 import PDPAModal from './PDPAModal';
 
 const Settings: React.FC = () => {
-    const { scriptUrl, setScriptUrl, isDataSynced, theme, setTheme, currentUser, userProfile, setUserProfile, logout } = useContext(AppContext);
+    const { scriptUrl, setScriptUrl, theme, setTheme, currentUser, userProfile, setUserProfile, logout } = useContext(AppContext);
     
     const [currentScriptUrl, setCurrentScriptUrl] = useState(scriptUrl);
     const [saved, setSaved] = useState<'none' | 'sheets' | 'notifications' | 'ai'>('none');
-    const [showGoogleSheetsSettings, setShowGoogleSheetsSettings] = useState(false);
     const [testingNotif, setTestingNotif] = useState(false);
+    const [testingTelegram, setTestingTelegram] = useState(false);
     const [showPDPA, setShowPDPA] = useState(false);
     
-    // AI System Instruction State
     const [aiInstruction, setAiInstruction] = useState(userProfile.aiSystemInstruction || '');
 
     useEffect(() => {
@@ -57,8 +57,8 @@ const Settings: React.FC = () => {
         setTestingNotif(true);
         try {
             const result = await sendTestNotification(scriptUrl, currentUser);
-            if (result.success) alert("ส่งข้อความทดสอบสำเร็จ!");
-            else alert("ไม่สามารถส่งข้อความได้: " + result.message);
+            if (result.success) alert("ส่งข้อความทดสอบ LINE สำเร็จ!");
+            else alert("ล้มเหลว: " + result.message);
         } catch (e) {
             alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
         } finally {
@@ -66,159 +66,166 @@ const Settings: React.FC = () => {
         }
     };
 
+    const handleTestTelegramNotification = async () => {
+        if (!scriptUrl || !currentUser) return;
+        setTestingTelegram(true);
+        try {
+            const result = await sendTelegramTestNotification(scriptUrl, currentUser);
+            if (result.success) alert("ส่งข้อความทดสอบ Telegram สำเร็จ!");
+            else alert("ล้มเหลว: " + result.message + "\n\n*โปรดตรวจสอบว่าคุณได้กด /start ที่บอทแล้วหรือยัง");
+        } catch (e) {
+            alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+        } finally {
+            setTestingTelegram(false);
+        }
+    };
+
     const handleRevokePDPA = () => {
-        if (window.confirm("คุณต้องการยกเลิกความยินยอมใช่หรือไม่? \n\nหากยกเลิก คุณจะไม่สามารถใช้งานแอปพลิเคชันได้และระบบจะลงชื่อออกอัตโนมัติ เพื่อคุ้มครองข้อมูลของคุณตามนโยบาย PDPA")) {
+        if (window.confirm("คุณต้องการยกเลิกความยินยอมใช่หรือไม่? \n\nระบบจะลงชื่อออกอัตโนมัติ เพื่อคุ้มครองข้อมูลของคุณตามนโยบาย PDPA")) {
             if (!currentUser) return;
-            
-            const updatedProfile = { 
-                ...userProfile, 
-                pdpaAccepted: false, 
-                pdpaAcceptedDate: '' 
-            };
-            setUserProfile(updatedProfile, { 
-                displayName: currentUser.displayName, 
-                profilePicture: currentUser.profilePicture 
-            });
-            
+            const updatedProfile = { ...userProfile, pdpaAccepted: false, pdpaAcceptedDate: '' };
+            setUserProfile(updatedProfile, { displayName: currentUser.displayName, profilePicture: currentUser.profilePicture });
             setShowPDPA(false);
-            setTimeout(() => {
-                logout();
-            }, 500);
+            setTimeout(() => logout(), 500);
         }
     };
 
     const isRemindersOn = !!userProfile.receiveDailyReminders;
     const hasLineId = !!userProfile.lineUserId;
+    const hasTelegramId = !!userProfile.telegramUserId;
     const isSuperAdmin = currentUser?.role === 'admin' && currentUser?.organization === 'all';
 
     return (
         <div className="space-y-8 animate-fade-in">
              <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">ลักษณะที่ปรากฏ</h2>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 text-center uppercase tracking-tight">Appearance</h2>
                 <div className="flex justify-center gap-4">
                     <button
                         onClick={() => setTheme('light')}
-                        className={`flex flex-col items-center justify-center w-32 h-24 p-4 rounded-lg border-2 transition-colors duration-200 ${
-                            theme === 'light' ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/50' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-teal-400 hover:bg-gray-50'
+                        className={`flex flex-col items-center justify-center w-32 h-24 p-4 rounded-xl border-2 transition-all ${
+                            theme === 'light' ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'
                         }`}
                     >
-                        <SunIcon className="w-8 h-8 text-yellow-500 mb-2" />
-                        <span className="font-semibold text-gray-800 dark:text-white">สว่าง</span>
+                        <SunIcon className="w-8 h-8 text-amber-500 mb-2" />
+                        <span className="text-xs font-bold uppercase">Light</span>
                     </button>
                     <button
                         onClick={() => setTheme('dark')}
-                        className={`flex flex-col items-center justify-center w-32 h-24 p-4 rounded-lg border-2 transition-colors duration-200 ${
-                            theme === 'dark' ? 'border-teal-500 bg-slate-800' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-teal-400 hover:bg-gray-50'
+                        className={`flex flex-col items-center justify-center w-32 h-24 p-4 rounded-xl border-2 transition-all ${
+                            theme === 'dark' ? 'border-teal-500 bg-slate-800' : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900'
                         }`}
                     >
                         <MoonIcon className="w-8 h-8 text-indigo-400 mb-2" />
-                        <span className="font-semibold text-gray-800 dark:text-white">มืด</span>
+                        <span className="text-xs font-bold uppercase">Dark</span>
                     </button>
                 </div>
             </div>
 
             {currentUser?.role !== 'guest' && (
                 <>
-                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-teal-500">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className={`p-3 rounded-full ${isRemindersOn ? 'bg-teal-100 dark:bg-teal-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                                    <BellIcon className={`w-6 h-6 ${isRemindersOn ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`} />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">การแจ้งเตือนรายวัน</h2>
-                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">รับภารกิจสุขภาพตอนเช้าผ่าน LINE</p>
-                                    {!hasLineId && <p className="text-red-500 text-xs mt-1 font-bold">⚠️ กรุณา Log in ด้วย LINE</p>}
-                                </div>
+                    {/* Notification Management */}
+                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-md w-full border-l-4 border-teal-500">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <BellIcon className={`w-6 h-6 ${isRemindersOn ? 'text-teal-600' : 'text-slate-300'}`} />
+                                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Daily Notifications</h2>
                             </div>
-                            <div className="flex flex-col items-end gap-2 w-full sm:w-auto">
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" className="sr-only peer" checked={isRemindersOn} onChange={toggleNotifications} disabled={!hasLineId} />
-                                    <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                                </label>
-                                {hasLineId && (
-                                    <button onClick={handleTestNotification} disabled={testingNotif} className="text-xs text-blue-500 hover:underline">
-                                        {testingNotif ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความ LINE'}
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" className="sr-only peer" checked={isRemindersOn} onChange={toggleNotifications} />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                            </label>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* LINE Section */}
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <LineIcon className="w-5 h-5 text-[#06C755]" />
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">LINE Notify</span>
+                                </div>
+                                {hasLineId ? (
+                                    <button onClick={handleTestNotification} disabled={testingNotif} className="text-[10px] font-black uppercase text-teal-600 hover:underline">
+                                        {testingNotif ? 'Sending...' : 'Test Send'}
                                     </button>
+                                ) : (
+                                    <span className="text-[10px] font-bold text-rose-500 uppercase">Not Linked</span>
                                 )}
                             </div>
+
+                            {/* Telegram Section */}
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xl">✈️</span>
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Telegram Bot</span>
+                                    </div>
+                                    {hasTelegramId ? (
+                                        <button onClick={handleTestTelegramNotification} disabled={testingTelegram} className="text-[10px] font-black uppercase text-blue-500 hover:underline">
+                                            {testingTelegram ? 'Sending...' : 'Test Send'}
+                                        </button>
+                                    ) : (
+                                        <span className="text-[10px] font-bold text-rose-500 uppercase">Not Linked</span>
+                                    )}
+                                </div>
+                                
+                                <a 
+                                    href={`https://t.me/${TELEGRAM_BOT_USERNAME}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-2 rounded-lg text-center font-bold hover:brightness-95 transition-all"
+                                >
+                                    คลิกเพื่อเปิดแชทกับ @{TELEGRAM_BOT_USERNAME} และกด START
+                                </a>
+                            </div>
                         </div>
+                        <p className="text-[10px] text-slate-400 mt-4 uppercase tracking-widest text-center font-bold">
+                            *Link your account by logging in with Social ID
+                        </p>
                     </div>
 
-                    {/* PDPA Section */}
-                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-indigo-500">
-                        <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
+                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-md w-full border-l-4 border-indigo-500">
+                        <div className="flex items-center gap-4 justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
-                                    <ClipboardDocumentCheckIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20">
+                                    <ClipboardDocumentCheckIcon className="w-6 h-6 text-indigo-600" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">PDPA & Privacy</h2>
-                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">จัดการความยินยอมและข้อมูลส่วนบุคคล</p>
+                                    <h2 className="text-base font-bold text-slate-800 dark:text-white">Privacy & PDPA</h2>
+                                    <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Manage your data consent</p>
                                 </div>
                             </div>
                             <button 
                                 onClick={() => setShowPDPA(true)}
-                                className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors w-full sm:w-auto"
+                                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300"
                             >
-                                ตรวจสอบ / แก้ไข
+                                Review
                             </button>
                         </div>
                     </div>
                 </>
             )}
 
-            {currentUser?.role === 'admin' && (
-                <>
-                    {/* AI Customization Section - SUPER ADMIN ONLY */}
-                    {isSuperAdmin && (
-                        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border-l-4 border-purple-500">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                                    <SparklesIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">ปรับแต่ง AI Coach (Super Admin)</h2>
-                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">กำหนด System Prompt สำหรับ AI ทุกส่วนในระบบ (Coach, Food, Planner, Insights)</p>
-                                </div>
-                            </div>
-                            <div className="space-y-3">
-                                <textarea 
-                                    value={aiInstruction}
-                                    onChange={(e) => setAiInstruction(e.target.value)}
-                                    placeholder="เช่น 'คุณเป็นโค้ชฟิตเนสที่ดุดัน เน้นวินัย', 'ช่วยตอบเป็นภาษาถิ่นใต้', 'เน้นให้กำลังใจเหมือนพี่สาว'"
-                                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-purple-500 min-h-[80px]"
-                                />
-                                <div className="flex justify-between items-center">
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">*ตั้งค่า Persona ของ AI กลางของระบบ</p>
-                                    <button 
-                                        onClick={handleAISave}
-                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-bold transition-colors shadow-md active:scale-95"
-                                    >
-                                        {saved === 'ai' ? 'บันทึกแล้ว!' : 'บันทึกการตั้งค่า'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Google Sheets Config */}
-                    <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg w-full border border-orange-200">
-                        <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Google Sheets Connect</h2>
-                                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">เชื่อมต่อเพื่อบันทึกและซิงค์ข้อมูลวิจัย</p>
-                            </div>
-                            <button onClick={() => setShowGoogleSheetsSettings(!showGoogleSheetsSettings)} className="text-teal-600 font-bold">จัดการ</button>
-                        </div>
-                        {showGoogleSheetsSettings && (
-                            <form onSubmit={handleSheetsSave} className="mt-6 space-y-4 animate-fade-in border-t pt-4">
-                                <input type="url" value={currentScriptUrl} onChange={(e) => setCurrentScriptUrl(e.target.value)} placeholder="Web App URL" className="w-full p-2 border rounded-md dark:bg-gray-700" required />
-                                <button type="submit" className="w-full bg-teal-500 text-white font-bold py-3 rounded-lg hover:bg-teal-600">บันทึกการเชื่อมต่อ</button>
-                            </form>
-                        )}
+            {isSuperAdmin && (
+                <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-md w-full border-l-4 border-purple-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <SparklesIcon className="w-6 h-6 text-purple-600" />
+                        <h2 className="text-base font-bold text-slate-800 dark:text-white uppercase tracking-tight">AI System Persona</h2>
                     </div>
-                </>
+                    <textarea 
+                        value={aiInstruction}
+                        onChange={(e) => setAiInstruction(e.target.value)}
+                        placeholder="Define AI Behavior..."
+                        className="w-full p-3 border-2 border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900 text-sm focus:border-purple-400 outline-none transition-colors min-h-[100px]"
+                    />
+                    <div className="flex justify-end mt-3">
+                        <button 
+                            onClick={handleAISave}
+                            className="px-6 py-2 bg-purple-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-sm active:scale-95 transition-all"
+                        >
+                            {saved === 'ai' ? 'SAVED' : 'SAVE AI RULES'}
+                        </button>
+                    </div>
+                </div>
             )}
 
             {showPDPA && (
