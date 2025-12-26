@@ -28,18 +28,21 @@ const HealthSummaryCard: React.FC<{
     userProfile: any, 
     bmiHistory: any[], 
     waterScore: number, 
-    activityScore: number 
-}> = ({ userProfile, bmiHistory, waterScore, activityScore }) => {
+    activityScore: number,
+    sleepScore: number,
+    moodScore: number
+}> = ({ userProfile, bmiHistory, waterScore, activityScore, sleepScore, moodScore }) => {
     
     // Calculate Indicators
     const pillarScores: PillarScore = userProfile.pillarScores || { nutrition: 5, activity: 5, sleep: 5, stress: 5, substance: 5, social: 5 };
     
     // Normalize 1-10 scale to 0-100
+    // Logic: Use daily log score if available/higher, otherwise fallback to assessment score
     const indicators = [
-        { id: 'nutrition', name: 'ด้านโภชนาการ (Nutrition)', score: pillarScores.nutrition * 10, icon: '🥗' },
+        { id: 'nutrition', name: 'ด้านโภชนาการ (Nutrition)', score: Math.max(pillarScores.nutrition * 10, waterScore), icon: '🥗' }, // Water as proxy for daily intake habit
         { id: 'activity', name: 'ด้านกิจกรรมทางกาย (Physical Activity)', score: Math.max(pillarScores.activity * 10, activityScore), icon: '💪' }, 
-        { id: 'sleep', name: 'คุณภาพการนอนหลับ (Sleep Quality)', score: pillarScores.sleep * 10, icon: '😴' },
-        { id: 'stress', name: 'สุขภาพจิตและการจัดการความเครียด (Mental Health)', score: pillarScores.stress * 10, icon: '🧠' },
+        { id: 'sleep', name: 'คุณภาพการนอนหลับ (Sleep Quality)', score: sleepScore > 0 ? sleepScore : pillarScores.sleep * 10, icon: '😴' },
+        { id: 'stress', name: 'สุขภาพจิตและการจัดการความเครียด (Mental Health)', score: moodScore > 0 ? moodScore : pillarScores.stress * 10, icon: '🧠' },
         { id: 'risk', name: 'การลดพฤติกรรมเสี่ยง (Risk Reduction)', score: pillarScores.substance * 10, icon: '🚫' },
         { id: 'social', name: 'ความสัมพันธ์ทางสังคม (Social Wellbeing)', score: pillarScores.social * 10, icon: '🤝' },
     ];
@@ -219,7 +222,7 @@ const TrendAnalysis: React.FC<{ bmiHistory: any[] }> = ({ bmiHistory }) => {
 }
 
 const Dashboard: React.FC = () => {
-  const { setActiveView, bmiHistory, waterHistory, waterGoal, activityHistory, userProfile, quizHistory } = useContext(AppContext);
+  const { setActiveView, bmiHistory, waterHistory, waterGoal, activityHistory, userProfile, quizHistory, sleepHistory, moodHistory } = useContext(AppContext);
 
   const sortedBmiHistory = useMemo(() => {
       return [...bmiHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -239,6 +242,14 @@ const Dashboard: React.FC = () => {
   const waterScore = Math.min(100, (waterIntakeToday / waterGoal) * 100);
   const activityScore = Math.min(100, (caloriesBurnedToday / 300) * 100); 
 
+  // Sleep Score (Today) - Quality 1-5 maps to 20-100
+  const sleepToday = useMemo(() => sleepHistory.find(entry => isToday(new Date(entry.date))), [sleepHistory]);
+  const sleepScore = sleepToday ? (sleepToday.quality * 20) : 0;
+
+  // Mood/Stress Score (Today) - Stress 1 (Good) -> 100, Stress 10 (Bad) -> 10
+  const moodToday = useMemo(() => moodHistory.find(entry => isToday(new Date(entry.date))), [moodHistory]);
+  const moodScore = moodToday ? (11 - moodToday.stressLevel) * 10 : 0;
+
   const handlePrint = () => {
       window.print();
   };
@@ -253,6 +264,8 @@ const Dashboard: React.FC = () => {
             bmiHistory={sortedBmiHistory} 
             waterScore={waterScore}
             activityScore={activityScore}
+            sleepScore={sleepScore}
+            moodScore={moodScore}
         />
 
         <div className="flex flex-wrap justify-center gap-4 print:hidden">
