@@ -32,24 +32,26 @@ export interface AllAdminData {
     quizHistory: any[];
 }
 
-export const fetchLeaderboard = async (scriptUrl: string): Promise<any[]> => {
-    if (!scriptUrl) return [];
+export const fetchLeaderboard = async (scriptUrl: string): Promise<{ leaderboard: any[], trending: any[] }> => {
+    if (!scriptUrl) return { leaderboard: [], trending: [] };
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'getLeaderboard' }), // เปลี่ยนมาใช้ action ที่เจาะจง
+            body: JSON.stringify({ action: 'getLeaderboard' }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
         const result = await response.json();
         if (result.status === 'success') {
-            // ข้อมูลที่ได้จะมาจากการ QUERY ในชีต ซึ่งสะอาดและเรียงลำดับมาแล้ว
-            return result.data;
+            return {
+                leaderboard: Array.isArray(result.data.leaderboard) ? result.data.leaderboard : [],
+                trending: Array.isArray(result.data.trending) ? result.data.trending : []
+            };
         }
-        return [];
+        return { leaderboard: [], trending: [] };
     } catch (error) {
         console.error("Leaderboard fetch failed:", error);
-        return [];
+        return { leaderboard: [], trending: [] };
     }
 };
 

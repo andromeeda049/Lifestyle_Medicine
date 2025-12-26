@@ -1,41 +1,24 @@
 
-# การเพิ่มความเร็วในการโหลด Leaderboard (ลำดับคนรักสุขภาพ)
+# การตั้งค่า Google Sheets สำหรับระบบ Leaderboard (SUM Version)
 
-เพื่อให้แอปโหลดข้อมูลอันดับได้รวดเร็ว (ภายใน 1-2 วินาที) แม้จะมีผู้ใช้จำนวนมาก ให้ทำตามขั้นตอนดังนี้:
+เพื่อให้แอปแสดงคะแนนรวมและอันดับมาแรงได้ถูกต้อง กรุณาสร้างชีตใหม่ 2 ชีต (LeaderboardView และ TrendingView) และวางสูตรที่เซลล์ **A1** ดังนี้:
 
-### ขั้นตอนที่ 1: สร้างแผ่นงาน LeaderboardView ใน Google Sheets
-1. เปิด Google Sheet ของคุณ
-2. สร้างชีตใหม่ (Sheet Tab) ตั้งชื่อว่า `LeaderboardView`
-3. ที่เซลล์ **A1** ให้ใส่สูตรนี้ (ปรับตำแหน่งคอลัมน์ตามความจริง):
-   ```excel
-   =QUERY(Profile!A:Z, "SELECT A, C, Q, O, P, R, E ORDER BY O DESC, Q DESC LIMIT 100", 1)
-   ```
-   *หมายเหตุ: ในสูตรนี้สมมติว่า A=Username, C=DisplayName, Q=XP, O=Level, P=Badges, R=Org, E=ProfilePic*
-
-### ขั้นตอนที่ 2: อัปเดต Code.gs (Backend)
-เพิ่มฟังก์ชันนี้ใน GAS เพื่อให้ดึงข้อมูลจากชีตที่เตรียมไว้แล้ว:
-
-```javascript
-function getLeaderboardFast() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("LeaderboardView");
-  if (!sheet) return createErrorResponse("LeaderboardView sheet not found");
-  
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const results = [];
-  
-  for (let i = 1; i < data.length; i++) {
-    let obj = {};
-    headers.forEach((header, index) => {
-      obj[header] = data[i][index];
-    });
-    results.push(obj);
-  }
-  
-  return createSuccessResponse(results);
-}
-
-// ใน doPost เพิ่ม case:
-// case 'getLeaderboard': return getLeaderboardFast();
+### 1. ชีตชื่อ `LeaderboardView` (อันดับสะสมตลอดกาล)
+สูตรนี้จะรวม XP ของทุกคนเข้าด้วยกัน และดึงข้อมูลล่าสุด (ชื่อ, รูป, Org) มาแสดง:
+```excel
+=QUERY(profile!A:M, "SELECT Col2, MAX(Col3), MAX(Col4), SUM(Col10), MAX(Col11), MAX(Col12), MAX(Col13) WHERE Col2 IS NOT NULL GROUP BY Col2 ORDER BY SUM(Col10) DESC LABEL MAX(Col3) 'displayName', MAX(Col4) 'profilePicture', SUM(Col10) 'totalXp', MAX(Col11) 'level', MAX(Col12) 'badges', MAX(Col13) 'organization'", 1)
 ```
+
+### 2. ชีตชื่อ `TrendingView` (อันดับมาแรง 7 วันล่าสุด)
+สูตรนี้จะรวม XP (SUM) เฉพาะรายการที่เกิดขึ้นภายใน 7 วันที่ผ่านมาเท่านั้น:
+```excel
+=QUERY(profile!A:M, "SELECT Col2, MAX(Col3), MAX(Col4), SUM(Col10), MAX(Col13) WHERE Col2 IS NOT NULL AND Col1 > date '"&TEXT(TODAY()-7, "yyyy-mm-dd")&"' GROUP BY Col2 ORDER BY SUM(Col10) DESC LABEL MAX(Col3) 'displayName', MAX(Col4) 'profilePicture', SUM(Col10) 'weeklyXp', MAX(Col13) 'organization'", 1)
+```
+
+---
+
+### รายละเอียดคอลัมน์ (Reference)
+- **Col1 (A):** Timestamp
+- **Col2 (B):** Username
+- **Col10 (J):** XP Delta (คะแนนที่ได้รับในครั้งนั้นๆ)
+- **Col13 (M):** Organization (หน่วยงาน)
