@@ -236,9 +236,9 @@ const HomeMenu: React.FC = () => {
             </div>
         </div>
 
-        {/* 4. Tools & Services Sections */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Planning & AI */}
+        {/* 4. Tools & Services Sections - SIMPLIFIED FOR HOME */}
+        <div className="grid grid-cols-1 gap-6">
+            {/* Planning & AI ONLY */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
                 <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">วางแผน & ปรึกษา (Planning)</h4>
                 <div className="space-y-1">
@@ -247,30 +247,9 @@ const HomeMenu: React.FC = () => {
                     <ToolListItem view="dashboard" title="แดชบอร์ดสุขภาพ" icon={<SquaresIcon className="w-5 h-5"/>} color="bg-sky-100 text-sky-600" />
                 </div>
             </div>
-
-            {/* Assessment & Learning */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-                <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">ประเมิน & เรียนรู้ (Knowledge)</h4>
-                <div className="space-y-1">
-                    <ToolListItem view="assessment" title="ประเมิน 6 เสาหลัก" icon={<ClipboardDocumentCheckIcon className="w-5 h-5"/>} color="bg-teal-100 text-teal-600" />
-                    <ToolListItem view="quiz" title="ทดสอบความรู้ (Quiz)" icon={<StarIcon className="w-5 h-5"/>} color="bg-yellow-100 text-yellow-600" />
-                    <ToolListItem view="literacy" title="คลังความรู้สุขภาพ" icon={<BookOpenIcon className="w-5 h-5"/>} color="bg-rose-100 text-rose-600" />
-                    <ToolListItem view="evaluation" title="แบบประเมินความพึงพอใจ" icon={<ClipboardCheckIcon className="w-5 h-5"/>} color="bg-purple-100 text-purple-600" />
-                </div>
-            </div>
-
-            {/* Calculations & Settings */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-                <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">เครื่องมือ & ตั้งค่า (Tools)</h4>
-                <div className="space-y-1">
-                    <ToolListItem view="bmi" title="เครื่องคำนวณ BMI" icon={<ScaleIcon className="w-5 h-5"/>} color="bg-gray-100 text-gray-600" />
-                    <ToolListItem view="tdee" title="เครื่องคำนวณ TDEE" icon={<FireIcon className="w-5 h-5"/>} color="bg-orange-100 text-orange-600" />
-                    <ToolListItem view="profile" title="ข้อมูลส่วนตัว" icon={<UserCircleIcon className="w-5 h-5"/>} color="bg-green-100 text-green-600" />
-                    {currentUser?.role === 'admin' && (
-                        <ToolListItem view="adminDashboard" title="ผู้ดูแลระบบ (Admin)" icon={<UserGroupIcon className="w-5 h-5"/>} color="bg-red-100 text-red-600" />
-                    )}
-                </div>
-            </div>
+            
+            {/* Note: Assessment, Knowledge, Tools, and Settings sections are now hidden on Home. 
+                They are accessible via the "Menu" page. */}
         </div>
     </div>
   );
