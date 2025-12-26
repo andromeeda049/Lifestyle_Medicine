@@ -32,24 +32,31 @@ export interface AllAdminData {
     quizHistory: any[];
 }
 
-// ปรับปรุง fetchLeaderboard ให้ดึงจากข้อมูลที่ถูก QUERY ไว้แล้วในชีต
-export const fetchLeaderboard = async (scriptUrl: string): Promise<any[]> => {
-    if (!scriptUrl) return [];
+/**
+ * ดึงข้อมูล Leaderboard ที่คำนวณมาแล้วจาก Google Sheets
+ * จะได้รับ Object ที่มีทั้ง leaderboard (อันดับรวม) และ trending (มาแรง)
+ */
+export const fetchLeaderboard = async (scriptUrl: string): Promise<{leaderboard: any[], trending: any[]}> => {
+    if (!scriptUrl) return { leaderboard: [], trending: [] };
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'getLeaderboard' }), // ขอข้อมูลจาก LeaderboardView
+            body: JSON.stringify({ action: 'getLeaderboard' }), 
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
         const result = await response.json();
         if (result.status === 'success') {
-            return result.data;
+            // มั่นใจได้ว่าข้อมูลถูกจัดรูปแบบมาแล้วจาก GAS
+            return {
+                leaderboard: result.data.leaderboard || [],
+                trending: result.data.trending || []
+            };
         }
-        return [];
+        return { leaderboard: [], trending: [] };
     } catch (error) {
         console.error("Leaderboard fetch failed:", error);
-        return [];
+        return { leaderboard: [], trending: [] };
     }
 };
 
