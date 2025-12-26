@@ -70,7 +70,8 @@ const CalorieTracker: React.FC = () => {
             calories
         };
         setCalorieHistory(prev => [newEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
-        gainXP(XP_VALUES.CALORIE);
+        // Use 'CALORIE' category for manual entry
+        gainXP(XP_VALUES.CALORIE, 'CALORIE');
     };
 
     const handleCustomAdd = (e: React.FormEvent) => {

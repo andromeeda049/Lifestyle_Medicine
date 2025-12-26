@@ -54,6 +54,38 @@ const SOSButton: React.FC = () => {
     );
 };
 
+const ToastNotification: React.FC = () => {
+    const { notification, closeNotification } = useContext(AppContext);
+    
+    if (!notification.show) return null;
+
+    const bgColors = {
+        success: 'bg-green-500',
+        info: 'bg-blue-500',
+        warning: 'bg-orange-500'
+    };
+
+    const icons = {
+        success: '🎉',
+        info: 'ℹ️',
+        warning: '⏳'
+    };
+
+    return (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[100] animate-fade-in-down w-[90%] max-w-sm">
+            <div className={`${bgColors[notification.type]} text-white px-6 py-3 rounded-full shadow-lg flex items-center justify-between`}>
+                <div className="flex items-center gap-3">
+                    <span className="text-xl">{icons[notification.type]}</span>
+                    <span className="text-sm font-bold">{notification.message}</span>
+                </div>
+                <button onClick={closeNotification} className="ml-4 text-white hover:text-gray-200">
+                    <XIcon className="w-4 h-4" />
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const AppContent: React.FC = () => {
   const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP, isSOSOpen, closeSOS, showLevelUp, closeLevelUpModal } = useContext(AppContext);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -430,9 +462,9 @@ const AppContent: React.FC = () => {
           amount: 250 // Add 1 glass
       };
       setWaterHistory(prev => [newEntry, ...prev]);
-      gainXP(XP_VALUES.WATER);
+      gainXP(XP_VALUES.WATER, 'WATER');
       setIsQuickActionOpen(false);
-      alert('บันทึกการดื่มน้ำ +250ml เรียบร้อย!');
+      // Removed alert, relying on toast from gainXP
   };
 
   const BottomNavigation = () => {
@@ -561,7 +593,8 @@ const AppContent: React.FC = () => {
           {/* Bottom Navigation */}
           <BottomNavigation />
           
-          {/* Modals */}
+          {/* Modals & Notifications */}
+          <ToastNotification />
           <QuickActionModal />
           {showPDPA && <PDPAModal onAccept={handlePDPAAccept} />}
           {isSOSOpen && <SOSModal onClose={closeSOS} />}

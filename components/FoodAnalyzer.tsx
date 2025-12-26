@@ -80,7 +80,8 @@ const FoodAnalyzer: React.FC = () => {
     setLatestFoodAnalysis(res);
     const newEntry: FoodHistoryEntry = { id: new Date().toISOString(), date: new Date().toISOString(), analysis: res };
     setFoodHistory(prev => [newEntry, ...prev].slice(0, 15));
-    gainXP(XP_VALUES.FOOD);
+    // Use 'FOOD' category for AI scan
+    gainXP(XP_VALUES.FOOD, 'FOOD');
   };
 
   const getPillarLabel = (key: string) => {

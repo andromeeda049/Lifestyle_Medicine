@@ -264,6 +264,12 @@ export interface QuizEntry {
     type: 'pre-test' | 'post-test' | 'practice';
 }
 
+export interface NotificationState {
+    show: boolean;
+    message: string;
+    type: 'success' | 'info' | 'warning';
+}
+
 export interface AppContextType {
   activeView: AppView;
   setActiveView: React.Dispatch<React.SetStateAction<AppView>>;
@@ -321,9 +327,12 @@ export interface AppContextType {
   clearActivityHistory: () => void;
   clearWellnessHistory: () => void;
 
-  gainXP: (amount: number) => void;
+  gainXP: (amount: number, category?: string) => void; // Updated signature
   showLevelUp: { type: 'level' | 'badge', data: any } | null;
   closeLevelUpModal: () => void;
+  
+  notification: NotificationState; // New notification state
+  closeNotification: () => void;
 
   isSOSOpen: boolean;
   openSOS: () => void;

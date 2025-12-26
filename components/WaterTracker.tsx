@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { WaterHistoryEntry } from '../types';
@@ -37,8 +38,10 @@ const WaterTracker: React.FC = () => {
             date: new Date().toISOString(),
             amount: amount
         };
+        // Update local state first to feel responsive
         setWaterHistory(prev => [newEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
-        gainXP(XP_VALUES.WATER);
+        // Trigger Gamification Check (Anti-cheat logic resides in AppContext)
+        gainXP(XP_VALUES.WATER, 'WATER');
     };
 
     const handleCustomAdd = (e: React.FormEvent) => {

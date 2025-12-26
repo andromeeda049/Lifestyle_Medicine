@@ -66,7 +66,8 @@ const ActivityTracker: React.FC = () => {
             caloriesBurned
         };
         setActivityHistory(prev => [newEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
-        gainXP(XP_VALUES.EXERCISE);
+        // Use 'EXERCISE' category
+        gainXP(XP_VALUES.EXERCISE, 'EXERCISE');
     };
 
     const handleCustomAdd = (e: React.FormEvent) => {

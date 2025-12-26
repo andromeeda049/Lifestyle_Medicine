@@ -80,7 +80,7 @@ const WellnessCheckin: React.FC = () => {
             quality: sleepData.quality,
             hygieneChecklist: sleepData.checks
         }, ...prev]);
-        gainXP(XP_VALUES.SLEEP);
+        gainXP(XP_VALUES.SLEEP, 'SLEEP');
     };
 
     const handleMoodSave = () => {
@@ -91,7 +91,7 @@ const WellnessCheckin: React.FC = () => {
             stressLevel: moodData.stress,
             gratitude: moodData.gratitude
         }, ...prev]);
-        gainXP(XP_VALUES.MOOD);
+        gainXP(XP_VALUES.MOOD, 'MOOD');
     };
 
     const handleHabitSave = () => {
@@ -117,7 +117,7 @@ const WellnessCheckin: React.FC = () => {
                 }
             });
         }
-        gainXP(XP_VALUES.WELLNESS);
+        gainXP(XP_VALUES.WELLNESS, 'WELLNESS');
     };
 
     const handleSocialSave = () => {
@@ -128,7 +128,7 @@ const WellnessCheckin: React.FC = () => {
             interaction: socialData.interaction,
             feeling: socialData.feeling
         }, ...prev]);
-        gainXP(XP_VALUES.WELLNESS);
+        gainXP(XP_VALUES.WELLNESS, 'WELLNESS');
         setSocialData({...socialData, interaction: ''}); // Reset text
     };
 

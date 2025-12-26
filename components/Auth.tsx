@@ -351,7 +351,6 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         theme="filled_blue"
                         shape="pill"
                         text="continue_with"
-                        locale="th"
                     />
                  </div>
                  <button 

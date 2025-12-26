@@ -50,7 +50,7 @@ const HealthLiteracyQuiz: React.FC = () => {
         const finalPercent = Math.round((totalCorrect / HEALTH_LITERACY_QUESTIONS.length) * 100);
         
         saveQuizResult(finalPercent, HEALTH_LITERACY_QUESTIONS.length, totalCorrect);
-        gainXP(XP_VALUES.QUIZ);
+        gainXP(XP_VALUES.QUIZ, 'QUIZ');
         setIsFinished(true);
     };
 

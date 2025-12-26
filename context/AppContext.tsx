@@ -1,8 +1,8 @@
 
 import React, { createContext, ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, QuizEntry, User, AppContextType, SatisfactionData, OutcomeData } from '../types';
-import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, LEVEL_THRESHOLDS, ACHIEVEMENTS } from '../constants';
+import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, QuizEntry, User, AppContextType, SatisfactionData, OutcomeData, NotificationState } from '../types';
+import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, LEVEL_THRESHOLDS, ACHIEVEMENTS, GAMIFICATION_LIMITS } from '../constants';
 import { fetchAllDataFromSheet, saveDataToSheet, clearHistoryInSheet } from '../services/googleSheetService';
 
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx6e8zDxmmoZWg2iW_oQHlpfqWZrpS-2Vkq9aFPlnW5MVdGPf8_-yaEJ7iugtdAWvJT/exec';
@@ -64,6 +64,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isDataSynced, setIsDataSynced] = useState(true);
   const [showLevelUp, setShowLevelUp] = useState<{ type: 'level' | 'badge', data: any } | null>(null);
   const [isSOSOpen, setIsSOSOpen] = useState(false);
+  const [notification, setNotification] = useState<NotificationState>({ show: false, message: '', type: 'info' });
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -178,28 +179,91 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (scriptUrl && currentUser.role !== 'admin') saveDataToSheet(scriptUrl, 'quizHistory', [newEntry], currentUser);
   };
 
-  const gainXP = useCallback((amount: number) => {
+  const showToast = (message: string, type: 'success' | 'info' | 'warning') => {
+      setNotification({ show: true, message, type });
+      setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
+  };
+
+  const getHistoryForCategory = (category: string) => {
+      switch(category) {
+          case 'WATER': return waterHistory;
+          case 'FOOD': return foodHistory;
+          case 'CALORIE': return calorieHistory;
+          case 'EXERCISE': return activityHistory;
+          case 'SLEEP': return sleepHistory;
+          case 'MOOD': return moodHistory;
+          case 'WELLNESS': 
+            // Combine social and habit logs for check
+            return [...habitHistory, ...socialHistory].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          case 'PLANNER': return plannerHistory;
+          case 'QUIZ': return quizHistory;
+          default: return [];
+      }
+  };
+
+  const gainXP = useCallback((amount: number, category?: string) => {
     if (!currentUser || currentUser.role === 'guest') return;
+
+    // --- ANTI-CHEAT & GAMIFICATION LOGIC ---
+    if (category && GAMIFICATION_LIMITS[category]) {
+        const rules = GAMIFICATION_LIMITS[category];
+        const history = getHistoryForCategory(category);
+        const now = new Date();
+        const todayStr = now.toDateString();
+
+        // 1. Check Daily Cap
+        const todayEntries = history.filter(entry => new Date(entry.date).toDateString() === todayStr);
+        if (todayEntries.length > rules.maxPerDay) {
+            // Allow logging but NO XP
+            showToast(`คุณบันทึกครบโควตาแล้ววันนี้ (รับคะแนนสูงสุด ${rules.maxPerDay} ครั้ง/วัน)`, 'info');
+            return; 
+        }
+
+        // 2. Check Cooldown (Only if history exists and > 0)
+        // Since React state update is async, 'history' here might NOT contain the item just added by the component.
+        // That is actually simpler: check the *previous* item.
+        // If the *most recent* item in history was too recent, block.
+        if (history.length > 0) {
+            const lastEntry = history[0]; // Assuming desc sort
+            const lastTime = new Date(lastEntry.date).getTime();
+            const diffMinutes = (now.getTime() - lastTime) / (1000 * 60);
+            
+            if (diffMinutes < rules.cooldownMinutes) {
+                const waitTime = Math.ceil(rules.cooldownMinutes - diffMinutes);
+                showToast(`เร็วเกินไป! กรุณารออีก ${waitTime} นาทีเพื่อรับคะแนนสะสม`, 'warning');
+                return;
+            }
+        }
+    }
+
+    // --- GRANT XP ---
     _setUserProfile(currentProfile => {
         let currentXP = currentProfile.xp || 0; let currentLevel = currentProfile.level || 1;
         let currentBadges = currentProfile.badges || ['novice']; let currentStreak = currentProfile.streak || 0;
         const todayStr = new Date().toDateString();
+        
         if (currentProfile.lastLogDate !== todayStr) {
             const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
             currentStreak = (currentProfile.lastLogDate === yesterday.toDateString()) ? currentStreak + 1 : 1;
         }
+        
         const newXP = currentXP + amount; let newLevel = currentLevel;
         while (newLevel < LEVEL_THRESHOLDS.length - 1 && newXP >= LEVEL_THRESHOLDS[newLevel]) newLevel++;
+        
         const badgesToUnlock = [];
         if (newLevel >= 5 && !currentBadges.includes('level5')) badgesToUnlock.push('level5');
         if (newLevel >= 10 && !currentBadges.includes('master')) badgesToUnlock.push('master');
         const newBadges = [...currentBadges, ...badgesToUnlock];
+        
         if (newLevel > currentLevel) setShowLevelUp({ type: 'level', data: newLevel });
+        
         const updatedProfile = { ...currentProfile, xp: newXP, level: newLevel, badges: newBadges, streak: currentStreak, lastLogDate: todayStr };
         if (scriptUrl && currentUser.role !== 'admin') saveDataToSheet(scriptUrl, 'profile', updatedProfile, currentUser);
+        
+        showToast(`+${amount} XP! (รวม ${newXP})`, 'success');
         return updatedProfile;
     });
-  }, [currentUser, scriptUrl, _setUserProfile]);
+  }, [currentUser, scriptUrl, _setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, sleepHistory, moodHistory, habitHistory, socialHistory, plannerHistory, quizHistory]);
 
   return (
     <AppContext.Provider value={{ 
@@ -220,7 +284,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clearActivityHistory: () => { _setActivityHistory([]); if (scriptUrl && currentUser) clearHistoryInSheet(scriptUrl, 'activityHistory', currentUser); },
         clearWellnessHistory: () => { _setSleepHistory([]); _setMoodHistory([]); _setHabitHistory([]); _setSocialHistory([]); },
         gainXP, showLevelUp, closeLevelUpModal: () => setShowLevelUp(null),
-        isSOSOpen, openSOS: () => setIsSOSOpen(true), closeSOS: () => setIsSOSOpen(false)
+        isSOSOpen, openSOS: () => setIsSOSOpen(true), closeSOS: () => setIsSOSOpen(false),
+        notification, closeNotification: () => setNotification(prev => ({ ...prev, show: false }))
     }}>
       {children}
     </AppContext.Provider>

@@ -1,13 +1,13 @@
 
 import React, { useState, useContext, useEffect } from 'react';
-import { PLANNER_ACTIVITY_LEVELS, CARB_PERCENTAGES, CUISINE_TYPES, DIETARY_PREFERENCES, HEALTH_CONDITIONS, LIFESTYLE_GOALS } from '../constants';
+import { PLANNER_ACTIVITY_LEVELS, CARB_PERCENTAGES, CUISINE_TYPES, DIETARY_PREFERENCES, HEALTH_CONDITIONS, LIFESTYLE_GOALS, XP_VALUES } from '../constants';
 import { generateMealPlan } from '../services/geminiService';
 import { PlannerResults, MealPlan, PlannerHistoryEntry } from '../types';
 import { ArrowLeftIcon, SparklesIcon, UserCircleIcon } from './icons';
 import { AppContext } from '../context/AppContext';
 
 const PersonalizedPlanner: React.FC = () => {
-    const { userProfile, setPlannerHistory, currentUser, foodHistory } = useContext(AppContext);
+    const { userProfile, setPlannerHistory, currentUser, foodHistory, gainXP } = useContext(AppContext);
     
     // Auto-populate from profile
     const [formData, setFormData] = useState({
@@ -68,6 +68,8 @@ const PersonalizedPlanner: React.FC = () => {
             setMealPlan(plan);
             const entry: PlannerHistoryEntry = { id: new Date().toISOString(), date: new Date().toISOString(), cuisine: formData.cuisine, diet: formData.diet, tdee, plan };
             setPlannerHistory(prev => [entry, ...prev].slice(0, 10));
+            // Grant XP for generating plan
+            gainXP(XP_VALUES.PLANNER, 'PLANNER');
         } catch (e: any) {
             setError(e.message);
         } finally {

@@ -151,6 +151,19 @@ export const XP_VALUES = {
     QUIZ: 100
 };
 
+// --- GAMIFICATION ANTI-CHEAT RULES ---
+export const GAMIFICATION_LIMITS: { [key: string]: { maxPerDay: number, cooldownMinutes: number } } = {
+    WATER: { maxPerDay: 8, cooldownMinutes: 15 }, // Max 8 times (glasses), wait 15 mins
+    FOOD: { maxPerDay: 5, cooldownMinutes: 60 }, // AI Food scan
+    CALORIE: { maxPerDay: 5, cooldownMinutes: 5 }, // Manual log
+    EXERCISE: { maxPerDay: 3, cooldownMinutes: 30 }, 
+    SLEEP: { maxPerDay: 1, cooldownMinutes: 0 }, 
+    MOOD: { maxPerDay: 2, cooldownMinutes: 60 }, 
+    WELLNESS: { maxPerDay: 1, cooldownMinutes: 0 }, // Daily Habit/Social
+    PLANNER: { maxPerDay: 1, cooldownMinutes: 0 },
+    QUIZ: { maxPerDay: 1, cooldownMinutes: 0 }
+};
+
 export const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500];
 
 export const ACHIEVEMENTS: Achievement[] = [
