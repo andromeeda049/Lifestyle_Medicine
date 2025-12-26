@@ -142,10 +142,17 @@ export const fetchAllAdminDataFromSheet = async (scriptUrl: string, adminKey: st
 
 export const saveDataToSheet = async (scriptUrl: string, type: string, payload: any, user: User): Promise<boolean> => {
     if (!scriptUrl || !user) return false;
+    
+    // STRICT SANITIZATION: Force role to be a string to prevent array injection from corrupted state
+    const sanitizedUser = {
+        ...user,
+        role: (typeof user.role === 'string') ? user.role : 'user', 
+    };
+
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'save', type, payload, user }),
+            body: JSON.stringify({ action: 'save', type, payload, user: sanitizedUser }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
@@ -247,7 +254,11 @@ export const verifyUser = async (scriptUrl: string, email: string, password?: st
             mode: 'cors',
         });
         const result = await response.json();
-        if (result.status === 'success' && result.data) return { success: true, user: result.data };
+        // Sanitize returned user
+        if (result.status === 'success' && result.data) {
+            const sanitizedUser = { ...result.data, role: (typeof result.data.role === 'string') ? result.data.role : 'user' };
+            return { success: true, user: sanitizedUser };
+        }
         return { success: false, message: result.message || 'Invalid credentials' };
     } catch (error: any) {
         return { success: false, message: error.message };
@@ -267,7 +278,11 @@ export const socialAuth = async (
             mode: 'cors',
         });
         const result = await response.json();
-        if (result.status === 'success' && result.data) return { success: true, user: result.data };
+        // Sanitize returned user
+        if (result.status === 'success' && result.data) {
+            const sanitizedUser = { ...result.data, role: (typeof result.data.role === 'string') ? result.data.role : 'user' };
+            return { success: true, user: sanitizedUser };
+        }
         return { success: false, message: result.message || 'Authentication failed' };
     } catch (error: any) {
         return { success: false, message: error.message };
