@@ -32,36 +32,24 @@ export interface AllAdminData {
     quizHistory: any[];
 }
 
-/**
- * ดึงข้อมูล Leaderboard (อันดับรวม และ อันดับมาแรง)
- * จะคืนค่าเป็น Object { leaderboard: Array, trending: Array } เสมอ
- */
-export const fetchLeaderboard = async (scriptUrl: string): Promise<{leaderboard: any[], trending: any[]}> => {
-    if (!scriptUrl) return { leaderboard: [], trending: [] };
-    
+export const fetchLeaderboard = async (scriptUrl: string): Promise<any[]> => {
+    if (!scriptUrl) return [];
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'getLeaderboard' }), 
+            body: JSON.stringify({ action: 'getLeaderboard' }), // เปลี่ยนมาใช้ action ที่เจาะจง
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
-        
         const result = await response.json();
-        
-        if (result.status === 'success' && result.data) {
-            // ตรวจสอบโครงสร้างข้อมูลที่ได้รับ
-            return {
-                leaderboard: Array.isArray(result.data.leaderboard) ? result.data.leaderboard : [],
-                trending: Array.isArray(result.data.trending) ? result.data.trending : []
-            };
+        if (result.status === 'success') {
+            // ข้อมูลที่ได้จะมาจากการ QUERY ในชีต ซึ่งสะอาดและเรียงลำดับมาแล้ว
+            return result.data;
         }
-        
-        console.error("Backend returned error or invalid status:", result);
-        return { leaderboard: [], trending: [] };
+        return [];
     } catch (error) {
-        console.error("Network error fetching leaderboard:", error);
-        return { leaderboard: [], trending: [] };
+        console.error("Leaderboard fetch failed:", error);
+        return [];
     }
 };
 
