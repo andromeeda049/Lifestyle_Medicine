@@ -1,8 +1,8 @@
 
 /**
- * Smart Lifestyle Wellness - Backend Script (v4.6 Leaderboard Fix)
- * - Uses v4.1 robust logic for Leaderboard fetching (Regex headers + Fallback)
- * - Auto-repairs View sheets if formula is missing
+ * Smart Lifestyle Wellness - Backend Script (v4.9 Robust Read)
+ * - Reads LeaderboardView/TrendingView
+ * - Cleans headers (removes MAX(), SUM(), labels) to ensure clean JSON keys
  */
 
 const SHEET_NAMES = {
@@ -95,75 +95,38 @@ function doPost(e) {
 function handleGetLeaderboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  const readSheet = (sheetName) => {
+  // Helper to read and clean sheet data
+  const readAndCleanSheet = (sheetName) => {
     const sheet = ss.getSheetByName(sheetName);
-    // If sheet doesn't exist or only has header row (or less), return empty
     if (!sheet || sheet.getLastRow() < 2) return [];
     
     const data = sheet.getDataRange().getValues();
-    const headers = data[0];
+    const headers = data[0].map(h => {
+        // Clean headers: MAX(totalXp) -> totalXp, SUM(weeklyXp) -> weeklyXp
+        let key = String(h).trim();
+        key = key.replace(/^(MAX|SUM|COUNT|AVG)\(/i, '').replace(/\)$/, '');
+        key = key.replace(/^(MAX|SUM|COUNT|AVG)\s+/i, '');
+        return key.trim();
+    });
+    
     return data.slice(1).map(row => {
       let obj = {};
       headers.forEach((h, i) => {
-        // Clean Query Headers (e.g. "max(xp)" -> "xp") from v4.1 logic
-        let key = h.toString().replace(/^(MAX|SUM|COUNT|AVG)\(/i, '').replace(/\)$/, '').trim(); 
-        key = key.replace(/^(MAX|SUM|COUNT|AVG)\s+/i, '').trim();
-        
-        // Mapping fix
-        if (key === 'totalXp') key = 'xp';
-        
-        obj[key] = row[i];
+        // Handle common variations
+        if (h === 'totalXp') obj['xp'] = Number(row[i] || 0); // Map totalXp -> xp
+        else if (h === 'xp') obj['xp'] = Number(row[i] || 0);
+        else obj[h] = row[i];
       });
       return obj;
     });
   };
 
-  // 1. Try reading from Views (Fastest)
-  const leaderboardData = readSheet(SHEET_NAMES.LEADERBOARD_VIEW);
-  
-  // If LeaderboardView returned valid rows, use it
-  if (leaderboardData.length > 0) {
-      return createSuccessResponse({
-          leaderboard: leaderboardData,
-          trending: readSheet(SHEET_NAMES.TRENDING_VIEW)
-      });
-  }
-
-  // 2. Fallback: Calculate from Profile in JS (Reliable if view fails)
-  const profileSheet = ss.getSheetByName(SHEET_NAMES.PROFILE);
-  if (!profileSheet || profileSheet.getLastRow() < 2) {
-      return createSuccessResponse({ leaderboard: [], trending: [] });
-  }
-
-  const data = profileSheet.getRange(2, 1, profileSheet.getLastRow() - 1, profileSheet.getLastColumn()).getValues();
-  const userMap = new Map();
-  
-  data.forEach(row => {
-      const username = row[1]; // Index 1 = username
-      const role = String(row[11] || '').toLowerCase(); // Index 11 = role
-      
-      if (username) {
-          // Latest entry overwrites previous due to map
-          userMap.set(username, {
-              username: username,
-              displayName: row[2],
-              profilePicture: row[3],
-              role: role,
-              xp: Number(row[12] || 0), // XP
-              level: Number(row[13] || 1), // Level
-              organization: row[23] || 'general' // Organization
-          });
-      }
-  });
-
-  const sortedUsers = Array.from(userMap.values())
-      .filter(u => u.role === 'user')
-      .sort((a, b) => b.xp - a.xp)
-      .slice(0, 50);
+  const leaderboardData = readAndCleanSheet(SHEET_NAMES.LEADERBOARD_VIEW);
+  const trendingData = readAndCleanSheet(SHEET_NAMES.TRENDING_VIEW);
 
   return createSuccessResponse({
-      leaderboard: sortedUsers,
-      trending: [] // Fallback returns empty trending to save calc time
+      leaderboard: leaderboardData,
+      trending: trendingData
   });
 }
 
@@ -172,7 +135,6 @@ function getXpForUser(username) {
     const sheet = ss.getSheetByName(SHEET_NAMES.PROFILE);
     if (!sheet || sheet.getLastRow() < 2) return 0;
     
-    // Scan from bottom up to get latest XP
     const data = sheet.getDataRange().getValues();
     for (let i = data.length - 1; i >= 1; i--) {
         if (data[i][1] === username) {
@@ -207,7 +169,7 @@ function handleSave(type, payload, user) {
     case SHEET_NAMES.PROFILE:
       const currentXP = getXpForUser(user.username);
       const newXP = Number(item.xp || 0);
-      const deltaXp = Math.max(0, newXP - currentXP); // Calculate weekly gain
+      const deltaXp = Math.max(0, newXP - currentXP); 
 
       const badgesJson = JSON.stringify(item.badges || []);
       
@@ -505,17 +467,14 @@ function setupSheets() {
   ensureSheet(SHEET_NAMES.EVALUATION, ["timestamp", "username", "displayName", "role", "satisfaction_json", "outcome_json"]);
   ensureSheet("QuizHistory", [...common, "score", "totalQuestions", "correctAnswers", "type"]);
 
-  // 3. View Sheets (QUERY Formulas) - Smart Setup
-  // Leaderboard: Select highest XP row per user, only role 'user'
-  const leaderboardQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), MAX(M), MAX(N), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' GROUP BY B ORDER BY MAX(M) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', MAX(M) 'xp', MAX(N) 'level', MAX(X) 'organization'", 1)`;
+  // 3. View Sheets - Create only if missing (Smart Setup)
+  const leaderboardQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), MAX(M), MAX(N), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' GROUP BY B ORDER BY MAX(M) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', MAX(M) 'totalXp', MAX(N) 'level', MAX(X) 'organization'", 1)`;
   let lbSheet = ensureSheet(SHEET_NAMES.LEADERBOARD_VIEW, []);
-  // Only update formula if the sheet is empty to prevent overwriting custom fixes (but fix if broken/empty)
   if(lbSheet.getRange("A1").getFormula() === "" && lbSheet.getLastRow() < 2) {
       lbSheet.clear();
       lbSheet.getRange("A1").setFormula(leaderboardQuery);
   }
 
-  // Trending: Calculate sum of weekly deltaXP
   const trendingQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), SUM(Y), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' AND Y > 0 GROUP BY B ORDER BY SUM(Y) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', SUM(Y) 'weeklyXp', MAX(X) 'organization'", 1)`;
   let trSheet = ensureSheet(SHEET_NAMES.TRENDING_VIEW, []);
   if(trSheet.getRange("A1").getFormula() === "" && trSheet.getLastRow() < 2) {
@@ -523,7 +482,7 @@ function setupSheets() {
       trSheet.getRange("A1").setFormula(trendingQuery);
   }
 
-  return "Setup Complete (v4.6) - Formulas Checked";
+  return "Setup Complete (v4.9)";
 }
 
 function createSuccessResponse(data) {

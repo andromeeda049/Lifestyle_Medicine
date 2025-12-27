@@ -17,10 +17,40 @@ interface LeaderboardUser {
 
 const Community: React.FC = () => {
     const { scriptUrl, currentUser } = useContext(AppContext);
-    const [leaderboard, setLeaderboard] = useState<any[]>([]);
-    const [trending, setTrending] = useState<any[]>([]);
+    const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
+    const [trending, setTrending] = useState<LeaderboardUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
+
+    // Robust Key Finder (Case-insensitive & Partial Match)
+    const getValueByKey = (obj: any, searchKeys: string[]) => {
+        if (!obj) return undefined;
+        const keys = Object.keys(obj);
+        for (const search of searchKeys) {
+            // 1. Exact Match
+            if (obj[search] !== undefined) return obj[search];
+            // 2. Case-insensitive Match
+            const keyLower = search.toLowerCase();
+            const foundKey = keys.find(k => k.toLowerCase() === keyLower);
+            if (foundKey) return obj[foundKey];
+            // 3. Partial Match (e.g. "max(xp)" matches "xp")
+            const foundPartial = keys.find(k => k.toLowerCase().includes(keyLower));
+            if (foundPartial) return obj[foundPartial];
+        }
+        return undefined;
+    };
+
+    const sanitizeUser = (raw: any): LeaderboardUser => {
+        return {
+            username: getValueByKey(raw, ['username', 'user', 'col2']) || "",
+            displayName: getValueByKey(raw, ['displayName', 'name', 'col3']) || "Unknown",
+            profilePicture: getValueByKey(raw, ['profilePicture', 'pic', 'col4']) || "👤",
+            xp: Number(getValueByKey(raw, ['xp', 'totalXp', 'score', 'col10']) || 0),
+            level: Number(getValueByKey(raw, ['level', 'lvl', 'col11']) || 1),
+            organization: String(getValueByKey(raw, ['organization', 'org', 'col13']) || "general"),
+            weeklyXp: Number(getValueByKey(raw, ['weeklyXp', 'weekly', 'col10']) || 0)
+        };
+    };
 
     useEffect(() => {
         const loadData = async () => {
@@ -29,12 +59,20 @@ const Community: React.FC = () => {
                 try {
                     const data = await fetchLeaderboard(scriptUrl);
                     if (data) {
-                        // Filter out admin users (username starts with 'admin_')
-                        const cleanLeaderboard = (data.leaderboard || []).filter((u: any) => 
-                            !String(u.username || u.Col2 || '').startsWith('admin_')
+                        // 1. Standardize Data First
+                        const stdLeaderboard = (data.leaderboard || []).map(sanitizeUser);
+                        const stdTrending = (data.trending || []).map(sanitizeUser);
+
+                        // 2. Filter (Remove Admin & Empty Usernames)
+                        const cleanLeaderboard = stdLeaderboard.filter(u => 
+                            u.username && 
+                            !u.username.toLowerCase().startsWith('admin_') &&
+                            u.username.toLowerCase() !== 'unknown'
                         );
-                        const cleanTrending = (data.trending || []).filter((u: any) => 
-                            !String(u.username || u.Col2 || '').startsWith('admin_')
+                        
+                        const cleanTrending = stdTrending.filter(u => 
+                            u.username && 
+                            !u.username.toLowerCase().startsWith('admin_')
                         );
                         
                         setLeaderboard(cleanLeaderboard);
@@ -49,32 +87,11 @@ const Community: React.FC = () => {
         loadData();
     }, [scriptUrl]);
 
-    // ฟังก์ชันช่วยดึงค่าจาก Object โดยไม่สนใจ Key ที่ Google Sheets อาจจะเติมคำนำหน้ามา
-    const getValueByKey = (obj: any, searchKey: string) => {
-        if (obj[searchKey] !== undefined) return obj[searchKey];
-        // ลองหาแบบมีคำนำหน้า เช่น "MAX displayName"
-        const foundKey = Object.keys(obj).find(k => k.toLowerCase().includes(searchKey.toLowerCase()));
-        return foundKey ? obj[foundKey] : undefined;
-    };
-
-    const sanitizeUser = (raw: any): LeaderboardUser => {
-        return {
-            username: raw.username || raw.Col2 || "",
-            displayName: getValueByKey(raw, 'displayName') || raw.username || "Unknown",
-            profilePicture: getValueByKey(raw, 'profilePicture') || "👤",
-            xp: Number(getValueByKey(raw, 'totalXp') || getValueByKey(raw, 'xp') || 0),
-            level: Number(getValueByKey(raw, 'level') || 1),
-            organization: String(getValueByKey(raw, 'organization') || "general"),
-            weeklyXp: Number(getValueByKey(raw, 'weeklyXp') || 0)
-        };
-    };
-
     const orgStats = useMemo(() => {
         const stats: { [key: string]: { name: string, totalXP: number, memberCount: number } } = {};
         ORGANIZATIONS.forEach(org => { stats[org.id] = { name: org.name, totalXP: 0, memberCount: 0 }; });
 
-        leaderboard.forEach(rawUser => {
-            const user = sanitizeUser(rawUser);
+        leaderboard.forEach(user => {
             const orgId = user.organization;
             if (!stats[orgId]) stats[orgId] = { name: 'อื่นๆ', totalXP: 0, memberCount: 0 };
             stats[orgId].totalXP += user.xp;
@@ -86,17 +103,16 @@ const Community: React.FC = () => {
             .sort((a, b) => b.totalXP - a.totalXP);
     }, [leaderboard]);
 
-    const RankItem: React.FC<{ rawUser: any; rank: number; isTrendingTab?: boolean }> = ({ rawUser, rank, isTrendingTab }) => {
-        const user = sanitizeUser(rawUser);
+    const RankItem: React.FC<{ user: LeaderboardUser; rank: number; isTrendingTab?: boolean }> = ({ user, rank, isTrendingTab }) => {
         const isMe = user.username === currentUser?.username;
         
         let rankDisplay;
         let bgClass = isMe ? "bg-teal-50 border-teal-500 dark:bg-teal-900/30" : "bg-white dark:bg-gray-700 border-transparent";
         
         const hasWeeklyActivity = useMemo(() => {
-            const trendInfo = trending.find(t => (t.username || t.Col2) === user.username);
-            const wXp = getValueByKey(trendInfo || {}, 'weeklyXp');
-            return Number(wXp || 0) > 0;
+            if (isTrendingTab) return true;
+            const trendInfo = trending.find(t => t.username === user.username);
+            return (trendInfo?.weeklyXp || 0) > 0;
         }, [user.username]);
 
         if (isTrendingTab) {
@@ -111,6 +127,9 @@ const Community: React.FC = () => {
             }
         }
 
+        const displayName = user.displayName || user.username || "User";
+        const displayOrg = ORGANIZATIONS.find(o => o.id === user.organization)?.name || 'บุคคลทั่วไป';
+
         return (
             <div className={`flex items-center p-3 rounded-xl border-l-4 shadow-sm mb-3 ${bgClass} animate-fade-in`}>
                 <div className="flex flex-col items-center justify-center w-8 mr-3">
@@ -123,19 +142,19 @@ const Community: React.FC = () => {
                 </div>
                 <div className="relative">
                     <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
-                        {user.profilePicture.length > 10 ? (
-                            <img src={user.profilePicture} alt={user.displayName} className="w-full h-full object-cover"/>
+                        {user.profilePicture && user.profilePicture.length > 10 ? (
+                            <img src={user.profilePicture} alt={displayName} className="w-full h-full object-cover"/>
                         ) : (
-                            <span className="text-2xl">{user.profilePicture}</span>
+                            <span className="text-2xl">{user.profilePicture || '👤'}</span>
                         )}
                     </div>
                 </div>
                 <div className="ml-3 flex-1 min-w-0">
                     <p className={`text-sm font-bold truncate ${isMe ? 'text-teal-700 dark:text-teal-300' : 'text-gray-800 dark:text-white'}`}>
-                        {user.displayName} {isMe && '(ฉัน)'}
+                        {displayName} {isMe && '(ฉัน)'}
                     </p>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                        {ORGANIZATIONS.find(o => o.id === user.organization)?.name || 'บุคคลทั่วไป'}
+                        {displayOrg}
                     </p>
                 </div>
                 <div className="text-right">
@@ -182,15 +201,18 @@ const Community: React.FC = () => {
                 <div className="animate-fade-in">
                     {activeTab === 'leaderboard' && (
                         leaderboard.length > 0 ? (
-                            leaderboard.map((user, index) => <RankItem key={index} rawUser={user} rank={index + 1} />)
+                            leaderboard.map((user, index) => <RankItem key={index} user={user} rank={index + 1} />)
                         ) : (
-                            <div className="text-center py-10 text-gray-400 italic">ยังไม่มีข้อมูลอันดับ</div>
+                            <div className="text-center py-10 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                                <p className="text-gray-400 italic">ยังไม่มีข้อมูลอันดับ</p>
+                                <p className="text-xs text-gray-400 mt-2">หากเพิ่งใช้งานครั้งแรก ข้อมูลอาจใช้เวลา 1-2 นาทีในการอัปเดต</p>
+                            </div>
                         )
                     )}
                     
                     {activeTab === 'trending' && (
                         trending.length > 0 ? (
-                            trending.map((user, index) => <RankItem key={index} rawUser={user} rank={index + 1} isTrendingTab={true} />)
+                            trending.map((user, index) => <RankItem key={index} user={user} rank={index + 1} isTrendingTab={true} />)
                         ) : (
                             <div className="text-center py-10 text-gray-400 italic">สัปดาห์นี้ยังไม่มีการบันทึกกิจกรรม</div>
                         )
