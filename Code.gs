@@ -100,7 +100,8 @@ function handleGetLeaderboard() {
     if (!sheet || sheet.getLastRow() < 2) return [];
     
     const data = sheet.getDataRange().getValues();
-    // Normalize headers: lowercase, trim, remove query artifacts like 'max(', ')'
+    // Normalize headers: lowercase, trim, remove query artifacts like 'max(', 'sum(', ')'
+    // This handles cases where Query LABEL might fail or not be present
     const headers = data[0].map(h => 
         String(h).toLowerCase()
         .replace(/^(max|sum|count|avg)\(/i, '')
@@ -111,7 +112,7 @@ function handleGetLeaderboard() {
     return data.slice(1).map(row => {
       let obj = {};
       headers.forEach((key, index) => {
-        // Handle specific renames if needed, otherwise use the normalized key
+        // Handle specific renames if needed to match frontend expectations better
         if (key === 'totalxp') key = 'xp'; 
         obj[key] = row[index];
       });

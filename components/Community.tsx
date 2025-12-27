@@ -22,7 +22,7 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
 
-    // Robust Helper to find a key in an object, supporting multiple potential names
+    // Robust Helper to find a key in an object, supporting multiple potential names and loose matching
     const findValue = (obj: any, searchKeys: string[]) => {
         if (!obj) return undefined;
         const objectKeys = Object.keys(obj);
@@ -43,11 +43,11 @@ const Community: React.FC = () => {
 
     const sanitizeUser = (raw: any): LeaderboardUser => {
         // Backend now returns lowercase keys (e.g. 'totalxp', 'username')
-        // We still keep robust fallback keys just in case.
+        // We use loose matching to be extra safe against Query formula variations
         return {
             username: findValue(raw, ['username', 'user', 'col2']) || "",
             displayName: findValue(raw, ['displayName', 'displayname', 'name', 'col3']) || "Unknown",
-            profilePicture: findValue(raw, ['profilePicture', 'profilepicture', 'pic', 'col4']) || "👤",
+            profilePicture: findValue(raw, ['profilePicture', 'profilepicture', 'pic', 'image', 'col4']) || "👤",
             
             // Search for XP: 'totalxp' (label), 'max(totalxp)', 'xp', 'score'
             xp: Number(findValue(raw, ['totalxp', 'totalXp', 'max(totalxp)', 'xp', 'score', 'col13']) || 0),
