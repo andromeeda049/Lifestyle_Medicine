@@ -23,7 +23,7 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
 
-    // Simplified user sanitization: backend now guarantees keys
+    // Standard sanitization for raw backend data
     const sanitizeUser = (raw: any): LeaderboardUser => {
         return {
             username: raw.username || "",
@@ -32,7 +32,7 @@ const Community: React.FC = () => {
             xp: Number(raw.xp || 0),
             level: Number(raw.level || 1),
             organization: raw.organization || "general",
-            weeklyXp: Number(raw.deltaXp || 0) // Backend returns 'deltaXp' for trending
+            weeklyXp: Number(raw.deltaXp || 0) // Backend sends 'deltaXp' as the metric for trending
         };
     };
 
@@ -46,7 +46,7 @@ const Community: React.FC = () => {
                         const stdLeaderboard = (data.leaderboard || []).map(sanitizeUser);
                         const stdTrending = (data.trending || []).map(sanitizeUser);
 
-                        // Filter valid users
+                        // Filter valid users only
                         const cleanLeaderboard = stdLeaderboard.filter(u => 
                             u.username && 
                             !u.username.toLowerCase().startsWith('admin_') && 

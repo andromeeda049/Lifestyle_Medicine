@@ -1,8 +1,8 @@
 
 /**
- * Smart Lifestyle Wellness - Backend Script (v6.0 Direct Index)
- * - Reads Profile sheet directly using column indexes
- * - Bypasses headers and QUERY formulas for stability
+ * Smart Lifestyle Wellness - Backend Script (v7.0 Direct Raw Data)
+ * - Reads Profile sheet directly using array indexes
+ * - No QUERY formulas, No Header matching
  */
 
 const SHEET_NAMES = {
@@ -20,9 +20,7 @@ const SHEET_NAMES = {
   MOOD: "MoodHistory",
   HABIT: "HabitHistory",
   SOCIAL: "SocialHistory",
-  EVALUATION: "EvaluationHistory",
-  LEADERBOARD_VIEW: "LeaderboardView", // Legacy
-  TRENDING_VIEW: "TrendingView" // Legacy
+  EVALUATION: "EvaluationHistory"
 };
 
 const ADMIN_KEY = "ADMIN1234!";
@@ -100,24 +98,36 @@ function handleGetLeaderboard() {
     return createSuccessResponse({ leaderboard: [], trending: [] });
   }
 
-  // Read all raw data
+  // Read all raw data directly
+  // We use getDataRange() which is much faster than Query for moderate datasets
   const data = sheet.getDataRange().getValues();
+  
+  // Use an Object/Map to store the LATEST user data (deduplication)
+  // Key = Username
   const userMap = {};
 
-  // Iterate from row 1 (skipping header row 0)
+  // Iterate from row 1 (skipping header at row 0)
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    // Map columns based on setupSheets structure:
-    // [0]timestamp, [1]username, [2]displayName, [3]profilePicture, ...
-    // [11]role, [12]xp, [13]level, ... [23]organization, [24]deltaXp
     
+    // --- DIRECT COLUMN MAPPING (Based on setupSheets structure) ---
+    // [1]  = username (Col B)
+    // [2]  = displayName (Col C)
+    // [3]  = profilePicture (Col D)
+    // [11] = role (Col L)
+    // [12] = xp (Col M)
+    // [13] = level (Col N)
+    // [23] = organization (Col X)
+    // [24] = deltaXp (Col Y)
+
     const username = row[1];
     const role = String(row[11] || '').toLowerCase();
 
+    // Valid user only
     if (username && role === 'user') {
-      // Direct overwrite ensures we get the latest entry for each user
+      // Direct assignment overwrites previous rows, keeping the LATEST entry automatically
       userMap[username] = {
-        username: username,
+        username: row[1],
         displayName: row[2],
         profilePicture: row[3],
         xp: Number(row[12] || 0),
@@ -495,7 +505,7 @@ function setupSheets() {
   ensureSheet("QuizHistory", [...common, "score", "totalQuestions", "correctAnswers", "type"]);
 
   // 3. Setup Complete
-  return "Setup Complete (v6.0 Direct Index)";
+  return "Setup Complete (v7.0 Raw Data)";
 }
 
 function createSuccessResponse(data) {
