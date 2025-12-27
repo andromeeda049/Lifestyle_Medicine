@@ -105,6 +105,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 
                 if (result.success && result.user) {
                     onLogin({ ...result.user, authProvider: 'line' });
+                    return; // Don't stop loading on success
                 } else {
                     setError(result.message || 'Login failed');
                 }
@@ -112,9 +113,8 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         } catch (err: any) {
             console.error("Line Profile Error:", err);
             setError('ไม่สามารถดึงข้อมูล LINE ได้');
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     const handleLineLogin = () => {
@@ -142,20 +142,20 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 name: decoded.name || 'Google User',
                 picture: decoded.picture || '',
                 provider: 'google',
-                userId: decoded.sub // Ensure unique ID is passed
+                userId: decoded.sub
             });
 
             if (result.success && result.user) {
                 onLogin({ ...result.user, authProvider: 'google' });
+                return; // Keep loading true while app mounts
             } else {
                 setError(result.message || 'Google Login Failed');
             }
         } catch (err: any) {
             console.error(err);
             setError('Google Login Error');
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     const handleTelegramLogin = async (user: any) => {
@@ -172,14 +172,14 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
             if (result.success && result.user) {
                 onLogin({ ...result.user, authProvider: 'telegram' });
+                return;
             } else {
                 setError(result.message || 'Telegram Login Failed');
             }
         } catch (err) {
             setError('Telegram Error');
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -192,33 +192,39 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         setError('');
         setLoading(true);
 
-        if (authMode === 'register') {
-            if (password !== confirmPassword) {
-                setError('รหัสผ่านไม่ตรงกัน');
-                setLoading(false);
-                return;
-            }
-            const newUser: User = {
-                username: `user_${Date.now()}`,
-                displayName: displayName.trim(),
-                profilePicture: getRandomEmoji(),
-                role: 'user',
-                email: email,
-                organization: selectedOrg
-            };
-            const result = await registerUser(scriptUrl, newUser, password);
-            if (result.success) {
-                onLogin(newUser);
+        try {
+            if (authMode === 'register') {
+                if (password !== confirmPassword) {
+                    setError('รหัสผ่านไม่ตรงกัน');
+                    setLoading(false);
+                    return;
+                }
+                const newUser: User = {
+                    username: `user_${Date.now()}`,
+                    displayName: displayName.trim(),
+                    profilePicture: getRandomEmoji(),
+                    role: 'user',
+                    email: email,
+                    organization: selectedOrg
+                };
+                const result = await registerUser(scriptUrl, newUser, password);
+                if (result.success) {
+                    onLogin(newUser);
+                    return;
+                } else {
+                    setError(result.message || 'Registration failed');
+                }
             } else {
-                setError(result.message || 'Registration failed');
+                const result = await verifyUser(scriptUrl, email, password);
+                if (result.success && result.user) {
+                    onLogin(result.user);
+                    return;
+                } else {
+                    setError(result.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+                }
             }
-        } else {
-            const result = await verifyUser(scriptUrl, email, password);
-            if (result.success && result.user) {
-                onLogin(result.user);
-            } else {
-                setError(result.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-            }
+        } catch (err) {
+            setError("Connection Error");
         }
         setLoading(false);
     };
@@ -228,6 +234,10 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             <div className="flex flex-col items-center justify-center p-8 space-y-4">
                 <div className="w-12 h-12 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
                 <p className="text-gray-600 dark:text-gray-300">กำลังเข้าสู่ระบบ...</p>
+                {/* Fallback to cancel loading if stuck */}
+                <button onClick={() => setLoading(false)} className="text-xs text-gray-400 hover:text-red-500 mt-4 underline">
+                    ยกเลิก / Cancel
+                </button>
             </div>
         );
     }
@@ -248,6 +258,12 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                     สมัครสมาชิก
                 </button>
             </div>
+
+            {error && (
+                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-3 rounded-lg text-center animate-pulse">
+                    <p className="text-red-600 dark:text-red-300 text-sm font-bold">{error}</p>
+                </div>
+            )}
 
             <div className="flex flex-col gap-3 justify-center items-center">
                  <div className="w-full flex justify-center">
@@ -316,8 +332,6 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                             </div>
                         </>
                     )}
-                    
-                    {error && <p className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</p>}
                     
                     <button type="submit" className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 transition-all">
                         {authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
