@@ -5,7 +5,7 @@ import { fetchLeaderboard } from '../services/googleSheetService';
 import { ExclamationTriangleIcon, ClipboardListIcon } from './icons';
 
 const Community: React.FC = () => {
-    const { scriptUrl } = useContext(AppContext);
+    const { scriptUrl, currentUser } = useContext(AppContext);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [debugData, setDebugData] = useState<any>(null);
@@ -18,7 +18,8 @@ const Community: React.FC = () => {
         try {
             if (!scriptUrl) throw new Error("ไม่พบ Google Script URL ในการตั้งค่า");
 
-            const data = await fetchLeaderboard(scriptUrl);
+            // Pass the currentUser (if logged in) or it will default to a guest object in the service
+            const data = await fetchLeaderboard(scriptUrl, currentUser || undefined);
             setDebugData(data);
         } catch (err: any) {
             setError(err.message || "Unknown Error");

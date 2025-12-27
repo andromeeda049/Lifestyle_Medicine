@@ -32,13 +32,21 @@ export interface AllAdminData {
     quizHistory: any[];
 }
 
-export const fetchLeaderboard = async (scriptUrl: string): Promise<{ leaderboard: any[], trending: any[] }> => {
+export const fetchLeaderboard = async (scriptUrl: string, user?: User): Promise<{ leaderboard: any[], trending: any[] }> => {
     if (!scriptUrl) throw new Error("Script URL is missing");
     
+    // Create a dummy user if not provided to pass backend validation
+    const payloadUser = user || { 
+        username: 'guest_monitor', 
+        displayName: 'System Monitor', 
+        profilePicture: '', 
+        role: 'guest' 
+    };
+
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'getLeaderboard' }),
+            body: JSON.stringify({ action: 'getLeaderboard', user: payloadUser }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
