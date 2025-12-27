@@ -468,8 +468,8 @@ const AppContent: React.FC = () => {
   };
 
   const BottomNavigation = () => {
-      // Show bottom nav for Admin too for testing convenience
-      if (!currentUser || currentUser.role === 'guest') return null;
+      // FIX: Enable navigation for Guest so they can access Menu and Logout
+      if (!currentUser) return null;
 
       return (
           <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around items-center h-16 px-2 z-40 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
@@ -558,6 +558,16 @@ const AppContent: React.FC = () => {
                 {/* Notification Bell */}
                 {currentUser?.role !== 'guest' && <NotificationBell />}
                 
+                {/* Guest Quick Exit */}
+                {currentUser?.role === 'guest' && (
+                    <button 
+                        onClick={logout}
+                        className="text-[10px] font-bold text-red-500 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-full border border-red-100 transition-colors"
+                    >
+                        ออก (Exit)
+                    </button>
+                )}
+
                 {/* Profile Icon (Right of Notification) */}
                 <button onClick={() => navigate('profile')} className="relative flex items-center justify-center">
                     {currentUser?.profilePicture && (currentUser.profilePicture.startsWith('data') || currentUser.profilePicture.startsWith('http')) ? (
