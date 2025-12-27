@@ -33,7 +33,8 @@ export interface AllAdminData {
 }
 
 export const fetchLeaderboard = async (scriptUrl: string): Promise<{ leaderboard: any[], trending: any[] }> => {
-    if (!scriptUrl) return { leaderboard: [], trending: [] };
+    if (!scriptUrl) throw new Error("Script URL is missing");
+    
     try {
         const response = await fetch(scriptUrl, {
             method: 'POST',
@@ -41,17 +42,28 @@ export const fetchLeaderboard = async (scriptUrl: string): Promise<{ leaderboard
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             mode: 'cors',
         });
-        const result = await response.json();
+        
+        const text = await response.text();
+        let result;
+        
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            throw new Error(`Invalid JSON response: ${text.substring(0, 100)}...`);
+        }
+
         if (result.status === 'success') {
             return {
                 leaderboard: Array.isArray(result.data.leaderboard) ? result.data.leaderboard : [],
                 trending: Array.isArray(result.data.trending) ? result.data.trending : []
             };
+        } else {
+            // Throw the specific error message from Google Script
+            throw new Error(result.message || "Unknown error from server");
         }
-        return { leaderboard: [], trending: [] };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Leaderboard fetch failed:", error);
-        return { leaderboard: [], trending: [] };
+        throw error; // Re-throw to be caught by the component
     }
 };
 
@@ -302,17 +314,14 @@ export const socialAuth = async (
             result = JSON.parse(text);
         } catch (e) {
             console.error("Invalid JSON from socialAuth:", text);
-            // This is likely a Google Script error page (HTML)
             if (text.includes("ScriptError")) return { success: false, message: 'Google Script Error (Check Backend)' };
             return { success: false, message: 'Server connection failed (Invalid JSON)' };
         }
 
-        // Sanitize returned user
         if (result.status === 'success' && result.data) {
             const sanitizedUser = { ...result.data, role: (typeof result.data.role === 'string') ? result.data.role : 'user' };
             return { success: true, user: sanitizedUser };
         }
-        // FIX: Read message OR data as fallback for error message
         return { success: false, message: result.message || result.data || 'Authentication failed' };
     } catch (error: any) {
         return { success: false, message: error.message };

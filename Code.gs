@@ -1,8 +1,7 @@
-
 /**
- * Smart Lifestyle Wellness - Backend Script (v7.0 Direct Raw Data)
- * - Reads Profile sheet directly using array indexes
- * - No QUERY formulas, No Header matching
+ * Smart Lifestyle Wellness - Backend Script (v10.3 Final Names)
+ * - Confirmed Sheet Names: 'LeaderboardView' & 'TrendingView'
+ * - Reads data directly from these views
  */
 
 const SHEET_NAMES = {
@@ -20,7 +19,9 @@ const SHEET_NAMES = {
   MOOD: "MoodHistory",
   HABIT: "HabitHistory",
   SOCIAL: "SocialHistory",
-  EVALUATION: "EvaluationHistory"
+  EVALUATION: "EvaluationHistory",
+  LEADERBOARD_VIEW: "LeaderboardView",
+  TRENDING_VIEW: "TrendingView"
 };
 
 const ADMIN_KEY = "ADMIN1234!";
@@ -64,19 +65,16 @@ function doPost(e) {
     const request = JSON.parse(e.postData.contents);
     const { action, type, payload, user, password } = request;
     
-    // Auth Actions
     if (action === 'verifyUser') return handleVerifyUser(request.email, password);
     if (action === 'register') return handleRegisterUser(user, password);
     if (action === 'socialAuth') return handleSocialAuth(payload);
 
     if (!user || !user.username) throw new Error("User information is missing.");
     
-    // Notification Actions
     if (action === 'notifyComplete') return handleNotifyComplete(user);
     if (action === 'testNotification') return handleTestNotification(user);
     if (action === 'testTelegramNotification') return createSuccessResponse({ message: "Telegram Test OK" });
 
-    // Data Actions
     switch (action) {
       case 'save': return handleSave(type, payload, user);
       case 'clear': return handleClear(type, user);
@@ -92,83 +90,38 @@ function doPost(e) {
 
 function handleGetLeaderboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_NAMES.PROFILE);
   
-  if (!sheet || sheet.getLastRow() < 2) {
-    return createSuccessResponse({ leaderboard: [], trending: [] });
-  }
-
-  // Read all raw data directly
-  // We use getDataRange() which is much faster than Query for moderate datasets
-  const data = sheet.getDataRange().getValues();
-  
-  // Use an Object/Map to store the LATEST user data (deduplication)
-  // Key = Username
-  const userMap = {};
-
-  // Iterate from row 1 (skipping header at row 0)
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    
-    // --- DIRECT COLUMN MAPPING (Based on setupSheets structure) ---
-    // [1]  = username (Col B)
-    // [2]  = displayName (Col C)
-    // [3]  = profilePicture (Col D)
-    // [11] = role (Col L)
-    // [12] = xp (Col M)
-    // [13] = level (Col N)
-    // [23] = organization (Col X)
-    // [24] = deltaXp (Col Y)
-
-    const username = row[1];
-    const role = String(row[11] || '').toLowerCase();
-
-    // Valid user only
-    if (username && role === 'user') {
-      // Direct assignment overwrites previous rows, keeping the LATEST entry automatically
-      userMap[username] = {
-        username: row[1],
-        displayName: row[2],
-        profilePicture: row[3],
-        xp: Number(row[12] || 0),
-        level: Number(row[13] || 1),
-        organization: row[23] || 'general',
-        deltaXp: Number(row[24] || 0)
-      };
-    }
-  }
-
-  const users = Object.values(userMap);
-
-  // 1. Leaderboard: Sort by XP Descending
-  const leaderboard = [...users]
-    .sort((a, b) => b.xp - a.xp)
-    .slice(0, 100);
-
-  // 2. Trending: Sort by deltaXp Descending (Weekly XP)
-  const trending = [...users]
-    .filter(u => u.deltaXp > 0)
-    .sort((a, b) => b.deltaXp - a.deltaXp)
-    .slice(0, 50);
-
-  return createSuccessResponse({
-    leaderboard: leaderboard,
-    trending: trending
-  });
-}
-
-function getXpForUser(username) {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_NAMES.PROFILE);
-    if (!sheet || sheet.getLastRow() < 2) return 0;
+  const readSheet = (sheetName) => {
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet || sheet.getLastRow() < 2) return [];
     
     const data = sheet.getDataRange().getValues();
-    for (let i = data.length - 1; i >= 1; i--) {
-        if (data[i][1] === username) {
-            return Number(data[i][12] || 0); 
-        }
-    }
-    return 0;
+    const headers = data[0];
+    
+    return data.slice(1).map(row => {
+      let obj = {};
+      headers.forEach((h, i) => {
+        // Clean any potential formula artifacts from header strings (e.g. from QUERY output)
+        let key = h.toString()
+          .replace(/^(MAX|SUM|COUNT|AVG|MIN)\(/i, '')
+          .replace(/\)$/, '')
+          .replace(/^(MAX|SUM|COUNT|AVG|MIN)\s+/i, '')
+          .trim();
+        
+        // Map 'totalXp' (common in QUERY) to 'xp' (expected by App)
+        if (key === 'totalXp') key = 'xp';
+        
+        obj[key] = row[i];
+      });
+      return obj;
+    });
+  };
+
+  // Read strictly from confirmed sheet names
+  return createSuccessResponse({
+      leaderboard: readSheet(SHEET_NAMES.LEADERBOARD_VIEW),
+      trending: readSheet(SHEET_NAMES.TRENDING_VIEW)
+  });
 }
 
 function handleSave(type, payload, user) {
@@ -194,18 +147,12 @@ function handleSave(type, payload, user) {
 
   switch (sheetName) {
     case SHEET_NAMES.PROFILE:
-      const currentXP = getXpForUser(user.username);
-      const newXP = Number(item.xp || 0);
-      const deltaXp = Math.max(0, newXP - currentXP); 
-
       const badgesJson = JSON.stringify(item.badges || []);
-      const updatedOrg = item.organization || user.organization || 'general';
-
       newRow = [ 
           timestamp, user.username, item.displayName || user.displayName, item.profilePicture || user.profilePicture,
           item.gender, item.age, item.weight, item.height, item.waist, item.hip, item.activityLevel, 
           user.role, 
-          newXP, item.level || 1, badgesJson,
+          item.xp || 0, item.level || 1, badgesJson,
           item.email || user.email || '', '', 
           item.healthCondition || '',
           item.lineUserId || '',
@@ -213,19 +160,10 @@ function handleSave(type, payload, user) {
           item.researchId || '', 
           item.pdpaAccepted,     
           item.pdpaAcceptedDate,  
-          updatedOrg, // Save organization
-          deltaXp 
+          item.organization || 'general',
+          0 // deltaXp placeholder
       ];
-
-      const userWithNewOrg = { 
-          ...user, 
-          displayName: item.displayName || user.displayName,
-          profilePicture: item.profilePicture || user.profilePicture,
-          organization: updatedOrg 
-      };
-      logLogin(userWithNewOrg);
       break;
-
     case SHEET_NAMES.LOGIN_LOGS:
         newRow = [timestamp, user.username, user.displayName, user.role, user.organization || 'general'];
         break;
@@ -309,7 +247,7 @@ function handleSocialAuth(userInfo) {
             profilePicture: userInfo.picture,
             role: 'user',
             email: userInfo.email,
-            organization: 'general', 
+            organization: 'general',
             authProvider: userInfo.provider,
             userId: userInfo.userId
         };
@@ -352,14 +290,14 @@ function handleRegisterUser(user, password) {
         if (data[i][0] === user.email) return createErrorResponse({ message: "Email already exists" });
     }
     
-    const safeUser = { ...user, role: user.role || 'user', organization: 'general' }; 
+    const safeUser = { ...user, role: user.role || 'user' };
     sheet.appendRow([user.email, password, user.username, JSON.stringify(safeUser), new Date()]);
     
     const profileSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
     if (profileSheet) {
          profileSheet.appendRow([
             new Date(), user.username, user.displayName, user.profilePicture,
-            '', '', '', '', '', '', '', safeUser.role, 0, 1, '["novice"]', user.email, password, '', '', true, '', '', '', 'general', 0
+            '', '', '', '', '', '', '', safeUser.role, 0, 1, '["novice"]', user.email, password, '', '', true, '', '', '', user.organization || 'general', 0
          ]);
     }
 
@@ -394,7 +332,7 @@ function getLatestProfileForUser(username) {
       researchId: lastEntry[20], 
       pdpaAccepted: lastEntry[21],
       pdpaAcceptedDate: lastEntry[22],
-      organization: lastEntry[23] || 'general' 
+      organization: lastEntry[23] || 'general'
   };
 }
 
@@ -504,8 +442,11 @@ function setupSheets() {
   ensureSheet(SHEET_NAMES.EVALUATION, ["timestamp", "username", "displayName", "role", "satisfaction_json", "outcome_json"]);
   ensureSheet("QuizHistory", [...common, "score", "totalQuestions", "correctAnswers", "type"]);
 
-  // 3. Setup Complete
-  return "Setup Complete (v7.0 Raw Data)";
+  // 3. Ensure View Sheets exist (Manually managed by user)
+  ensureSheet(SHEET_NAMES.LEADERBOARD_VIEW, []);
+  ensureSheet(SHEET_NAMES.TRENDING_VIEW, []);
+  
+  return "Setup Complete (v10.3 Final)";
 }
 
 function createSuccessResponse(data) {
