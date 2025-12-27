@@ -254,7 +254,7 @@ const Auth: React.FC = () => {
                 
                 <div className="mt-8 text-center pt-6 relative z-10 border-t border-gray-100 dark:border-gray-700/50">
                     <p className="text-[10px] text-gray-400">
-                        © 2024 Digital Health Satun<br/>
+                        © 2025 Digital Health Satun<br/>
                         สำนักงานสาธารณสุขจังหวัดสตูล
                     </p>
                 </div>

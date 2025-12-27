@@ -592,8 +592,8 @@ const AppContent: React.FC = () => {
           <main className="p-4 max-w-3xl mx-auto w-full pb-24">
             {renderContent()}
             <footer className="text-center mt-12 text-gray-500 dark:text-gray-400 text-sm mb-8 md:mb-0">
-              <p>พัฒนาโดย นายธงชัย ทำเผือก</p>
-              <p>กลุ่มงานสุขภาพดิจิทัล สำนักงานสาธารณสุขจังหวัดสตูล</p>
+              <p>© 2025 Digital Health Satun</p>
+              <p>สำนักงานสาธารณสุขจังหวัดสตูล</p>
             </footer>
           </main>
 

@@ -122,6 +122,15 @@ const AboutApp: React.FC = () => {
                             เพื่อยืนยัน Impact จริงต่อสุขภาพของประชาชน
                         </p>
                     </div>
+
+                    {/* Developer Credit - NEW SECTION */}
+                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
+                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">คณะผู้จัดทำ / ผู้พัฒนา</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            พัฒนาโดย นายธงชัย ทำเผือก<br/>
+                            กลุ่มงานสุขภาพดิจิทัล สำนักงานสาธารณสุขจังหวัดสตูล
+                        </p>
+                    </div>
                 </div>
             )}
 
