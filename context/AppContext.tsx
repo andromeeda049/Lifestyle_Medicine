@@ -94,8 +94,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } else {
         setActiveView('home');
     }
-
-    if (scriptUrl) saveDataToSheet(scriptUrl, 'loginLog', user, user);
+    // Removed frontend logging to 'loginLog' to prevent sheet conflict/confusion with backend logging.
   };
 
   const logout = () => { setCurrentUser(null); setActiveView('home'); };

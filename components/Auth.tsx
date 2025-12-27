@@ -30,16 +30,14 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     useEffect(() => {
         const initLine = async () => {
             try {
-                // Check if LIFF is already initialized to avoid double init error
                 if (!liff.id) {
                     await liff.init({ liffId: LINE_LIFF_ID });
                 }
                 setIsLineReady(true);
 
-                // Auto Login Logic
                 if (liff.isLoggedIn()) {
                     setLoading(true);
-                    setStatusText('กำลังเชื่อมต่อฐานข้อมูล...');
+                    setStatusText('กำลังยืนยันตัวตน...');
                     
                     const profile = await liff.getProfile();
                     const userEmail = liff.getDecodedIDToken()?.email || `${profile.userId}@line.me`;
@@ -57,8 +55,8 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                             if (res.success && res.user) {
                                 onLogin({ ...res.user, authProvider: 'line' });
                             } else {
-                                // Show SPECIFIC Backend Error
-                                setError(`เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ${res.message}`);
+                                // Detailed Error for Debugging
+                                setError(`Login Error: ${res.message} (โปรดตรวจสอบชื่อชีต LoginLogs ใน Backend)`);
                                 setLoading(false);
                             }
                         } catch (fetchErr: any) {
@@ -88,7 +86,6 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         if (!liff.isLoggedIn()) {
             liff.login();
         } else {
-            // Already logged in but maybe stuck? Retry init logic manually
             window.location.reload();
         }
     };
@@ -100,13 +97,11 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         setLoading(true);
         setStatusText('กำลังตรวจสอบสิทธิ์...');
 
-        // Simulate slight delay for UX
         setTimeout(() => {
             const targetOrgId = ADMIN_CREDENTIALS[password];
 
             if (targetOrgId) {
                 const orgName = ORGANIZATIONS.find(o => o.id === targetOrgId)?.name || 'Admin';
-                
                 const adminUser: User = {
                     username: `admin_${targetOrgId}`,
                     displayName: `Admin: ${orgName}`,
@@ -115,7 +110,6 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                     organization: targetOrgId,
                     authProvider: 'email'
                 };
-                
                 onLogin(adminUser);
             } else {
                 setError('รหัสผ่านไม่ถูกต้อง (Access Denied)');
@@ -147,7 +141,6 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
     return (
         <div className="animate-fade-in relative w-full">
-            {/* Error Banner */}
             {(error || lineError) && (
                 <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs text-left border border-red-200 flex flex-col gap-1 mb-4 animate-bounce-in shadow-sm">
                     <div className="flex items-center gap-2 font-bold text-sm">
@@ -155,15 +148,10 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         เกิดข้อผิดพลาด
                     </div>
                     <p>{error || lineError}</p>
-                    {error.includes("Script") && (
-                        <p className="mt-1 text-red-400 italic">
-                            *คำแนะนำ: กรุณาตรวจสอบว่า Google Apps Script ได้ Deploy เป็น "New Version" แล้วหรือยัง
-                        </p>
-                    )}
+                    {error.includes("Script") && <p className="mt-1 font-bold">แนะนำ: กด Deploy New Version ใน Google Apps Script</p>}
                 </div>
             )}
 
-            {/* --- MAIN VIEW: User Focus --- */}
             {view === 'main' && (
                 <div className="space-y-4">
                     <button
@@ -199,7 +187,6 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 </div>
             )}
 
-            {/* --- ADMIN VIEW: Password Only --- */}
             {view === 'admin' && (
                 <div className="animate-slide-up">
                     <button 
@@ -250,7 +237,6 @@ const Auth: React.FC = () => {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 font-sans">
             <div className="max-w-sm w-full bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] shadow-2xl border border-white/50 dark:border-gray-700 relative overflow-hidden">
-                {/* Decorative Background Blobs */}
                 <div className="absolute top-0 left-0 w-40 h-40 bg-teal-500 opacity-10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
                 <div className="absolute bottom-0 right-0 w-40 h-40 bg-purple-500 opacity-10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
 
