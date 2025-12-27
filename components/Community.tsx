@@ -27,9 +27,6 @@ const Community: React.FC = () => {
         if (!obj) return undefined;
         const objectKeys = Object.keys(obj);
         
-        // Debug: Log keys to help user verify what's actually coming from sheet
-        // console.log("Row Keys:", objectKeys); 
-
         for (const search of searchKeys) {
             const lowerSearch = search.toLowerCase();
             
@@ -45,23 +42,20 @@ const Community: React.FC = () => {
     };
 
     const sanitizeUser = (raw: any): LeaderboardUser => {
-        // Expanded search keys to cover:
-        // 1. Expected Labels (totalXp, weeklyXp)
-        // 2. Raw Query Headers (max(totalXp), sum(weeklyXp))
-        // 3. Fallbacks (xp, score)
-        
+        // Backend now returns lowercase keys (e.g. 'totalxp', 'username')
+        // We still keep robust fallback keys just in case.
         return {
             username: findValue(raw, ['username', 'user', 'col2']) || "",
             displayName: findValue(raw, ['displayName', 'displayname', 'name', 'col3']) || "Unknown",
             profilePicture: findValue(raw, ['profilePicture', 'profilepicture', 'pic', 'col4']) || "👤",
             
-            // Search for XP: 'totalxp' (label), 'max(xp)', 'max(totalxp)', 'xp'
-            xp: Number(findValue(raw, ['totalxp', 'totalXp', 'max(totalxp)', 'max(xp)', 'xp', 'score', 'col13']) || 0),
+            // Search for XP: 'totalxp' (label), 'max(totalxp)', 'xp', 'score'
+            xp: Number(findValue(raw, ['totalxp', 'totalXp', 'max(totalxp)', 'xp', 'score', 'col13']) || 0),
             
             level: Number(findValue(raw, ['level', 'lvl', 'max(level)', 'col14']) || 1),
             organization: String(findValue(raw, ['organization', 'org', 'max(organization)', 'col24']) || "general"),
             
-            // Search for Weekly: 'weeklyxp', 'sum(weeklyxp)', 'sum(xp)', 'weekly'
+            // Search for Weekly: 'weeklyxp', 'sum(weeklyxp)', 'weekly'
             weeklyXp: Number(findValue(raw, ['weeklyxp', 'weeklyXp', 'sum(weeklyxp)', 'sum(xp)', 'weekly', 'col25']) || 0)
         };
     };
@@ -73,8 +67,6 @@ const Community: React.FC = () => {
                 try {
                     const data = await fetchLeaderboard(scriptUrl);
                     if (data) {
-                        console.log("Leaderboard Data Received:", data); // Keep for debugging
-
                         const stdLeaderboard = (data.leaderboard || []).map(sanitizeUser);
                         const stdTrending = (data.trending || []).map(sanitizeUser);
 
@@ -126,7 +118,6 @@ const Community: React.FC = () => {
         
         const hasWeeklyActivity = useMemo(() => {
             if (isTrendingTab) return true;
-            // Check if user exists in trending list with score > 0
             return trending.some(t => t.username === user.username && (t.weeklyXp || 0) > 0);
         }, [user.username]);
 

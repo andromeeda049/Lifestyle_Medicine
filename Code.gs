@@ -1,10 +1,8 @@
 
 /**
- * Smart Lifestyle Wellness - Backend Script (v5.3 Org Update Fix)
- * - Auto-generates QUERY formulas for LeaderboardView
- * - Fixes empty sheet crashes
- * - Strict Organization & Role handling
- * - Updates LoginLogs immediately upon Profile save
+ * Smart Lifestyle Wellness - Backend Script (v5.6 Robust Header Normalization)
+ * - Forces all headers to lowercase to prevent matching errors
+ * - Directly reads from View Sheets
  */
 
 const SHEET_NAMES = {
@@ -96,34 +94,43 @@ function doPost(e) {
 
 function handleGetLeaderboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const result = { leaderboard: [], trending: [] };
-
-  const readSheet = (sheetName) => {
+  
+  const readViewSheet = (sheetName) => {
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet || sheet.getLastRow() < 2) return [];
     
     const data = sheet.getDataRange().getValues();
-    // Normalize headers: Lowercase ONLY. Do NOT replace special chars like '(', ')' to ensure frontend can match them if needed.
-    const headers = data[0].map(h => String(h).trim().toLowerCase());
+    // Normalize headers: lowercase, trim, remove query artifacts like 'max(', ')'
+    const headers = data[0].map(h => 
+        String(h).toLowerCase()
+        .replace(/^(max|sum|count|avg)\(/i, '')
+        .replace(/\)$/, '')
+        .trim()
+    ); 
     
     return data.slice(1).map(row => {
       let obj = {};
-      headers.forEach((h, i) => {
-        // Prevent undefined/null keys
-        if(h) obj[h] = row[i];
+      headers.forEach((key, index) => {
+        // Handle specific renames if needed, otherwise use the normalized key
+        if (key === 'totalxp') key = 'xp'; 
+        obj[key] = row[index];
       });
       return obj;
     });
   };
 
   try {
-    result.leaderboard = readSheet(SHEET_NAMES.LEADERBOARD_VIEW);
-    result.trending = readSheet(SHEET_NAMES.TRENDING_VIEW);
-  } catch (e) {
-    // Return empty arrays on error
-  }
+      const leaderboardData = readViewSheet(SHEET_NAMES.LEADERBOARD_VIEW);
+      const trendingData = readViewSheet(SHEET_NAMES.TRENDING_VIEW);
 
-  return createSuccessResponse(result);
+      return createSuccessResponse({
+          leaderboard: leaderboardData,
+          trending: trendingData
+      });
+  } catch (e) {
+      Logger.log("Error reading leaderboard views: " + e.toString());
+      return createSuccessResponse({ leaderboard: [], trending: [] });
+  }
 }
 
 function getXpForUser(username) {
@@ -186,8 +193,6 @@ function handleSave(type, payload, user) {
           deltaXp 
       ];
 
-      // *** CRITICAL FIX: Also update LoginLogs to reflect new Organization immediately ***
-      // We create a temporary user object with the NEW organization to log properly
       const userWithNewOrg = { 
           ...user, 
           displayName: item.displayName || user.displayName,
@@ -280,7 +285,7 @@ function handleSocialAuth(userInfo) {
             profilePicture: userInfo.picture,
             role: 'user',
             email: userInfo.email,
-            organization: '', // Empty to force selection
+            organization: '', 
             authProvider: userInfo.provider,
             userId: userInfo.userId
         };
@@ -323,7 +328,7 @@ function handleRegisterUser(user, password) {
         if (data[i][0] === user.email) return createErrorResponse({ message: "Email already exists" });
     }
     
-    const safeUser = { ...user, role: user.role || 'user', organization: '' }; // Force empty organization
+    const safeUser = { ...user, role: user.role || 'user', organization: '' }; 
     sheet.appendRow([user.email, password, user.username, JSON.stringify(safeUser), new Date()]);
     
     const profileSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
@@ -365,7 +370,7 @@ function getLatestProfileForUser(username) {
       researchId: lastEntry[20], 
       pdpaAccepted: lastEntry[21],
       pdpaAcceptedDate: lastEntry[22],
-      organization: lastEntry[23] || '' // Return empty if not present to trigger modal
+      organization: lastEntry[23] || '' 
   };
 }
 
@@ -478,7 +483,7 @@ function setupSheets() {
   // 3. View Sheets - Create only if missing (Smart Setup)
   
   // Note: Col 13 (M) is XP, Col 25 (Y) is DeltaXP
-  const leaderboardQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), MAX(M), MAX(N), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' GROUP BY B ORDER BY MAX(M) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', MAX(M) 'totalXp', MAX(N) 'level', MAX(X) 'organization'", 1)`;
+  const leaderboardQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), MAX(M), MAX(N), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' GROUP BY B ORDER BY MAX(M) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', MAX(M) 'xp', MAX(N) 'level', MAX(X) 'organization'", 1)`;
   
   let lbSheet = ensureSheet(SHEET_NAMES.LEADERBOARD_VIEW, []);
   if(lbSheet.getRange("A1").getFormula() === "" || lbSheet.getLastRow() < 2) {
