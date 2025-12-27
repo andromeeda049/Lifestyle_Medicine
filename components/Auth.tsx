@@ -1,8 +1,8 @@
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
-import { LineIcon } from './icons';
+import { LineIcon, SparklesIcon } from './icons';
 import { registerUser, verifyUser, socialAuth } from '../services/googleSheetService';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
@@ -10,57 +10,22 @@ import liff from '@line/liff';
 import { ORGANIZATIONS, TELEGRAM_BOT_USERNAME, APP_LOGO_URL } from '../constants';
 import TelegramLoginButton from './TelegramLoginButton';
 
-// LINE LIFF ID (ค่าเดิมของคุณ)
+// LINE LIFF ID
 const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
 
-// --- GUEST LOGIN COMPONENT ---
-const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
-    const [displayName, setDisplayName] = useState('');
-    const [error, setError] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (displayName.trim().length < 2) {
-            setError('ชื่อต้องมีความยาวอย่างน้อย 2 ตัวอักษร');
-            return;
-        }
-        onLogin({
-            username: `guest_${Date.now()}`,
-            displayName: displayName.trim(),
-            profilePicture: '👤',
-            role: 'guest',
-            organization: 'general'
-        });
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
-             <div className="w-28 h-28 mx-auto rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 border-4 border-gray-200 dark:border-gray-700 shadow-md">
-                <span className="text-6xl">👤</span>
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">กรอกชื่อเพื่อทดลองใช้งาน</label>
-                <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="เช่น ผู้เยี่ยมชม"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-gray-500"
-                    required
-                />
-            </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button type="submit" className="w-full bg-gray-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-600 transition-all">
-                เข้าสู่ระบบในฐานะ Guest
-            </button>
-        </form>
-    );
+// --- DEMO USER FOR PRESENTATION ---
+const DEMO_USER: User = {
+    username: 'demo_user_01',
+    displayName: 'ผู้ใช้งานสาธิต (Demo)',
+    profilePicture: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png',
+    role: 'user', // Role user เพื่อให้ใช้ได้ทุกฟีเจอร์
+    organization: 'pho_satun', // ตั้งค่าเริ่มต้นให้ดูสมจริง
+    email: 'demo@smartwellness.com'
 };
 
-// --- USER AUTH COMPONENT (MAIN LOGIC) ---
 const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const { scriptUrl } = useContext(AppContext);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -76,26 +41,38 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     // UI States
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [statusMessage, setStatusMessage] = useState('');
+    const [statusMessage, setStatusMessage] = useState(''); // แสดงสถานะให้เห็นชัดๆ
+    const [lineInitialized, setLineInitialized] = useState(false);
+    
+    // Prevent double execution in React Strict Mode
+    const initializingRef = useRef(false);
 
-    // --- 1. LINE LOGIN LOGIC (Start Here) ---
+    // --- 1. ROBUST LINE LOGIN LOGIC ---
     useEffect(() => {
+        if (initializingRef.current) return;
+        initializingRef.current = true;
+
         const initLiff = async () => {
+            console.log("LIFF: Starting Initialization...");
             try {
-                // Initialize LIFF
                 await liff.init({ liffId: LINE_LIFF_ID });
+                console.log("LIFF: Initialized");
+                setLineInitialized(true);
                 
-                // Check if user is already logged in (Auto-login)
+                // Auto Login Check
                 if (liff.isLoggedIn()) {
+                    console.log("LIFF: User is logged in");
                     setLoading(true);
-                    setStatusMessage('กำลังยืนยันตัวตนผ่าน LINE...');
+                    setStatusMessage('เชื่อมต่อ LINE สำเร็จ! กำลังดึงข้อมูล...');
                     
                     const profile = await liff.getProfile();
+                    console.log("LIFF: Profile fetched", profile);
+                    
                     const idToken = liff.getDecodedIDToken();
-                    const userEmail = idToken?.email || `${profile.userId}@line.me`; // Fallback email
+                    const userEmail = idToken?.email || `${profile.userId}@line.me`;
 
                     if (scriptUrl) {
-                        // Call Backend
+                        setStatusMessage('กำลังเข้าสู่ระบบฐานข้อมูล...');
                         const result = await socialAuth(scriptUrl, {
                             email: userEmail,
                             name: profile.displayName,
@@ -105,44 +82,53 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         });
 
                         if (result.success && result.user) {
-                            // SUCCESS: Pass user to App and DO NOT stop loading (let App unmount this component)
                             onLogin({ ...result.user, authProvider: 'line' });
                         } else {
-                            // FAILED
                             setLoading(false);
-                            setError(result.message || 'การเชื่อมต่อฐานข้อมูลล้มเหลว');
+                            setError(result.message || 'Login Failed at Database');
                         }
                     } else {
                         setLoading(false);
-                        setError('ไม่พบ URL การเชื่อมต่อระบบ (Script URL)');
+                        setError('System Error: No Script URL');
                     }
+                } else {
+                    console.log("LIFF: User NOT logged in");
                 }
             } catch (err: any) {
-                console.error("LIFF Init Error", err);
-                // Don't show error immediately to avoid scaring user if they just haven't logged in yet
+                console.error("LIFF Init Error:", err);
+                // ไม่แสดง Error ใหญ่โต เพื่อให้ผู้ใช้เลือกวิธีอื่นได้
+                setError(`LINE Init Warning: ${err.message}`); 
                 setLoading(false);
             }
         };
 
-        // Run once on mount
         initLiff();
     }, [scriptUrl, onLogin]);
 
     const handleLineLoginClick = () => {
         setError('');
-        if (!liff.isInClient() && !liff.isLoggedIn()) {
-            // This redirects the user to LINE.
-            // When they return, the page reloads, and the useEffect above handles the rest.
+        if (!lineInitialized) {
+            setError("ระบบ LINE ยังโหลดไม่เสร็จ กรุณารอสักครู่");
+            return;
+        }
+        if (!liff.isLoggedIn()) {
+            setStatusMessage('กำลังเปลี่ยนหน้าไปที่ LINE...');
+            // Redirect to LINE Login
             liff.login(); 
         }
     };
-    // ----------------------------------------
+
+    // --- EMERGENCY DEMO LOGIN ---
+    const handleDemoLogin = () => {
+        setLoading(true);
+        setStatusMessage('กำลังเข้าสู่โหมดนำเสนอ...');
+        setTimeout(() => {
+            onLogin(DEMO_USER);
+        }, 1500);
+    };
 
     const handleGoogleSuccess = async (credentialResponse: any) => {
-        if (!scriptUrl) {
-            setError('System Error: No Script URL');
-            return;
-        }
+        if (!scriptUrl) return;
         setLoading(true);
         setStatusMessage('กำลังยืนยันตัวตนผ่าน Google...');
         try {
@@ -159,46 +145,17 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 onLogin({ ...result.user, authProvider: 'google' });
             } else {
                 setLoading(false);
-                setError(result.message || 'Google Login Failed');
+                setError('Google Login Failed');
             }
-        } catch (err: any) {
-            console.error(err);
+        } catch (err) {
             setLoading(false);
             setError('Google Login Error');
         }
     };
 
-    const handleTelegramLogin = async (user: any) => {
-        if (!scriptUrl) return;
-        setLoading(true);
-        setStatusMessage('กำลังยืนยันตัวตนผ่าน Telegram...');
-        try {
-            const result = await socialAuth(scriptUrl, {
-                email: `${user.id}@telegram.bot`,
-                name: user.first_name + (user.last_name ? ' ' + user.last_name : ''),
-                picture: user.photo_url || '',
-                provider: 'telegram',
-                userId: user.id.toString()
-            });
-
-            if (result.success && result.user) {
-                onLogin({ ...result.user, authProvider: 'telegram' });
-            } else {
-                setLoading(false);
-                setError(result.message || 'Telegram Login Failed');
-            }
-        } catch (err) {
-            setLoading(false);
-            setError('Telegram Error');
-        }
-    };
-
     const handleEmailSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!scriptUrl) {
-            setError('System Error: No Script URL');
-            return;
-        }
+        if (!scriptUrl) return;
         
         setError('');
         setLoading(true);
@@ -251,16 +208,10 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                     </div>
                 </div>
                 <div className="text-center">
-                    <p className="text-gray-800 dark:text-white font-bold text-lg">กำลังเข้าสู่ระบบ</p>
+                    <p className="text-gray-800 dark:text-white font-bold text-lg">กรุณารอสักครู่</p>
                     <p className="text-gray-500 text-sm mt-1">{statusMessage}</p>
                 </div>
-                {/* Fallback Cancel Button */}
-                <button 
-                    onClick={() => { setLoading(false); setStatusMessage(''); }} 
-                    className="text-xs text-gray-400 hover:text-red-500 mt-8 underline"
-                >
-                    ยกเลิก / ลองใหม่ (Cancel)
-                </button>
+                <button onClick={() => setLoading(false)} className="text-xs text-red-400 hover:underline mt-4">ยกเลิก (Cancel)</button>
             </div>
         );
     }
@@ -304,20 +255,24 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                  <button 
                     type="button"
                     onClick={handleLineLoginClick}
-                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-all gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md hover:scale-105 active:scale-95"
+                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-all gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!lineInitialized}
                 >
                     <LineIcon className="w-5 h-5 fill-current text-white" />
-                    <span>Log in with LINE</span>
+                    <span>{lineInitialized ? 'Log in with LINE' : 'Loading LINE...'}</span>
                 </button>
 
-                {/* Telegram Login */}
-                <div className="w-full max-w-[240px] flex justify-center">
-                    <TelegramLoginButton 
-                        botName={TELEGRAM_BOT_USERNAME} 
-                        onAuth={handleTelegramLogin} 
-                        cornerRadius={20}
-                    />
-                </div>
+                {/* --- PRESENTATION DEMO BUTTON (THE LIFESAVER) --- */}
+                <button 
+                    type="button"
+                    onClick={handleDemoLogin}
+                    className="flex items-center justify-center w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-2 px-4 rounded-full transition-all gap-2 text-sm h-[40px] max-w-[240px] shadow-lg hover:scale-105 active:scale-95 ring-2 ring-purple-300 dark:ring-purple-900"
+                >
+                    <SparklesIcon className="w-5 h-5 text-yellow-300" />
+                    <span>เข้าสู่โหมดนำเสนอ (Demo)</span>
+                </button>
+                {/* ----------------------------------------------- */}
+
             </div>
 
             <div className="relative flex py-2 items-center">
@@ -370,33 +325,24 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
 const Auth: React.FC = () => {
     const { login } = useContext(AppContext);
-    const [view, setView] = useState<'user' | 'guest'>('user');
-
+    
+    // Default view
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 transition-colors duration-300">
-            <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl">
+            <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border-t-8 border-teal-500">
                 <div className="text-center">
                     <img src={APP_LOGO_URL} alt="Logo" className="mx-auto h-20 w-auto mb-4" />
                     <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">Smart Wellness</h2>
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">แพลตฟอร์มดูแลสุขภาพวิถีชีวิต</p>
                 </div>
 
-                {view === 'user' ? (
-                    <>
-                        <UserAuth onLogin={login} />
-                        <div className="mt-4 text-center">
-                            <span className="text-xs text-gray-400">หรือ </span>
-                            <button onClick={() => setView('guest')} className="text-xs font-bold text-teal-600 hover:underline">ทดลองใช้งาน (Guest)</button>
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <GuestLogin onLogin={login} />
-                        <div className="mt-4 text-center">
-                            <button onClick={() => setView('user')} className="text-xs font-bold text-teal-600 hover:underline">กลับไปหน้าเข้าสู่ระบบ</button>
-                        </div>
-                    </>
-                )}
+                <UserAuth onLogin={login} />
+                
+                <div className="mt-4 text-center">
+                    <p className="text-xs text-gray-400">
+                        พัฒนาโดย กลุ่มงานสุขภาพดิจิทัล สำนักงานสาธารณสุขจังหวัดสตูล
+                    </p>
+                </div>
             </div>
         </div>
     );
