@@ -1,8 +1,10 @@
 
 /**
- * Smart Lifestyle Wellness - Backend Script (v5.2 Direct Mapping)
- * - Headers are converted to lowercase ONLY (no regex removal) to match frontend logic
- * - Ensures LeaderboardView data is passed exactly as seen (but lowercase keys)
+ * Smart Lifestyle Wellness - Backend Script (v5.3 Org Update Fix)
+ * - Auto-generates QUERY formulas for LeaderboardView
+ * - Fixes empty sheet crashes
+ * - Strict Organization & Role handling
+ * - Updates LoginLogs immediately upon Profile save
  */
 
 const SHEET_NAMES = {
@@ -166,7 +168,8 @@ function handleSave(type, payload, user) {
       const deltaXp = Math.max(0, newXP - currentXP); 
 
       const badgesJson = JSON.stringify(item.badges || []);
-      
+      const updatedOrg = item.organization || user.organization || '';
+
       newRow = [ 
           timestamp, user.username, item.displayName || user.displayName, item.profilePicture || user.profilePicture,
           item.gender, item.age, item.weight, item.height, item.waist, item.hip, item.activityLevel, 
@@ -179,10 +182,21 @@ function handleSave(type, payload, user) {
           item.researchId || '', 
           item.pdpaAccepted,     
           item.pdpaAcceptedDate,  
-          item.organization || '', // Save empty if not set, handled by frontend modal
+          updatedOrg, // Save organization
           deltaXp 
       ];
+
+      // *** CRITICAL FIX: Also update LoginLogs to reflect new Organization immediately ***
+      // We create a temporary user object with the NEW organization to log properly
+      const userWithNewOrg = { 
+          ...user, 
+          displayName: item.displayName || user.displayName,
+          profilePicture: item.profilePicture || user.profilePicture,
+          organization: updatedOrg 
+      };
+      logLogin(userWithNewOrg);
       break;
+
     case SHEET_NAMES.LOGIN_LOGS:
         newRow = [timestamp, user.username, user.displayName, user.role, user.organization || ''];
         break;
@@ -480,7 +494,7 @@ function setupSheets() {
       trSheet.getRange("A1").setFormula(trendingQuery);
   }
 
-  return "Setup Complete (v5.2)";
+  return "Setup Complete (v5.3)";
 }
 
 function createSuccessResponse(data) {

@@ -98,6 +98,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     const loadAllData = async () => {
+      // FIX: Only fetch if we have a user and script URL.
+      // We use currentUser?.username to prevent re-fetching when other user props change (like displayName or organization)
       if (scriptUrl && currentUser && currentUser.role === 'user') {
         setIsDataSynced(false);
         const fetchedData = await fetchAllDataFromSheet(scriptUrl, currentUser);
@@ -105,11 +107,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Merge logic: Preserve local PDPA acceptance if cloud data is outdated
           _setUserProfile(prev => {
               const cloudProfile = fetchedData.profile || defaultProfile;
+              // If cloud profile has empty vital stats but local has them (from recent edit), prefer local if cloud is empty/default
+              // However, usually we trust cloud. But to solve the "reset" issue, we rely on the fact 
+              // that this effect won't trigger on local save anymore.
+              
               return {
                   ...cloudProfile,
                   pdpaAccepted: cloudProfile.pdpaAccepted || prev.pdpaAccepted,
                   pdpaAcceptedDate: cloudProfile.pdpaAcceptedDate || prev.pdpaAcceptedDate,
-                  organization: cloudProfile.organization || '', // Allow empty if not set on cloud
+                  organization: cloudProfile.organization || '', 
                   aiSystemInstruction: cloudProfile.aiSystemInstruction || prev.aiSystemInstruction
               };
           });
@@ -126,7 +132,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     };
     loadAllData();
-  }, [scriptUrl, currentUser]);
+  }, [scriptUrl, currentUser?.username]); // CHANGED DEPENDENCY
 
   const setUserProfile = useCallback((profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => {
     if (!currentUser) return;
@@ -141,9 +147,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updatedUser.organization = profileData.organization;
     }
 
+    // Update local state immediately
     setCurrentUser(updatedUser); 
     _setUserProfile(profileData);
-    if (scriptUrl) saveDataToSheet(scriptUrl, 'profile', profileData, updatedUser);
+    
+    // Sync to backend (Fire and forget, don't wait or reload)
+    if (scriptUrl) {
+        saveDataToSheet(scriptUrl, 'profile', profileData, updatedUser).catch(err => console.error("Profile sync failed", err));
+    }
   }, [scriptUrl, currentUser, setCurrentUser, _setUserProfile]);
 
   const useSyncToSheet = (data: any, type: string) => {
