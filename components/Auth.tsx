@@ -10,12 +10,13 @@ import liff from '@line/liff';
 import { ORGANIZATIONS, TELEGRAM_BOT_USERNAME, APP_LOGO_URL } from '../constants';
 import TelegramLoginButton from './TelegramLoginButton';
 
-// LINE LIFF ID configuration
+// LINE LIFF ID (ค่าเดิมของคุณ)
 const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
 
 const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
 const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
 
+// --- GUEST LOGIN COMPONENT ---
 const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [displayName, setDisplayName] = useState('');
     const [error, setError] = useState('');
@@ -59,75 +60,83 @@ const GuestLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
     );
 };
 
+// --- USER AUTH COMPONENT (MAIN LOGIC) ---
 const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const { scriptUrl } = useContext(AppContext);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
     const [showEmailForm, setShowEmailForm] = useState(false);
     
+    // Form States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [selectedOrg, setSelectedOrg] = useState(ORGANIZATIONS[0].id);
+    
+    // UI States
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    
-    // Initial LIFF Setup
+    const [statusMessage, setStatusMessage] = useState('');
+
+    // --- 1. LINE LOGIN LOGIC (Start Here) ---
     useEffect(() => {
-        const initializeLiff = async () => {
+        const initLiff = async () => {
             try {
+                // Initialize LIFF
                 await liff.init({ liffId: LINE_LIFF_ID });
+                
+                // Check if user is already logged in (Auto-login)
                 if (liff.isLoggedIn()) {
-                    await handleLineProfileFetch();
+                    setLoading(true);
+                    setStatusMessage('กำลังยืนยันตัวตนผ่าน LINE...');
+                    
+                    const profile = await liff.getProfile();
+                    const idToken = liff.getDecodedIDToken();
+                    const userEmail = idToken?.email || `${profile.userId}@line.me`; // Fallback email
+
+                    if (scriptUrl) {
+                        // Call Backend
+                        const result = await socialAuth(scriptUrl, {
+                            email: userEmail,
+                            name: profile.displayName,
+                            picture: profile.pictureUrl || '',
+                            provider: 'line',
+                            userId: profile.userId
+                        });
+
+                        if (result.success && result.user) {
+                            // SUCCESS: Pass user to App and DO NOT stop loading (let App unmount this component)
+                            onLogin({ ...result.user, authProvider: 'line' });
+                        } else {
+                            // FAILED
+                            setLoading(false);
+                            setError(result.message || 'การเชื่อมต่อฐานข้อมูลล้มเหลว');
+                        }
+                    } else {
+                        setLoading(false);
+                        setError('ไม่พบ URL การเชื่อมต่อระบบ (Script URL)');
+                    }
                 }
-            } catch (err) {
-                console.error("LIFF Init Failed", err);
+            } catch (err: any) {
+                console.error("LIFF Init Error", err);
+                // Don't show error immediately to avoid scaring user if they just haven't logged in yet
+                setLoading(false);
             }
         };
-        initializeLiff();
-    }, []);
 
-    const handleLineProfileFetch = async () => {
-        setLoading(true);
-        try {
-            const profile = await liff.getProfile();
-            const idToken = liff.getDecodedIDToken();
-            const email = idToken?.email || `${profile.userId}@line.me`;
-            
-            if (scriptUrl) {
-                const result = await socialAuth(scriptUrl, {
-                    email: email,
-                    name: profile.displayName,
-                    picture: profile.pictureUrl || '',
-                    provider: 'line',
-                    userId: profile.userId
-                });
-                
-                if (result.success && result.user) {
-                    onLogin({ ...result.user, authProvider: 'line' });
-                    return; // Don't stop loading on success
-                } else {
-                    setError(result.message || 'Login failed');
-                }
-            }
-        } catch (err: any) {
-            console.error("Line Profile Error:", err);
-            setError('ไม่สามารถดึงข้อมูล LINE ได้');
-        }
-        setLoading(false);
-    };
+        // Run once on mount
+        initLiff();
+    }, [scriptUrl, onLogin]);
 
-    const handleLineLogin = () => {
-        if (!scriptUrl) {
-            setError('System Error: No Script URL');
-            return;
-        }
+    const handleLineLoginClick = () => {
+        setError('');
         if (!liff.isInClient() && !liff.isLoggedIn()) {
-            liff.login();
-        } else {
-            handleLineProfileFetch();
+            // This redirects the user to LINE.
+            // When they return, the page reloads, and the useEffect above handles the rest.
+            liff.login(); 
         }
     };
+    // ----------------------------------------
 
     const handleGoogleSuccess = async (credentialResponse: any) => {
         if (!scriptUrl) {
@@ -135,6 +144,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             return;
         }
         setLoading(true);
+        setStatusMessage('กำลังยืนยันตัวตนผ่าน Google...');
         try {
             const decoded: any = jwtDecode(credentialResponse.credential);
             const result = await socialAuth(scriptUrl, {
@@ -147,20 +157,21 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
             if (result.success && result.user) {
                 onLogin({ ...result.user, authProvider: 'google' });
-                return; // Keep loading true while app mounts
             } else {
+                setLoading(false);
                 setError(result.message || 'Google Login Failed');
             }
         } catch (err: any) {
             console.error(err);
+            setLoading(false);
             setError('Google Login Error');
         }
-        setLoading(false);
     };
 
     const handleTelegramLogin = async (user: any) => {
         if (!scriptUrl) return;
         setLoading(true);
+        setStatusMessage('กำลังยืนยันตัวตนผ่าน Telegram...');
         try {
             const result = await socialAuth(scriptUrl, {
                 email: `${user.id}@telegram.bot`,
@@ -172,14 +183,14 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
             if (result.success && result.user) {
                 onLogin({ ...result.user, authProvider: 'telegram' });
-                return;
             } else {
+                setLoading(false);
                 setError(result.message || 'Telegram Login Failed');
             }
         } catch (err) {
+            setLoading(false);
             setError('Telegram Error');
         }
-        setLoading(false);
     };
 
     const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -191,6 +202,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         
         setError('');
         setLoading(true);
+        setStatusMessage('กำลังตรวจสอบข้อมูล...');
 
         try {
             if (authMode === 'register') {
@@ -210,33 +222,44 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 const result = await registerUser(scriptUrl, newUser, password);
                 if (result.success) {
                     onLogin(newUser);
-                    return;
                 } else {
+                    setLoading(false);
                     setError(result.message || 'Registration failed');
                 }
             } else {
                 const result = await verifyUser(scriptUrl, email, password);
                 if (result.success && result.user) {
                     onLogin(result.user);
-                    return;
                 } else {
+                    setLoading(false);
                     setError(result.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
                 }
             }
         } catch (err) {
+            setLoading(false);
             setError("Connection Error");
         }
-        setLoading(false);
     };
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 space-y-4">
-                <div className="w-12 h-12 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
-                <p className="text-gray-600 dark:text-gray-300">กำลังเข้าสู่ระบบ...</p>
-                {/* Fallback to cancel loading if stuck */}
-                <button onClick={() => setLoading(false)} className="text-xs text-gray-400 hover:text-red-500 mt-4 underline">
-                    ยกเลิก / Cancel
+            <div className="flex flex-col items-center justify-center p-12 space-y-6 min-h-[300px]">
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xl">⏳</span>
+                    </div>
+                </div>
+                <div className="text-center">
+                    <p className="text-gray-800 dark:text-white font-bold text-lg">กำลังเข้าสู่ระบบ</p>
+                    <p className="text-gray-500 text-sm mt-1">{statusMessage}</p>
+                </div>
+                {/* Fallback Cancel Button */}
+                <button 
+                    onClick={() => { setLoading(false); setStatusMessage(''); }} 
+                    className="text-xs text-gray-400 hover:text-red-500 mt-8 underline"
+                >
+                    ยกเลิก / ลองใหม่ (Cancel)
                 </button>
             </div>
         );
@@ -266,6 +289,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             )}
 
             <div className="flex flex-col gap-3 justify-center items-center">
+                 {/* Google Login */}
                  <div className="w-full flex justify-center">
                     <GoogleLogin
                         onSuccess={handleGoogleSuccess}
@@ -276,15 +300,17 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                     />
                  </div>
                  
+                 {/* LINE Login Button */}
                  <button 
                     type="button"
-                    onClick={handleLineLogin}
-                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-colors gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md"
+                    onClick={handleLineLoginClick}
+                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-all gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md hover:scale-105 active:scale-95"
                 >
                     <LineIcon className="w-5 h-5 fill-current text-white" />
                     <span>Log in with LINE</span>
                 </button>
 
+                {/* Telegram Login */}
                 <div className="w-full max-w-[240px] flex justify-center">
                     <TelegramLoginButton 
                         botName={TELEGRAM_BOT_USERNAME} 
