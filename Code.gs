@@ -1,7 +1,8 @@
 
 /**
- * Smart Lifestyle Wellness - Backend Script (v5.0 Final Direct)
- * - Reads LeaderboardView/TrendingView strictly using existing headers
+ * Smart Lifestyle Wellness - Backend Script (v5.2 Direct Mapping)
+ * - Headers are converted to lowercase ONLY (no regex removal) to match frontend logic
+ * - Ensures LeaderboardView data is passed exactly as seen (but lowercase keys)
  */
 
 const SHEET_NAMES = {
@@ -100,13 +101,14 @@ function handleGetLeaderboard() {
     if (!sheet || sheet.getLastRow() < 2) return [];
     
     const data = sheet.getDataRange().getValues();
-    const headers = data[0]; // Use headers EXACTLY as they appear in the sheet
+    // Normalize headers: Lowercase ONLY. Do NOT replace special chars like '(', ')' to ensure frontend can match them if needed.
+    const headers = data[0].map(h => String(h).trim().toLowerCase());
     
     return data.slice(1).map(row => {
       let obj = {};
       headers.forEach((h, i) => {
-        // Convert header to string just in case, but keep case-sensitivity
-        obj[String(h)] = row[i];
+        // Prevent undefined/null keys
+        if(h) obj[h] = row[i];
       });
       return obj;
     });
@@ -460,21 +462,25 @@ function setupSheets() {
   ensureSheet("QuizHistory", [...common, "score", "totalQuestions", "correctAnswers", "type"]);
 
   // 3. View Sheets - Create only if missing (Smart Setup)
+  
+  // Note: Col 13 (M) is XP, Col 25 (Y) is DeltaXP
   const leaderboardQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), MAX(M), MAX(N), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' GROUP BY B ORDER BY MAX(M) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', MAX(M) 'totalXp', MAX(N) 'level', MAX(X) 'organization'", 1)`;
+  
   let lbSheet = ensureSheet(SHEET_NAMES.LEADERBOARD_VIEW, []);
-  if(lbSheet.getRange("A1").getFormula() === "" && lbSheet.getLastRow() < 2) {
+  if(lbSheet.getRange("A1").getFormula() === "" || lbSheet.getLastRow() < 2) {
       lbSheet.clear();
       lbSheet.getRange("A1").setFormula(leaderboardQuery);
   }
 
   const trendingQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), SUM(Y), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' AND Y > 0 GROUP BY B ORDER BY SUM(Y) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', SUM(Y) 'weeklyXp', MAX(X) 'organization'", 1)`;
+  
   let trSheet = ensureSheet(SHEET_NAMES.TRENDING_VIEW, []);
-  if(trSheet.getRange("A1").getFormula() === "" && trSheet.getLastRow() < 2) {
+  if(trSheet.getRange("A1").getFormula() === "" || trSheet.getLastRow() < 2) {
       trSheet.clear();
       trSheet.getRange("A1").setFormula(trendingQuery);
   }
 
-  return "Setup Complete (v4.9)";
+  return "Setup Complete (v5.2)";
 }
 
 function createSuccessResponse(data) {

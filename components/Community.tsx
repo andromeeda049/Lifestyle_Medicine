@@ -22,35 +22,47 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
 
-    // Helper to find a key case-insensitively
-    const findValue = (obj: any, keys: string[]) => {
+    // Robust Helper to find a key in an object, supporting multiple potential names
+    const findValue = (obj: any, searchKeys: string[]) => {
         if (!obj) return undefined;
         const objectKeys = Object.keys(obj);
-        for (const k of keys) {
-            // 1. Exact match
-            if (obj[k] !== undefined) return obj[k];
-            // 2. Case-insensitive match
-            const found = objectKeys.find(ok => ok.toLowerCase() === k.toLowerCase());
-            if (found) return obj[found];
+        
+        // Debug: Log keys to help user verify what's actually coming from sheet
+        // console.log("Row Keys:", objectKeys); 
+
+        for (const search of searchKeys) {
+            const lowerSearch = search.toLowerCase();
+            
+            // 1. Exact or Case-Insensitive Match
+            const foundKey = objectKeys.find(k => k.toLowerCase() === lowerSearch);
+            if (foundKey) return obj[foundKey];
+
+            // 2. Partial Match (e.g. "max(totalXp)" matches search "totalXp")
+            const foundPartial = objectKeys.find(k => k.toLowerCase().includes(lowerSearch));
+            if (foundPartial) return obj[foundPartial];
         }
         return undefined;
     };
 
     const sanitizeUser = (raw: any): LeaderboardUser => {
-        // Explicit mapping based on User's QUERY LABELs:
-        // Leaderboard: username, displayName, profilePicture, totalXp, level, organization
-        // Trending: username, displayName, profilePicture, weeklyXp, organization
+        // Expanded search keys to cover:
+        // 1. Expected Labels (totalXp, weeklyXp)
+        // 2. Raw Query Headers (max(totalXp), sum(weeklyXp))
+        // 3. Fallbacks (xp, score)
         
         return {
-            username: findValue(raw, ['username', 'user']) || "",
-            displayName: findValue(raw, ['displayName', 'name']) || "Unknown",
-            profilePicture: findValue(raw, ['profilePicture', 'pic']) || "👤",
-            // Priority: totalXp (from LeaderboardView) -> xp -> weeklyXp (fallback for sorting if needed)
-            xp: Number(findValue(raw, ['totalXp', 'xp', 'score']) || 0),
-            level: Number(findValue(raw, ['level', 'lvl']) || 1),
-            organization: String(findValue(raw, ['organization', 'org']) || "general"),
-            // Priority: weeklyXp (from TrendingView)
-            weeklyXp: Number(findValue(raw, ['weeklyXp', 'weekly']) || 0)
+            username: findValue(raw, ['username', 'user', 'col2']) || "",
+            displayName: findValue(raw, ['displayName', 'displayname', 'name', 'col3']) || "Unknown",
+            profilePicture: findValue(raw, ['profilePicture', 'profilepicture', 'pic', 'col4']) || "👤",
+            
+            // Search for XP: 'totalxp' (label), 'max(xp)', 'max(totalxp)', 'xp'
+            xp: Number(findValue(raw, ['totalxp', 'totalXp', 'max(totalxp)', 'max(xp)', 'xp', 'score', 'col13']) || 0),
+            
+            level: Number(findValue(raw, ['level', 'lvl', 'max(level)', 'col14']) || 1),
+            organization: String(findValue(raw, ['organization', 'org', 'max(organization)', 'col24']) || "general"),
+            
+            // Search for Weekly: 'weeklyxp', 'sum(weeklyxp)', 'sum(xp)', 'weekly'
+            weeklyXp: Number(findValue(raw, ['weeklyxp', 'weeklyXp', 'sum(weeklyxp)', 'sum(xp)', 'weekly', 'col25']) || 0)
         };
     };
 
@@ -61,6 +73,8 @@ const Community: React.FC = () => {
                 try {
                     const data = await fetchLeaderboard(scriptUrl);
                     if (data) {
+                        console.log("Leaderboard Data Received:", data); // Keep for debugging
+
                         const stdLeaderboard = (data.leaderboard || []).map(sanitizeUser);
                         const stdTrending = (data.trending || []).map(sanitizeUser);
 
