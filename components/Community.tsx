@@ -13,6 +13,7 @@ interface LeaderboardUser {
     level: number;
     organization: string;
     weeklyXp?: number;
+    deltaXp?: number;
 }
 
 const Community: React.FC = () => {
@@ -22,41 +23,16 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
 
-    // Robust Helper to find a key in an object, supporting multiple potential names and loose matching
-    const findValue = (obj: any, searchKeys: string[]) => {
-        if (!obj) return undefined;
-        const objectKeys = Object.keys(obj);
-        
-        for (const search of searchKeys) {
-            const lowerSearch = search.toLowerCase();
-            
-            // 1. Exact or Case-Insensitive Match
-            const foundKey = objectKeys.find(k => k.toLowerCase() === lowerSearch);
-            if (foundKey) return obj[foundKey];
-
-            // 2. Partial Match (e.g. "max(totalXp)" matches search "totalXp")
-            const foundPartial = objectKeys.find(k => k.toLowerCase().includes(lowerSearch));
-            if (foundPartial) return obj[foundPartial];
-        }
-        return undefined;
-    };
-
+    // No need for complex sanitization since backend v6.0 guarantees the keys
     const sanitizeUser = (raw: any): LeaderboardUser => {
-        // Backend now returns lowercase keys (e.g. 'totalxp', 'username')
-        // We use loose matching to be extra safe against Query formula variations
         return {
-            username: findValue(raw, ['username', 'user', 'col2']) || "",
-            displayName: findValue(raw, ['displayName', 'displayname', 'name', 'col3']) || "Unknown",
-            profilePicture: findValue(raw, ['profilePicture', 'profilepicture', 'pic', 'image', 'col4']) || "👤",
-            
-            // Search for XP: 'totalxp' (label), 'max(totalxp)', 'xp', 'score'
-            xp: Number(findValue(raw, ['totalxp', 'totalXp', 'max(totalxp)', 'xp', 'score', 'col13']) || 0),
-            
-            level: Number(findValue(raw, ['level', 'lvl', 'max(level)', 'col14']) || 1),
-            organization: String(findValue(raw, ['organization', 'org', 'max(organization)', 'col24']) || "general"),
-            
-            // Search for Weekly: 'weeklyxp', 'sum(weeklyxp)', 'weekly'
-            weeklyXp: Number(findValue(raw, ['weeklyxp', 'weeklyXp', 'sum(weeklyxp)', 'sum(xp)', 'weekly', 'col25']) || 0)
+            username: raw.username || "",
+            displayName: raw.displayName || "Unknown",
+            profilePicture: raw.profilePicture || "👤",
+            xp: Number(raw.xp || 0),
+            level: Number(raw.level || 1),
+            organization: raw.organization || "general",
+            weeklyXp: Number(raw.deltaXp || 0) // Backend returns 'deltaXp' for trending
         };
     };
 
