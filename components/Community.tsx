@@ -22,33 +22,35 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
 
-    // Robust Key Finder (Case-insensitive & Partial Match)
-    const getValueByKey = (obj: any, searchKeys: string[]) => {
+    // Helper to find a key case-insensitively
+    const findValue = (obj: any, keys: string[]) => {
         if (!obj) return undefined;
-        const keys = Object.keys(obj);
-        for (const search of searchKeys) {
-            // 1. Exact Match
-            if (obj[search] !== undefined) return obj[search];
-            // 2. Case-insensitive Match
-            const keyLower = search.toLowerCase();
-            const foundKey = keys.find(k => k.toLowerCase() === keyLower);
-            if (foundKey) return obj[foundKey];
-            // 3. Partial Match (e.g. "max(xp)" matches "xp")
-            const foundPartial = keys.find(k => k.toLowerCase().includes(keyLower));
-            if (foundPartial) return obj[foundPartial];
+        const objectKeys = Object.keys(obj);
+        for (const k of keys) {
+            // 1. Exact match
+            if (obj[k] !== undefined) return obj[k];
+            // 2. Case-insensitive match
+            const found = objectKeys.find(ok => ok.toLowerCase() === k.toLowerCase());
+            if (found) return obj[found];
         }
         return undefined;
     };
 
     const sanitizeUser = (raw: any): LeaderboardUser => {
+        // Explicit mapping based on User's QUERY LABELs:
+        // Leaderboard: username, displayName, profilePicture, totalXp, level, organization
+        // Trending: username, displayName, profilePicture, weeklyXp, organization
+        
         return {
-            username: getValueByKey(raw, ['username', 'user', 'col2']) || "",
-            displayName: getValueByKey(raw, ['displayName', 'name', 'col3']) || "Unknown",
-            profilePicture: getValueByKey(raw, ['profilePicture', 'pic', 'col4']) || "👤",
-            xp: Number(getValueByKey(raw, ['xp', 'totalXp', 'score', 'col10']) || 0),
-            level: Number(getValueByKey(raw, ['level', 'lvl', 'col11']) || 1),
-            organization: String(getValueByKey(raw, ['organization', 'org', 'col13']) || "general"),
-            weeklyXp: Number(getValueByKey(raw, ['weeklyXp', 'weekly', 'col10']) || 0)
+            username: findValue(raw, ['username', 'user']) || "",
+            displayName: findValue(raw, ['displayName', 'name']) || "Unknown",
+            profilePicture: findValue(raw, ['profilePicture', 'pic']) || "👤",
+            // Priority: totalXp (from LeaderboardView) -> xp -> weeklyXp (fallback for sorting if needed)
+            xp: Number(findValue(raw, ['totalXp', 'xp', 'score']) || 0),
+            level: Number(findValue(raw, ['level', 'lvl']) || 1),
+            organization: String(findValue(raw, ['organization', 'org']) || "general"),
+            // Priority: weeklyXp (from TrendingView)
+            weeklyXp: Number(findValue(raw, ['weeklyXp', 'weekly']) || 0)
         };
     };
 
@@ -59,15 +61,14 @@ const Community: React.FC = () => {
                 try {
                     const data = await fetchLeaderboard(scriptUrl);
                     if (data) {
-                        // 1. Standardize Data First
                         const stdLeaderboard = (data.leaderboard || []).map(sanitizeUser);
                         const stdTrending = (data.trending || []).map(sanitizeUser);
 
-                        // 2. Filter (Remove Admin & Empty Usernames)
+                        // Filter valid users
                         const cleanLeaderboard = stdLeaderboard.filter(u => 
                             u.username && 
-                            !u.username.toLowerCase().startsWith('admin_') &&
-                            u.username.toLowerCase() !== 'unknown'
+                            !u.username.toLowerCase().startsWith('admin_') && 
+                            u.username !== 'Unknown'
                         );
                         
                         const cleanTrending = stdTrending.filter(u => 
@@ -111,8 +112,8 @@ const Community: React.FC = () => {
         
         const hasWeeklyActivity = useMemo(() => {
             if (isTrendingTab) return true;
-            const trendInfo = trending.find(t => t.username === user.username);
-            return (trendInfo?.weeklyXp || 0) > 0;
+            // Check if user exists in trending list with score > 0
+            return trending.some(t => t.username === user.username && (t.weeklyXp || 0) > 0);
         }, [user.username]);
 
         if (isTrendingTab) {
