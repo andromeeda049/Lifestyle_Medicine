@@ -1,9 +1,10 @@
 
-import React, { useEffect, useState, useContext, useMemo } from 'react';
+import React, { useEffect, useState, useContext, useMemo, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { fetchLeaderboard } from '../services/googleSheetService';
-import { TrophyIcon, StarIcon, MedalIcon, UserCircleIcon, FireIcon, UserGroupIcon, ChartBarIcon, ShareIcon } from './icons';
+import { TrophyIcon, StarIcon, MedalIcon, UserCircleIcon, FireIcon, UserGroupIcon, ChartBarIcon, ShareIcon, CameraIcon } from './icons';
 import { ORGANIZATIONS } from '../constants';
+import html2canvas from 'html2canvas';
 
 interface LeaderboardUser {
     username: string;
@@ -31,7 +32,10 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'trending' | 'orgs'>('users');
-    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
+    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'generating'>('idle');
+    
+    // Ref for the element we want to capture
+    const shareCardRef = useRef<HTMLDivElement>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -110,7 +114,8 @@ const Community: React.FC = () => {
     const renderProfilePic = (pic: string, sizeClass: string = "w-10 h-10") => {
         const isUrl = pic && (pic.startsWith('http') || pic.startsWith('data:'));
         if (isUrl) {
-            return <img src={pic} alt="Profile" className={`${sizeClass} rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm`} />;
+            // Added crossOrigin="anonymous" for html2canvas support
+            return <img src={pic} alt="Profile" className={`${sizeClass} rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm`} crossOrigin="anonymous" />;
         }
         return (
             <div className={`${sizeClass} rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm`}>
@@ -119,7 +124,7 @@ const Community: React.FC = () => {
         );
     };
 
-    const handleShare = async () => {
+    const handleShareText = async () => {
         if (!currentUser) return;
 
         const myXp = userProfile.xp?.toLocaleString() || '0';
@@ -137,7 +142,7 @@ ${rankText}
         const shareData = {
             title: 'Satun Smart Life Leaderboard',
             text: shareText,
-            url: window.location.href // Or specific app URL
+            url: window.location.href
         };
 
         if (navigator.share) {
@@ -154,6 +159,48 @@ ${rankText}
             } catch (err) {
                 alert('ไม่สามารถแชร์ได้');
             }
+        }
+    };
+
+    const handleShareImage = async () => {
+        if (!shareCardRef.current) return;
+        setCopyStatus('generating');
+
+        try {
+            // Force light mode colors for consistent screenshot or respect current theme
+            const canvas = await html2canvas(shareCardRef.current, {
+                useCORS: true, // Crucial for profile images
+                scale: 2, // Higher resolution
+                backgroundColor: null, // Transparent background if styled that way
+                logging: false,
+                allowTaint: true
+            });
+
+            const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+            
+            if (!blob) throw new Error("Canvas to Blob failed");
+
+            const file = new File([blob], 'satun-smart-life-rank.png', { type: 'image/png' });
+
+            // Check if Web Share API supports files
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Satun Smart Life Rank',
+                    text: `🏆 อันดับของฉันในชุมชน Satun Smart Life! #SatunSmartLife`
+                });
+            } else {
+                // Fallback: Download image
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'satun-smart-life-rank.png';
+                link.click();
+            }
+        } catch (err) {
+            console.error("Screenshot failed:", err);
+            alert("ไม่สามารถสร้างรูปภาพได้ โปรดลองอีกครั้ง");
+        } finally {
+            setCopyStatus('idle');
         }
     };
 
@@ -191,13 +238,26 @@ ${rankText}
                                 <span>อันดับของคุณ: #{myRankIndex + 1}</span>
                             </div>
                         )}
-                        <button 
-                            onClick={handleShare}
-                            className="inline-flex items-center gap-2 bg-white text-orange-600 px-4 py-1.5 rounded-full text-sm font-bold shadow-md hover:bg-orange-50 transition-colors active:scale-95"
-                        >
-                            <ShareIcon className="w-4 h-4" />
-                            {copyStatus === 'copied' ? 'คัดลอกแล้ว!' : 'อวดอันดับ'}
-                        </button>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={handleShareText}
+                                className="inline-flex items-center gap-2 bg-white text-orange-600 px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:bg-orange-50 transition-colors active:scale-95"
+                            >
+                                <ShareIcon className="w-4 h-4" />
+                                {copyStatus === 'copied' ? 'คัดลอก!' : 'แชร์'}
+                            </button>
+                            {/* NEW: Share Image Button (Only visible if rank exists) */}
+                            {myRankIndex !== -1 && (
+                                <button 
+                                    onClick={handleShareImage}
+                                    disabled={copyStatus === 'generating'}
+                                    className="inline-flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:bg-indigo-700 transition-colors active:scale-95 disabled:bg-gray-400"
+                                >
+                                    <CameraIcon className="w-4 h-4" />
+                                    {copyStatus === 'generating' ? 'กำลังสร้าง...' : 'รูปภาพ'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
@@ -230,7 +290,8 @@ ${rankText}
     const renderPodium = (list: LeaderboardUser[]) => {
         if (list.length === 0) return null;
         return (
-            <div className="flex justify-center items-end gap-2 sm:gap-4 mb-8 h-48 sm:h-56">
+            // Added mt-12 to push podium down, preventing overlap with the tabs above
+            <div className="flex justify-center items-end gap-2 sm:gap-4 mt-12 mb-8 h-48 sm:h-56">
                 {/* Rank 2 */}
                 {list[1] && (
                     <div className="flex flex-col items-center w-1/3 animate-slide-up" style={{animationDelay: '0.1s'}}>
@@ -407,7 +468,10 @@ ${rankText}
             {/* My Rank Sticky (Users Tab Only) */}
             {activeTab === 'users' && myRankIndex > 2 && (
                 <div className="fixed bottom-20 left-4 right-4 z-30 animate-slide-up">
-                    <div className="bg-gray-900/90 backdrop-blur-md text-white p-3 rounded-xl shadow-2xl flex items-center border border-gray-700">
+                    <div 
+                        ref={shareCardRef}
+                        className="bg-gray-900/90 backdrop-blur-md text-white p-3 rounded-xl shadow-2xl flex items-center border border-gray-700"
+                    >
                         <div className="w-10 font-bold text-yellow-400 text-center text-lg mr-2">#{myRankIndex + 1}</div>
                         <div className="mr-3">
                             {renderProfilePic(currentUser?.profilePicture || '', "w-10 h-10 border-2 border-yellow-400")}
@@ -416,12 +480,20 @@ ${rankText}
                             <p className="font-bold text-sm">อันดับของคุณ</p>
                             <p className="text-xs text-gray-300">{(leaderboard[myRankIndex]?.xp || 0).toLocaleString()} XP</p>
                         </div>
-                        <button 
-                            onClick={handleShare}
-                            className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
-                        >
-                            <ShareIcon className="w-5 h-5 text-white" />
-                        </button>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={handleShareText}
+                                className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+                            >
+                                <ShareIcon className="w-5 h-5 text-white" />
+                            </button>
+                            <button 
+                                onClick={handleShareImage}
+                                className="bg-indigo-600 p-2 rounded-full hover:bg-indigo-500 transition-colors shadow-lg"
+                            >
+                                <CameraIcon className="w-5 h-5 text-white" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
