@@ -22,6 +22,7 @@ import AboutApp from './components/AboutApp';
 import EvaluationForm from './components/EvaluationForm';
 import HealthLiteracyQuiz from './components/HealthLiteracyQuiz';
 import PDPAModal from './components/PDPAModal';
+import OrganizationModal from './components/OrganizationModal'; // Import new modal
 import SOSModal from './components/SOSModal';
 import LevelUpModal from './components/LevelUpModal';
 import Community from './components/Community';
@@ -33,8 +34,6 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import useLocalStorage from './hooks/useLocalStorage';
 import { XP_VALUES } from './constants';
 
-// !!! สำคัญ !!! แทนที่ด้วย Google Client ID ของคุณที่นี่
-// ไปที่ console.cloud.google.com -> APIs & Services -> Credentials -> Create OAuth Client ID
 const GOOGLE_CLIENT_ID = "968529250528-sp2uu4uu05peu6tvc2frpug7tfq3s5dg.apps.googleusercontent.com";
 
 const SOSButton: React.FC = () => {
@@ -89,22 +88,20 @@ const ToastNotification: React.FC = () => {
 const AppContent: React.FC = () => {
   const { activeView, setActiveView, theme, setTheme, currentUser, logout, userProfile, setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, scriptUrl, setWaterHistory, gainXP, isSOSOpen, closeSOS, showLevelUp, closeLevelUpModal } = useContext(AppContext);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false); // State for Quick Action Modal
+  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [showPDPA, setShowPDPA] = useState(false);
+  const [showOrgModal, setShowOrgModal] = useState(false); // State for Org Modal
   
   const notificationRef = useRef<HTMLDivElement>(null);
-  
-  // Track if we've already notified the backend today
   const [lastMissionCompleteDate, setLastMissionCompleteDate] = useLocalStorage<string>('lastMissionCompleteDate', '');
   
-  // URL Parameter Handling for LIFF/Deep Linking
+  // URL Parameter Handling
   useEffect(() => {
       const params = new URLSearchParams(window.location.search);
       const viewParam = params.get('view');
       const actionParam = params.get('action');
 
       if (viewParam) {
-          // Cast string to AppView type (basic validation implied by UI handling)
           setActiveView(viewParam as AppView);
       }
 
@@ -113,12 +110,19 @@ const AppContent: React.FC = () => {
       }
   }, [setActiveView]);
 
-  // Check PDPA Status on Load
+  // Check PDPA & Organization Status on Load
   useEffect(() => {
       if (currentUser && currentUser.role !== 'guest' && currentUser.role !== 'admin') {
-          // If profile loaded but PDPA not accepted yet
+          // 1. Check PDPA First
           if (userProfile && !userProfile.pdpaAccepted) {
               setShowPDPA(true);
+              setShowOrgModal(false); // Do not show Org modal yet
+          } 
+          // 2. Check Organization (Only if PDPA accepted)
+          else if (userProfile && (!userProfile.organization || userProfile.organization === '')) {
+              setShowOrgModal(true);
+          } else {
+              setShowOrgModal(false);
           }
       }
   }, [currentUser, userProfile]);
@@ -137,6 +141,22 @@ const AppContent: React.FC = () => {
           profilePicture: currentUser.profilePicture 
       });
       setShowPDPA(false);
+      // Logic for showing Org modal will be triggered by useEffect
+  };
+
+  const handleOrgSelect = (orgId: string) => {
+      if (!currentUser) return;
+      
+      const updatedProfile = {
+          ...userProfile,
+          organization: orgId
+      };
+
+      setUserProfile(updatedProfile, {
+          displayName: currentUser.displayName,
+          profilePicture: currentUser.profilePicture
+      });
+      setShowOrgModal(false);
   };
 
    useEffect(() => {
@@ -160,7 +180,7 @@ const AppContent: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Facebook-style Card Menu Component
+  // ... (MenuCard, MenuGridPage, etc. remain the same) ...
   const MenuCard: React.FC<{
       view: AppView;
       label: string;
@@ -284,6 +304,7 @@ const AppContent: React.FC = () => {
       );
   }
 
+  // ... (renderContent, viewTitles, NotificationBell, etc. same as before) ...
   const renderContent = () => {
     switch (activeView) {
       case 'home':
@@ -335,34 +356,7 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const viewTitles: { [key in AppView]?: string } = {
-    home: 'หน้าแรก',
-    menu: 'เมนูหลัก',
-    profile: 'ข้อมูลส่วนตัว',
-    dashboard: 'แดชบอร์ดสุขภาพ',
-    community: 'ชุมชนคนรักสุขภาพ',
-    assessment: 'ประเมิน 6 เสาหลัก',
-    planner: 'แผนไลฟ์สไตล์',
-    bmi: 'เครื่องคำนวณ BMI',
-    tdee: 'เครื่องคำนวณ TDEE',
-    food: 'วิเคราะห์อาหาร (AI)',
-    coach: 'โค้ชสุขภาพ (AI)',
-    literacy: 'ความรู้เวชศาสตร์วิถีชีวิต',
-    water: 'บันทึกการดื่มน้ำ',
-    calorieTracker: 'บันทึกแคลอรี่',
-    activityTracker: 'บันทึกกิจกรรม',
-    wellness: 'เช็คอินสุขภาพประจำวัน',
-    gamificationRules: 'กติกาการสะสมแต้ม',
-    about: 'เกี่ยวกับนวัตกรรม',
-    evaluation: 'ประเมินผลการใช้งาน',
-    quiz: 'แบบทดสอบความรอบรู้ (HL Quiz)',
-    settings: 'ตั้งค่า',
-    adminDashboard: 'จัดการหน่วยงาน (Admin)',
-  };
-  
-  // Daily Task Logic & Auto Notification
   const pendingTasks = useMemo(() => {
-      // Allow any non-guest user (User + Admin) to see tasks
       if (!currentUser || currentUser.role === 'guest') return [];
       
       const isToday = (dateString: string) => {
@@ -384,32 +378,21 @@ const AppContent: React.FC = () => {
       return tasks;
   }, [waterHistory, calorieHistory, activityHistory, moodHistory, sleepHistory, currentUser]);
 
-  // Check for Mission Complete
   useEffect(() => {
-      // Allow notification check for User & Admin
       if (!currentUser || currentUser.role === 'guest' || !scriptUrl) return;
 
       const todayStr = new Date().toDateString();
-      
-      // If no pending tasks AND we haven't notified today
       if (pendingTasks.length === 0 && lastMissionCompleteDate !== todayStr) {
-          // Trigger backend notification
           sendMissionCompleteNotification(scriptUrl, currentUser);
-          // Mark as notified locally
           setLastMissionCompleteDate(todayStr);
       }
   }, [pendingTasks, currentUser, scriptUrl, lastMissionCompleteDate, setLastMissionCompleteDate]);
 
-
   const NotificationBell = () => {
       const count = pendingTasks.length;
-      
       return (
           <div className="relative" ref={notificationRef}>
-              <button 
-                  onClick={() => setIsNotificationOpen(prev => !prev)}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors relative"
-              >
+              <button onClick={() => setIsNotificationOpen(prev => !prev)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors relative">
                   <BellIcon className="w-6 h-6" />
                   {count > 0 && (
                       <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-gray-800 animate-pulse">
@@ -417,7 +400,6 @@ const AppContent: React.FC = () => {
                       </span>
                   )}
               </button>
-
               {isNotificationOpen && (
                   <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 origin-top-right z-50 animate-fade-in-down">
                       <div className="p-4 border-b dark:border-gray-700 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-t-xl">
@@ -433,11 +415,7 @@ const AppContent: React.FC = () => {
                           ) : (
                               <div className="p-2">
                                   {pendingTasks.map(task => (
-                                      <button 
-                                          key={task.id}
-                                          onClick={() => navigate(task.view)}
-                                          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors group"
-                                      >
+                                      <button key={task.id} onClick={() => navigate(task.view)} className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors group">
                                           <div className="flex items-center gap-3">
                                               <div className="bg-gray-100 dark:bg-gray-900 p-2 rounded-full">{task.icon}</div>
                                               <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{task.label}</span>
@@ -454,23 +432,15 @@ const AppContent: React.FC = () => {
       );
   };
 
-  // --- Quick Action Handlers ---
   const handleQuickAddWater = () => {
-      const newEntry: WaterHistoryEntry = {
-          id: Date.now().toString(),
-          date: new Date().toISOString(),
-          amount: 250 // Add 1 glass
-      };
+      const newEntry: WaterHistoryEntry = { id: Date.now().toString(), date: new Date().toISOString(), amount: 250 };
       setWaterHistory(prev => [newEntry, ...prev]);
       gainXP(XP_VALUES.WATER, 'WATER');
       setIsQuickActionOpen(false);
-      // Removed alert, relying on toast from gainXP
   };
 
   const BottomNavigation = () => {
-      // FIX: Enable navigation for Guest so they can access Menu and Logout
       if (!currentUser) return null;
-
       return (
           <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around items-center h-16 px-2 z-40 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               <button onClick={() => navigate('home')} className={`flex flex-col items-center justify-center w-full h-full ${activeView === 'home' || activeView === 'dashboard' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>
@@ -484,10 +454,7 @@ const AppContent: React.FC = () => {
               </button>
 
               <div className="relative -top-5">
-                  <button 
-                    onClick={() => setIsQuickActionOpen(true)}
-                    className="w-14 h-14 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white shadow-lg border-4 border-gray-50 dark:border-gray-800 transform active:scale-95 transition-transform hover:scale-105"
-                  >
+                  <button onClick={() => setIsQuickActionOpen(true)} className="w-14 h-14 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white shadow-lg border-4 border-gray-50 dark:border-gray-800 transform active:scale-95 transition-transform hover:scale-105">
                       <span className="text-3xl font-light mb-1">+</span>
                   </button>
               </div>
@@ -507,7 +474,6 @@ const AppContent: React.FC = () => {
 
   const QuickActionModal = () => {
       if (!isQuickActionOpen) return null;
-      
       return (
           <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsQuickActionOpen(false)}></div>
@@ -520,12 +486,10 @@ const AppContent: React.FC = () => {
                           <div className="w-12 h-12 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-2xl">💧</div>
                           <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">ดื่มน้ำ 1 แก้ว</span>
                       </button>
-                      
                       <button onClick={() => navigate('calorieTracker')} className="flex flex-col items-center gap-2 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-2xl hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors">
                           <div className="w-12 h-12 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center text-2xl">🥗</div>
                           <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">บันทึกอาหาร</span>
                       </button>
-
                       <button onClick={() => navigate('wellness')} className="flex flex-col items-center gap-2 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">
                           <div className="w-12 h-12 bg-rose-100 dark:bg-rose-800 rounded-full flex items-center justify-center text-2xl">😊</div>
                           <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">เช็คอารมณ์</span>
@@ -544,10 +508,8 @@ const AppContent: React.FC = () => {
     <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'dark bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'} font-sans pb-10`}>
       {currentUser ? (
         <>
-          {/* Header Bar */}
           <header className="fixed top-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm z-30 px-4 py-3 flex justify-between items-center transition-colors duration-300">
              <div className="flex items-center gap-3">
-                {/* Mobile Logo/Title */}
                 <div className="flex items-center gap-2" onClick={() => navigate('home')}>
                     <div className="w-8 h-8 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow cursor-pointer">SLW</div>
                     <span className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer">Satun Smart Life</span>
@@ -555,27 +517,15 @@ const AppContent: React.FC = () => {
              </div>
              
              <div className="flex items-center gap-3">
-                {/* Notification Bell */}
                 {currentUser?.role !== 'guest' && <NotificationBell />}
-                
-                {/* Guest Quick Exit */}
                 {currentUser?.role === 'guest' && (
-                    <button 
-                        onClick={logout}
-                        className="text-[10px] font-bold text-red-500 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-full border border-red-100 transition-colors"
-                    >
+                    <button onClick={logout} className="text-[10px] font-bold text-red-500 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-full border border-red-100 transition-colors">
                         ออก (Exit)
                     </button>
                 )}
-
-                {/* Profile Icon (Right of Notification) */}
                 <button onClick={() => navigate('profile')} className="relative flex items-center justify-center">
                     {currentUser?.profilePicture && (currentUser.profilePicture.startsWith('data') || currentUser.profilePicture.startsWith('http')) ? (
-                        <img 
-                            src={currentUser.profilePicture} 
-                            alt="Profile" 
-                            className={`w-9 h-9 rounded-full object-cover border-2 ${activeView === 'profile' ? 'border-teal-500' : 'border-transparent'}`} 
-                        />
+                        <img src={currentUser.profilePicture} alt="Profile" className={`w-9 h-9 rounded-full object-cover border-2 ${activeView === 'profile' ? 'border-teal-500' : 'border-transparent'}`} />
                     ) : (
                         <div className={`p-1 rounded-full ${activeView === 'profile' ? 'text-teal-600 bg-teal-50' : 'text-gray-500 bg-gray-100 dark:bg-gray-700'}`}>
                             <UserCircleIcon className="w-7 h-7" />
@@ -585,10 +535,8 @@ const AppContent: React.FC = () => {
              </div>
           </header>
 
-          {/* Spacer for Header */}
           <div className="h-16"></div>
 
-          {/* Main Content Area */}
           <main className="p-4 max-w-3xl mx-auto w-full pb-24">
             {renderContent()}
             <footer className="text-center mt-12 text-gray-500 dark:text-gray-400 text-sm mb-8 md:mb-0">
@@ -597,16 +545,16 @@ const AppContent: React.FC = () => {
             </footer>
           </main>
 
-          {/* Floating SOS Button */}
           {activeView !== 'home' && currentUser?.role !== 'guest' && <SOSButton />}
-
-          {/* Bottom Navigation */}
           <BottomNavigation />
           
-          {/* Modals & Notifications */}
           <ToastNotification />
           <QuickActionModal />
+          
+          {/* Modals: Logic ensures PDPA comes first, then Organization */}
           {showPDPA && <PDPAModal onAccept={handlePDPAAccept} />}
+          {showOrgModal && !showPDPA && <OrganizationModal onSelect={handleOrgSelect} />}
+          
           {isSOSOpen && <SOSModal onClose={closeSOS} />}
           {showLevelUp && <LevelUpModal type={showLevelUp.type} data={showLevelUp.data} onClose={closeLevelUpModal} />}
         </>

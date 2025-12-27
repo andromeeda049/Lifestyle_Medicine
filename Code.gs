@@ -179,12 +179,12 @@ function handleSave(type, payload, user) {
           item.researchId || '', 
           item.pdpaAccepted,     
           item.pdpaAcceptedDate,  
-          item.organization || 'general',
+          item.organization || '', // Save empty if not set, handled by frontend modal
           deltaXp 
       ];
       break;
     case SHEET_NAMES.LOGIN_LOGS:
-        newRow = [timestamp, user.username, user.displayName, user.role, user.organization || 'general'];
+        newRow = [timestamp, user.username, user.displayName, user.role, user.organization || ''];
         break;
     case SHEET_NAMES.BMI: newRow = [...commonPrefix, item.value, item.category]; break;
     case SHEET_NAMES.TDEE: newRow = [...commonPrefix, item.value, item.bmr]; break;
@@ -266,7 +266,7 @@ function handleSocialAuth(userInfo) {
             profilePicture: userInfo.picture,
             role: 'user',
             email: userInfo.email,
-            organization: 'general',
+            organization: '', // Empty to force selection
             authProvider: userInfo.provider,
             userId: userInfo.userId
         };
@@ -276,7 +276,7 @@ function handleSocialAuth(userInfo) {
         if (profileSheet) {
              profileSheet.appendRow([
                 new Date(), username, userInfo.name, userInfo.picture,
-                '', '', '', '', '', '', '', 'user', 0, 1, '["novice"]', userInfo.email, '', '', userInfo.userId, true, '', '', '', 'general', 0
+                '', '', '', '', '', '', '', 'user', 0, 1, '["novice"]', userInfo.email, '', '', userInfo.userId, true, '', '', '', '', 0
              ]);
         }
 
@@ -309,14 +309,14 @@ function handleRegisterUser(user, password) {
         if (data[i][0] === user.email) return createErrorResponse({ message: "Email already exists" });
     }
     
-    const safeUser = { ...user, role: user.role || 'user' };
+    const safeUser = { ...user, role: user.role || 'user', organization: '' }; // Force empty organization
     sheet.appendRow([user.email, password, user.username, JSON.stringify(safeUser), new Date()]);
     
     const profileSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
     if (profileSheet) {
          profileSheet.appendRow([
             new Date(), user.username, user.displayName, user.profilePicture,
-            '', '', '', '', '', '', '', safeUser.role, 0, 1, '["novice"]', user.email, password, '', '', true, '', '', '', user.organization || 'general', 0
+            '', '', '', '', '', '', '', safeUser.role, 0, 1, '["novice"]', user.email, password, '', '', true, '', '', '', '', 0
          ]);
     }
 
@@ -326,7 +326,7 @@ function handleRegisterUser(user, password) {
 function logLogin(user) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.LOGIN_LOGS);
     if (sheet) {
-        sheet.appendRow([new Date(), user.username, user.displayName, user.role, user.organization || 'general']);
+        sheet.appendRow([new Date(), user.username, user.displayName, user.role, user.organization || '']);
     }
 }
 
@@ -351,7 +351,7 @@ function getLatestProfileForUser(username) {
       researchId: lastEntry[20], 
       pdpaAccepted: lastEntry[21],
       pdpaAcceptedDate: lastEntry[22],
-      organization: lastEntry[23] || 'general'
+      organization: lastEntry[23] || '' // Return empty if not present to trigger modal
   };
 }
 

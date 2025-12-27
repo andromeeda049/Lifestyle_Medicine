@@ -20,7 +20,7 @@ const defaultProfile: UserProfile = {
   level: 1,
   badges: ['novice'],
   receiveDailyReminders: true,
-  organization: 'general',
+  organization: '', // Modified: Empty by default to trigger selection modal
   streak: 0,
   lastLogDate: '',
   aiSystemInstruction: ''
@@ -80,11 +80,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     _setQuizHistory([]); setLatestFoodAnalysis(null); 
     
     // Check URL params to handle deep links correctly
-    // 1. Try current URL
     const currentParams = new URLSearchParams(window.location.search);
     let viewParam = currentParams.get('view');
 
-    // 2. Fallback to initial URL (useful if LIFF/OAuth redirect stripped params)
     if (!viewParam) {
         viewParam = initialUrlParams.current.get('view');
     }
@@ -94,7 +92,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } else {
         setActiveView('home');
     }
-    // Removed frontend logging to 'loginLog' to prevent sheet conflict/confusion with backend logging.
   };
 
   const logout = () => { setCurrentUser(null); setActiveView('home'); };
@@ -112,7 +109,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   ...cloudProfile,
                   pdpaAccepted: cloudProfile.pdpaAccepted || prev.pdpaAccepted,
                   pdpaAcceptedDate: cloudProfile.pdpaAcceptedDate || prev.pdpaAcceptedDate,
-                  // Keep local AI instruction if not set in cloud (optional logic, usually cloud wins)
+                  organization: cloudProfile.organization || '', // Allow empty if not set on cloud
                   aiSystemInstruction: cloudProfile.aiSystemInstruction || prev.aiSystemInstruction
               };
           });
@@ -191,9 +188,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           case 'EXERCISE': return activityHistory;
           case 'SLEEP': return sleepHistory;
           case 'MOOD': return moodHistory;
-          case 'WELLNESS': 
-            // Combine social and habit logs for check
-            return [...habitHistory, ...socialHistory].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          case 'WELLNESS': return [...habitHistory, ...socialHistory].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           case 'PLANNER': return plannerHistory;
           case 'QUIZ': return quizHistory;
           default: return [];
@@ -203,27 +198,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const gainXP = useCallback((amount: number, category?: string) => {
     if (!currentUser || currentUser.role === 'guest') return;
 
-    // --- ANTI-CHEAT & GAMIFICATION LOGIC ---
     if (category && GAMIFICATION_LIMITS[category]) {
         const rules = GAMIFICATION_LIMITS[category];
         const history = getHistoryForCategory(category);
         const now = new Date();
         const todayStr = now.toDateString();
 
-        // 1. Check Daily Cap
         const todayEntries = history.filter(entry => new Date(entry.date).toDateString() === todayStr);
         if (todayEntries.length > rules.maxPerDay) {
-            // Allow logging but NO XP
             showToast(`คุณบันทึกครบโควตาแล้ววันนี้ (รับคะแนนสูงสุด ${rules.maxPerDay} ครั้ง/วัน)`, 'info');
             return; 
         }
 
-        // 2. Check Cooldown (Only if history exists and > 0)
-        // Since React state update is async, 'history' here might NOT contain the item just added by the component.
-        // That is actually simpler: check the *previous* item.
-        // If the *most recent* item in history was too recent, block.
         if (history.length > 0) {
-            const lastEntry = history[0]; // Assuming desc sort
+            const lastEntry = history[0];
             const lastTime = new Date(lastEntry.date).getTime();
             const diffMinutes = (now.getTime() - lastTime) / (1000 * 60);
             
@@ -235,7 +223,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     }
 
-    // --- GRANT XP ---
     _setUserProfile(currentProfile => {
         let currentXP = currentProfile.xp || 0; let currentLevel = currentProfile.level || 1;
         let currentBadges = currentProfile.badges || ['novice']; let currentStreak = currentProfile.streak || 0;
