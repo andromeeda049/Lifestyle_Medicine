@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { fetchLeaderboard } from '../services/googleSheetService';
-import { TrophyIcon, StarIcon, MedalIcon, UserCircleIcon, FireIcon, UserGroupIcon, ChartBarIcon } from './icons';
+import { TrophyIcon, StarIcon, MedalIcon, UserCircleIcon, FireIcon, UserGroupIcon, ChartBarIcon, ShareIcon } from './icons';
 import { ORGANIZATIONS } from '../constants';
 
 interface LeaderboardUser {
@@ -25,12 +25,13 @@ interface OrgRanking {
 }
 
 const Community: React.FC = () => {
-    const { scriptUrl, currentUser } = useContext(AppContext);
+    const { scriptUrl, currentUser, userProfile } = useContext(AppContext);
     const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
     const [trending, setTrending] = useState<LeaderboardUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'trending' | 'orgs'>('users');
+    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
     const loadData = async () => {
         setLoading(true);
@@ -118,6 +119,44 @@ const Community: React.FC = () => {
         );
     };
 
+    const handleShare = async () => {
+        if (!currentUser) return;
+
+        const myXp = userProfile.xp?.toLocaleString() || '0';
+        const rankText = myRankIndex !== -1 ? `🏆 ฉันอยู่อันดับที่ ${myRankIndex + 1} ของชุมชน` : '💪 ฉันกำลังสะสมแต้มสุขภาพ';
+        
+        const shareText = `
+${rankText}
+👤 ${currentUser.displayName} (Lv.${userProfile.level})
+🔥 XP สะสม: ${myXp} แต้ม
+
+มาร่วมเป็นสุดยอดผู้ดูแลสุขภาพประจำชุมชนกับฉันที่ Satun Smart Life!
+#SatunSmartLife #สุขภาพดีที่สตูล
+`.trim();
+
+        const shareData = {
+            title: 'Satun Smart Life Leaderboard',
+            text: shareText,
+            url: window.location.href // Or specific app URL
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+            } catch (err) {
+                console.log('Share canceled');
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(shareText + "\n" + window.location.href);
+                setCopyStatus('copied');
+                setTimeout(() => setCopyStatus('idle'), 2500);
+            } catch (err) {
+                alert('ไม่สามารถแชร์ได้');
+            }
+        }
+    };
+
     const renderHeader = () => {
         let title = "Leaderboard";
         let subtitle = "สุดยอดผู้ดูแลสุขภาพประจำชุมชน";
@@ -144,10 +183,21 @@ const Community: React.FC = () => {
                 <h2 className="text-2xl font-bold relative z-10">{title}</h2>
                 <p className="text-white/90 text-sm relative z-10">{subtitle}</p>
                 
-                {activeTab === 'users' && myRankIndex !== -1 && (
-                    <div className="mt-4 inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-medium border border-white/30 relative z-10">
-                        <StarIcon className="w-4 h-4 text-yellow-300" />
-                        <span>อันดับของคุณ: #{myRankIndex + 1}</span>
+                {activeTab === 'users' && (
+                    <div className="mt-4 flex flex-wrap justify-center gap-2 relative z-10">
+                        {myRankIndex !== -1 && (
+                            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-medium border border-white/30">
+                                <StarIcon className="w-4 h-4 text-yellow-300" />
+                                <span>อันดับของคุณ: #{myRankIndex + 1}</span>
+                            </div>
+                        )}
+                        <button 
+                            onClick={handleShare}
+                            className="inline-flex items-center gap-2 bg-white text-orange-600 px-4 py-1.5 rounded-full text-sm font-bold shadow-md hover:bg-orange-50 transition-colors active:scale-95"
+                        >
+                            <ShareIcon className="w-4 h-4" />
+                            {copyStatus === 'copied' ? 'คัดลอกแล้ว!' : 'อวดอันดับ'}
+                        </button>
                     </div>
                 )}
             </div>
@@ -366,9 +416,12 @@ const Community: React.FC = () => {
                             <p className="font-bold text-sm">อันดับของคุณ</p>
                             <p className="text-xs text-gray-300">{(leaderboard[myRankIndex]?.xp || 0).toLocaleString()} XP</p>
                         </div>
-                        <div className="text-xs text-gray-400">
-                            สู้ต่อไป! 🔥
-                        </div>
+                        <button 
+                            onClick={handleShare}
+                            className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
+                        >
+                            <ShareIcon className="w-5 h-5 text-white" />
+                        </button>
                     </div>
                 </div>
             )}
