@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { UserGroupIcon,  } from './icons';
+import { UserGroupIcon } from './icons';
 import { ORGANIZATIONS } from '../constants';
 
 interface OrganizationModalProps {
@@ -28,34 +28,37 @@ const OrganizationModal: React.FC<OrganizationModalProps> = ({ onSelect }) => {
                         </div>
                     </div>
                     <h2 className="text-xl font-bold">กรุณาระบุหน่วยงานของคุณ</h2>
-                    <p className="text-teal-100 text-sm mt-1">Please select your organization</p>
+                    <p className="text-teal-100 text-sm mt-1">เพื่อให้เราดูแลคุณได้อย่างทั่วถึง</p>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 space-y-4">
                     <p className="text-gray-600 dark:text-gray-300 text-sm text-center">
-                        เพื่อให้ข้อมูลสุขภาพของคุณถูกส่งไปยังเจ้าหน้าที่ที่ดูแลพื้นที่ได้อย่างถูกต้อง กรุณาเลือกสังกัดหรือหน่วยงานของคุณ
+                        ข้อมูลสุขภาพของคุณจะถูกรวบรวมเพื่อการดูแลสุขภาพในพื้นที่ <br/>กรุณาเลือกสังกัดหรือหน่วยงานที่คุณอาศัยหรือทำงานอยู่
                     </p>
 
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                         {ORGANIZATIONS.map((org) => (
                             <label 
                                 key={org.id} 
                                 className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
                                     selectedOrg === org.id 
-                                    ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' 
-                                    : 'border-gray-200 dark:border-gray-700 hover:border-teal-300'
+                                    ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20 shadow-md' 
+                                    : 'border-gray-200 dark:border-gray-700 hover:border-teal-300 dark:hover:border-teal-700'
                                 }`}
                             >
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${selectedOrg === org.id ? 'border-teal-500' : 'border-gray-400'}`}>
+                                    {selectedOrg === org.id && <div className="w-2.5 h-2.5 rounded-full bg-teal-500" />}
+                                </div>
                                 <input 
                                     type="radio" 
                                     name="organization" 
                                     value={org.id} 
                                     checked={selectedOrg === org.id}
                                     onChange={(e) => setSelectedOrg(e.target.value)}
-                                    className="w-5 h-5 text-teal-600 focus:ring-teal-500 border-gray-300"
+                                    className="hidden"
                                 />
-                                <span className="ml-3 text-sm font-bold text-gray-700 dark:text-gray-200">
+                                <span className={`text-sm font-bold ${selectedOrg === org.id ? 'text-teal-700 dark:text-teal-300' : 'text-gray-700 dark:text-gray-200'}`}>
                                     {org.name}
                                 </span>
                             </label>

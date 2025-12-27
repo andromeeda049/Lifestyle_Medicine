@@ -22,7 +22,7 @@ import AboutApp from './components/AboutApp';
 import EvaluationForm from './components/EvaluationForm';
 import HealthLiteracyQuiz from './components/HealthLiteracyQuiz';
 import PDPAModal from './components/PDPAModal';
-import OrganizationModal from './components/OrganizationModal'; // Import new modal
+import OrganizationModal from './components/OrganizationModal';
 import SOSModal from './components/SOSModal';
 import LevelUpModal from './components/LevelUpModal';
 import Community from './components/Community';
@@ -90,7 +90,7 @@ const AppContent: React.FC = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [showPDPA, setShowPDPA] = useState(false);
-  const [showOrgModal, setShowOrgModal] = useState(false); // State for Org Modal
+  const [showOrgModal, setShowOrgModal] = useState(false);
   
   const notificationRef = useRef<HTMLDivElement>(null);
   const [lastMissionCompleteDate, setLastMissionCompleteDate] = useLocalStorage<string>('lastMissionCompleteDate', '');
@@ -116,7 +116,7 @@ const AppContent: React.FC = () => {
           // 1. Check PDPA First
           if (userProfile && !userProfile.pdpaAccepted) {
               setShowPDPA(true);
-              setShowOrgModal(false); // Do not show Org modal yet
+              setShowOrgModal(false); 
           } 
           // 2. Check Organization (Only if PDPA accepted)
           else if (userProfile && (!userProfile.organization || userProfile.organization === '')) {
@@ -180,7 +180,6 @@ const AppContent: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ... (MenuCard, MenuGridPage, etc. remain the same) ...
   const MenuCard: React.FC<{
       view: AppView;
       label: string;
@@ -304,7 +303,6 @@ const AppContent: React.FC = () => {
       );
   }
 
-  // ... (renderContent, viewTitles, NotificationBell, etc. same as before) ...
   const renderContent = () => {
     switch (activeView) {
       case 'home':
@@ -551,7 +549,7 @@ const AppContent: React.FC = () => {
           <ToastNotification />
           <QuickActionModal />
           
-          {/* Modals: Logic ensures PDPA comes first, then Organization */}
+          {/* Modals: Ensure order and blocking behavior */}
           {showPDPA && <PDPAModal onAccept={handlePDPAAccept} />}
           {showOrgModal && !showPDPA && <OrganizationModal onSelect={handleOrgSelect} />}
           
