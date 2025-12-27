@@ -2,7 +2,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
-import { LineIcon, LockIcon, ArrowLeftIcon } from './icons';
+import { LineIcon, LockIcon, ArrowLeftIcon, ExclamationTriangleIcon } from './icons';
 import { socialAuth } from '../services/googleSheetService';
 import liff from '@line/liff';
 import { ORGANIZATIONS, APP_LOGO_URL, ADMIN_CREDENTIALS } from '../constants';
@@ -21,6 +21,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
     // LINE State
     const [isLineReady, setIsLineReady] = useState(false);
+    const [lineError, setLineError] = useState('');
 
     // Admin Form State
     const [password, setPassword] = useState('');
@@ -29,44 +30,66 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     useEffect(() => {
         const initLine = async () => {
             try {
-                await liff.init({ liffId: LINE_LIFF_ID });
+                // Check if LIFF is already initialized to avoid double init error
+                if (!liff.id) {
+                    await liff.init({ liffId: LINE_LIFF_ID });
+                }
                 setIsLineReady(true);
 
+                // Auto Login Logic
                 if (liff.isLoggedIn()) {
                     setLoading(true);
-                    setStatusText('กำลังยืนยันตัวตนผ่าน LINE...');
+                    setStatusText('กำลังเชื่อมต่อฐานข้อมูล...');
                     
                     const profile = await liff.getProfile();
                     const userEmail = liff.getDecodedIDToken()?.email || `${profile.userId}@line.me`;
 
                     if (scriptUrl) {
-                        const res = await socialAuth(scriptUrl, {
-                            email: userEmail,
-                            name: profile.displayName,
-                            picture: profile.pictureUrl || '',
-                            provider: 'line',
-                            userId: profile.userId
-                        });
+                        try {
+                            const res = await socialAuth(scriptUrl, {
+                                email: userEmail,
+                                name: profile.displayName,
+                                picture: profile.pictureUrl || '',
+                                provider: 'line',
+                                userId: profile.userId
+                            });
 
-                        if (res.success && res.user) {
-                            onLogin({ ...res.user, authProvider: 'line' });
-                        } else {
-                            setError(res.message || 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ');
+                            if (res.success && res.user) {
+                                onLogin({ ...res.user, authProvider: 'line' });
+                            } else {
+                                // Show SPECIFIC Backend Error
+                                setError(`เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ${res.message}`);
+                                setLoading(false);
+                            }
+                        } catch (fetchErr: any) {
+                            setError(`Network Error: ${fetchErr.message}`);
                             setLoading(false);
                         }
+                    } else {
+                        setError('ไม่พบ URL ของ Google Script (กรุณาตั้งค่าใน Admin)');
+                        setLoading(false);
                     }
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error("LINE Init Error:", err);
+                setLineError(err.message || "LINE Init Failed");
+                setLoading(false);
             }
         };
         initLine();
     }, [scriptUrl, onLogin]);
 
     const handleLineLogin = () => {
-        if (!isLineReady) return;
+        setError('');
+        if (!isLineReady) {
+            setError('LINE ยังไม่พร้อมใช้งาน (กรุณารีเฟรช)');
+            return;
+        }
         if (!liff.isLoggedIn()) {
             liff.login();
+        } else {
+            // Already logged in but maybe stuck? Retry init logic manually
+            window.location.reload();
         }
     };
 
@@ -125,9 +148,18 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     return (
         <div className="animate-fade-in relative w-full">
             {/* Error Banner */}
-            {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center border border-red-200 flex items-center justify-center gap-2 mb-4 animate-bounce-in">
-                    <span className="font-bold">!</span> {error}
+            {(error || lineError) && (
+                <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs text-left border border-red-200 flex flex-col gap-1 mb-4 animate-bounce-in shadow-sm">
+                    <div className="flex items-center gap-2 font-bold text-sm">
+                        <ExclamationTriangleIcon className="w-5 h-5" />
+                        เกิดข้อผิดพลาด
+                    </div>
+                    <p>{error || lineError}</p>
+                    {error.includes("Script") && (
+                        <p className="mt-1 text-red-400 italic">
+                            *คำแนะนำ: กรุณาตรวจสอบว่า Google Apps Script ได้ Deploy เป็น "New Version" แล้วหรือยัง
+                        </p>
+                    )}
                 </div>
             )}
 
