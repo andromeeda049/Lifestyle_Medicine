@@ -303,7 +303,7 @@ export const socialAuth = async (
         } catch (e) {
             console.error("Invalid JSON from socialAuth:", text);
             // This is likely a Google Script error page (HTML)
-            if (text.includes("ScriptError")) return { success: false, message: 'Google Script Error' };
+            if (text.includes("ScriptError")) return { success: false, message: 'Google Script Error (Check Backend)' };
             return { success: false, message: 'Server connection failed (Invalid JSON)' };
         }
 
@@ -312,7 +312,8 @@ export const socialAuth = async (
             const sanitizedUser = { ...result.data, role: (typeof result.data.role === 'string') ? result.data.role : 'user' };
             return { success: true, user: sanitizedUser };
         }
-        return { success: false, message: result.message || 'Authentication failed' };
+        // FIX: Read message OR data as fallback for error message
+        return { success: false, message: result.message || result.data || 'Authentication failed' };
     } catch (error: any) {
         return { success: false, message: error.message };
     }

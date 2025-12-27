@@ -1,36 +1,40 @@
 
-# การตั้งค่า Google Sheets สำหรับระบบ Leaderboard (Fixed for LoginLogs)
+# การตั้งค่า Google Sheets (Final Fixed v3.4)
 
-### สำคัญ: อัปเดต Script เพื่อแก้ปัญหา Login
-โค้ดเวอร์ชันนี้ (v3.3) จะบังคับใช้ชีตชื่อ **"LoginLogs"** (ตัว L ใหญ่) ตามที่คุณระบุ เพื่อให้ตรงกับฐานข้อมูลเดิม
+### วิธีการอัปเดต (สำคัญมาก!)
+1. ไปที่ **Google Apps Script** ของโปรเจกต์คุณ
+2. **ลบโค้ดเก่าทั้งหมด** ในไฟล์ `Code.gs`
+3. **คัดลอกโค้ดฉบับเต็มด้านล่างนี้ (v3.4)** ไปวางแทนที่
+4. กด **Save** (รูปแผ่นดิสก์)
+5. กด **Deploy** > **New deployment** > กด **Deploy** อีกครั้ง (เพื่อให้ URL เดิมใช้งานกับโค้ดใหม่ได้)
 
-### 1. ไฟล์ Code.gs (v3.3 - Force LoginLogs)
-คัดลอกโค้ดนี้ไปแทนที่ใน Apps Script ของคุณ แล้วกด **Deploy > New deployment** ใหม่ทันที
+### 1. ไฟล์ Code.gs (ฉบับเต็ม v3.4 - LoginLogs & Error Handling Fixed)
 
 ```javascript
 /**
- * Smart Lifestyle Wellness - Backend Script (v3.3)
- * Enforcing 'LoginLogs' sheet name match
+ * Smart Lifestyle Wellness - Backend Script (v3.4 Final)
+ * - Forces 'LoginLogs' sheet name (LoginLogs)
+ * - Improved Error Handling (returns 'message' on error)
  */
 
 const SHEET_NAMES = {
   PROFILE: 'profile',
   USERS: 'users',
-  LOGIN_LOGS: 'LoginLogs', // บังคับใช้ชื่อนี้ตามที่คุณต้องการ
+  LOGIN_LOGS: 'LoginLogs', // ชื่อชีตที่ถูกต้อง (ตัว L ใหญ่)
   LEADERBOARD_VIEW: 'LeaderboardView', 
   TRENDING_VIEW: 'TrendingView'
 };
 
-// ฟังก์ชันค้นหา Sheet แบบแม่นยำ ถ้าไม่เจอจะลองหาแบบไม่สนตัวพิมพ์เล็กใหญ่
+// ฟังก์ชันค้นหา Sheet แบบฉลาด (หาตรงตัวก่อน -> หาแบบไม่สนตัวเล็กใหญ่ -> ถ้าไม่มีค่อยสร้าง)
 function getSheet(ss, name) {
   let sheet = ss.getSheetByName(name);
   if (sheet) return sheet;
   
-  // Fallback: Try case-insensitive search
+  // Fallback: ลองหาแบบ Case-insensitive (เผื่อชื่อเป็น loginLogs)
   const sheets = ss.getSheets();
   sheet = sheets.find(s => s.getName().toLowerCase() === name.toLowerCase());
   
-  // If still not found, create it with the exact requested name
+  // ถ้ายังไม่เจอ ให้สร้างใหม่ด้วยชื่อที่ถูกต้องเป๊ะๆ
   if (!sheet) {
     sheet = ss.insertSheet(name);
   }
@@ -58,14 +62,13 @@ function setupSheets() {
   const usersSheet = getSheet(ss, SHEET_NAMES.USERS);
   if (usersSheet.getLastRow() === 0) usersSheet.appendRow(["email", "password", "username", "userDataJson", "timestamp"]);
   
-  // Setup LoginLogs (ใช้ชีตเดิมที่มีอยู่)
+  // Setup LoginLogs (ใช้ชีต LoginLogs)
   const logSheet = getSheet(ss, SHEET_NAMES.LOGIN_LOGS);
-  // เช็คว่าถ้าเป็นชีตใหม่ค่อยเติมหัวตาราง แต่ถ้าเป็นชีตเดิม (LoginLogs) ก็ใช้ต่อเลย
   if (logSheet.getLastRow() === 0) {
     logSheet.appendRow(["timestamp", "username", "displayName", "role", "organization"]);
   }
   
-  return "ตั้งค่าชีตเรียบร้อย (LoginLogs Ready)!";
+  return "Setup Complete (v3.4)";
 }
 
 function doPost(e) {
@@ -84,6 +87,7 @@ function doPost(e) {
     
     return createResponse('error', 'Invalid action');
   } catch (err) {
+    // ส่ง Error กลับไปที่ frontend ให้เห็นชัดๆ
     return createResponse('error', err.toString());
   }
 }
@@ -122,7 +126,7 @@ function handleSave(type, payload, user) {
     ];
     sheet.appendRow(rowData);
   } else {
-    // General Logs (food, water, etc.)
+    // General Logs
     const dataArray = Array.isArray(payload) ? payload : [payload];
     dataArray.forEach(item => {
       const logData = { ...item, organization: user.organization || 'general' };
@@ -277,16 +281,15 @@ function handleSocialAuth(payload) {
     };
     sheet.appendRow([key, 'SOCIAL', userData.username, JSON.stringify(userData), new Date()]);
   }
-  logLogin(userData);
+  logLogin(userData); // ถ้าบรรทัดนี้ Error มันจะเด้งไป catch block ทันที
   return createResponse('success', userData);
 }
 
-// ** จุดแก้ไขสำคัญ: ใช้ชื่อชีต SHEET_NAMES.LOGIN_LOGS ('LoginLogs') **
 function logLogin(user) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  // ใช้ getSheet เพื่อหา LoginLogs หรือ loginLogs ให้เจอแน่นอน
   let sheet = getSheet(ss, SHEET_NAMES.LOGIN_LOGS);
   
-  // บันทึกข้อมูลตามโครงสร้างเดิม: timestamp, username, displayName, role, organization
   sheet.appendRow([
     new Date(), 
     user.username, 
@@ -309,11 +312,10 @@ function handleAdminFetch() {
             headers.forEach((h, i) => obj[h] = row[i]);
             return obj;
         });
-    } else if (name === SHEET_NAMES.LOGIN_LOGS) {
+    } else if (name === SHEET_NAMES.LOGIN_LOGS || name.toLowerCase() === 'loginlogs') { 
+        // Handle variations of login logs
         const data = s.getDataRange().getValues();
-        const headers = data[0];
         result['loginLogs'] = data.slice(1).map(row => {
-            // Map columns manually based on assumed structure or headers
             return {
                 timestamp: row[0],
                 username: row[1],
@@ -336,7 +338,16 @@ function handleAdminFetch() {
   return createResponse('success', result);
 }
 
-function createResponse(status, data) {
-  return ContentService.createTextOutput(JSON.stringify({ status, data })).setMimeType(ContentService.MimeType.JSON);
+// สร้าง Response ที่เป็นมาตรฐาน
+function createResponse(status, content) {
+  const response = { status: status };
+  if (status === 'success') {
+    response.data = content;
+  } else {
+    // กรณี Error ให้ส่ง message ไปด้วย เพื่อให้ frontend แสดงผลได้ถูกต้อง
+    response.message = content;
+    response.data = content; // สำรองเผื่อ frontend เวอร์ชั่นเก่า
+  }
+  return ContentService.createTextOutput(JSON.stringify(response)).setMimeType(ContentService.MimeType.JSON);
 }
 ```
