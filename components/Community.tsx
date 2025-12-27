@@ -23,7 +23,7 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'trending' | 'org'>('leaderboard');
 
-    // No need for complex sanitization since backend v6.0 guarantees the keys
+    // Simplified user sanitization: backend now guarantees keys
     const sanitizeUser = (raw: any): LeaderboardUser => {
         return {
             username: raw.username || "",

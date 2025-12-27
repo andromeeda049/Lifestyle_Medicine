@@ -1,8 +1,8 @@
 
 /**
- * Smart Lifestyle Wellness - Backend Script (v6.0 Direct Index Access)
- * - Reads Profile sheet directly using array indexes
- * - Bypasses headers and QUERY formulas entirely for maximum reliability
+ * Smart Lifestyle Wellness - Backend Script (v6.0 Direct Index)
+ * - Reads Profile sheet directly using column indexes
+ * - Bypasses headers and QUERY formulas for stability
  */
 
 const SHEET_NAMES = {
@@ -21,8 +21,8 @@ const SHEET_NAMES = {
   HABIT: "HabitHistory",
   SOCIAL: "SocialHistory",
   EVALUATION: "EvaluationHistory",
-  LEADERBOARD_VIEW: "LeaderboardView", // Legacy (Not used in this version)
-  TRENDING_VIEW: "TrendingView" // Legacy (Not used in this version)
+  LEADERBOARD_VIEW: "LeaderboardView", // Legacy
+  TRENDING_VIEW: "TrendingView" // Legacy
 };
 
 const ADMIN_KEY = "ADMIN1234!";
@@ -100,52 +100,43 @@ function handleGetLeaderboard() {
     return createSuccessResponse({ leaderboard: [], trending: [] });
   }
 
-  // Read all raw data from Profile sheet
-  // We use direct index access based on setupSheets structure:
-  // Col B (Index 1): username
-  // Col C (Index 2): displayName
-  // Col D (Index 3): profilePicture
-  // Col L (Index 11): role
-  // Col M (Index 12): xp
-  // Col N (Index 13): level
-  // Col X (Index 23): organization
-  // Col Y (Index 24): deltaXp
-  
-  const rawData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 25).getValues();
-  
-  // Use a Map to get the latest entry for each user (in case of duplicates)
-  const userMap = new Map();
+  // Read all raw data
+  const data = sheet.getDataRange().getValues();
+  const userMap = {};
 
-  rawData.forEach(row => {
+  // Iterate from row 1 (skipping header row 0)
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    // Map columns based on setupSheets structure:
+    // [0]timestamp, [1]username, [2]displayName, [3]profilePicture, ...
+    // [11]role, [12]xp, [13]level, ... [23]organization, [24]deltaXp
+    
     const username = row[1];
-    if (!username) return;
-
-    // Only process users, ignore admins/guests if needed
     const role = String(row[11] || '').toLowerCase();
-    if (role !== 'user') return;
 
-    // Since we read from top to bottom, and appendRow adds to bottom,
-    // later rows will overwrite earlier rows in the Map, ensuring latest data.
-    userMap.set(username, {
-      username: row[1],
-      displayName: row[2],
-      profilePicture: row[3],
-      xp: Number(row[12] || 0),
-      level: Number(row[13] || 1),
-      organization: row[23] || 'general',
-      deltaXp: Number(row[24] || 0)
-    });
-  });
+    if (username && role === 'user') {
+      // Direct overwrite ensures we get the latest entry for each user
+      userMap[username] = {
+        username: username,
+        displayName: row[2],
+        profilePicture: row[3],
+        xp: Number(row[12] || 0),
+        level: Number(row[13] || 1),
+        organization: row[23] || 'general',
+        deltaXp: Number(row[24] || 0)
+      };
+    }
+  }
 
-  const allUsers = Array.from(userMap.values());
+  const users = Object.values(userMap);
 
   // 1. Leaderboard: Sort by XP Descending
-  const leaderboard = [...allUsers]
+  const leaderboard = [...users]
     .sort((a, b) => b.xp - a.xp)
-    .slice(0, 100); // Limit to top 100
+    .slice(0, 100);
 
-  // 2. Trending: Sort by Weekly XP (deltaXp) Descending, Filter > 0
-  const trending = [...allUsers]
+  // 2. Trending: Sort by deltaXp Descending (Weekly XP)
+  const trending = [...users]
     .filter(u => u.deltaXp > 0)
     .sort((a, b) => b.deltaXp - a.deltaXp)
     .slice(0, 50);
