@@ -1,25 +1,20 @@
+
 import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
-import { LineIcon, UserCircleIcon, UserGroupIcon, EnvelopeIcon, LockIcon, ArrowLeftIcon } from './icons';
-import { registerUser, verifyUser, socialAuth } from '../services/googleSheetService';
+import { LineIcon, LockIcon, ArrowLeftIcon } from './icons';
+import { socialAuth } from '../services/googleSheetService';
 import liff from '@line/liff';
-import { ORGANIZATIONS, APP_LOGO_URL } from '../constants';
+import { ORGANIZATIONS, APP_LOGO_URL, ADMIN_CREDENTIALS } from '../constants';
 
 // Configuration
 const LINE_LIFF_ID = "2008705690-V5wrjpTX";
-
-const getRandomEmoji = () => {
-    const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪'];
-    return emojis[Math.floor(Math.random() * emojis.length)];
-};
 
 const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const { scriptUrl } = useContext(AppContext);
 
     // UI State
     const [view, setView] = useState<'main' | 'admin'>('main');
-    const [adminMode, setAdminMode] = useState<'login' | 'register'>('login');
     const [loading, setLoading] = useState(false);
     const [statusText, setStatusText] = useState('');
     const [error, setError] = useState('');
@@ -28,10 +23,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const [isLineReady, setIsLineReady] = useState(false);
 
     // Admin Form State
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [displayName, setDisplayName] = useState('');
-    const [selectedOrg, setSelectedOrg] = useState(ORGANIZATIONS[0].id);
 
     // --- 1. CLEAN LINE INITIALIZATION ---
     useEffect(() => {
@@ -78,44 +70,35 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         }
     };
 
-    // --- 2. ADMIN/EMAIL LOGIN ---
-    const handleAdminSubmit = async (e: React.FormEvent) => {
+    // --- 2. ADMIN PASSWORD LOGIN (SIMPLIFIED) ---
+    const handleAdminLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!scriptUrl) return;
-        setLoading(true);
-        setStatusText('กำลังตรวจสอบข้อมูล...');
         setError('');
+        setLoading(true);
+        setStatusText('กำลังตรวจสอบสิทธิ์...');
 
-        try {
-            if (adminMode === 'register') {
-                const newUser: User = {
-                    username: `user_${Date.now()}`,
-                    displayName: displayName,
-                    profilePicture: getRandomEmoji(),
-                    role: 'user',
-                    email: email,
-                    organization: selectedOrg
+        // Simulate slight delay for UX
+        setTimeout(() => {
+            const targetOrgId = ADMIN_CREDENTIALS[password];
+
+            if (targetOrgId) {
+                const orgName = ORGANIZATIONS.find(o => o.id === targetOrgId)?.name || 'Admin';
+                
+                const adminUser: User = {
+                    username: `admin_${targetOrgId}`,
+                    displayName: `Admin: ${orgName}`,
+                    profilePicture: '🛡️',
+                    role: 'admin',
+                    organization: targetOrgId,
+                    authProvider: 'email'
                 };
-                const res = await registerUser(scriptUrl, newUser, password);
-                if (res.success) {
-                    onLogin(newUser);
-                } else {
-                    setError(res.message || 'สมัครสมาชิกไม่สำเร็จ');
-                    setLoading(false);
-                }
+                
+                onLogin(adminUser);
             } else {
-                const res = await verifyUser(scriptUrl, email, password);
-                if (res.success && res.user) {
-                    onLogin(res.user);
-                } else {
-                    setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-                    setLoading(false);
-                }
+                setError('รหัสผ่านไม่ถูกต้อง (Access Denied)');
+                setLoading(false);
             }
-        } catch (err) {
-            setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-            setLoading(false);
-        }
+        }, 800);
     };
 
     // --- 3. GUEST LOGIN ---
@@ -184,60 +167,25 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 </div>
             )}
 
-            {/* --- ADMIN VIEW: Email/Password --- */}
+            {/* --- ADMIN VIEW: Password Only --- */}
             {view === 'admin' && (
                 <div className="animate-slide-up">
                     <button 
-                        onClick={() => { setView('main'); setError(''); }}
-                        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 mb-4 transition-colors"
+                        onClick={() => { setView('main'); setError(''); setPassword(''); }}
+                        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 mb-6 transition-colors"
                     >
                         <ArrowLeftIcon className="w-4 h-4" /> กลับหน้าหลัก
                     </button>
 
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-1.5 rounded-xl flex mb-6">
-                        <button
-                            type="button"
-                            onClick={() => { setAdminMode('login'); setError(''); }}
-                            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${adminMode === 'login' ? 'bg-white dark:bg-gray-600 shadow-sm text-teal-600 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}
-                        >
-                            เข้าสู่ระบบ
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => { setAdminMode('register'); setError(''); }}
-                            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${adminMode === 'register' ? 'bg-white dark:bg-gray-600 shadow-sm text-teal-600 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}
-                        >
-                            ลงทะเบียน
-                        </button>
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <LockIcon className="w-8 h-8 text-gray-500 dark:text-gray-300" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-white">เข้าสู่ระบบเจ้าหน้าที่</h3>
+                        <p className="text-xs text-gray-500">กรุณากรอกรหัสผ่านหน่วยงาน (Access Code)</p>
                     </div>
 
-                    <form onSubmit={handleAdminSubmit} className="space-y-4">
-                        {adminMode === 'register' && (
-                            <div className="relative group">
-                                <UserCircleIcon className="absolute left-3 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-teal-500 transition-colors" />
-                                <input
-                                    type="text"
-                                    placeholder="ชื่อที่แสดง (Display Name)"
-                                    value={displayName}
-                                    onChange={e => setDisplayName(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all text-sm"
-                                    required
-                                />
-                            </div>
-                        )}
-                        
-                        <div className="relative group">
-                            <EnvelopeIcon className="absolute left-3 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-teal-500 transition-colors" />
-                            <input
-                                type="email"
-                                placeholder="อีเมล (Email)"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all text-sm"
-                                required
-                            />
-                        </div>
-                        
+                    <form onSubmit={handleAdminLogin} className="space-y-4">
                         <div className="relative group">
                             <LockIcon className="absolute left-3 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-teal-500 transition-colors" />
                             <input
@@ -245,29 +193,17 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                                 placeholder="รหัสผ่าน (Password)"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all text-sm"
+                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all text-sm font-bold tracking-widest"
                                 required
+                                autoFocus
                             />
                         </div>
 
-                        {adminMode === 'register' && (
-                            <div className="relative group">
-                                <UserGroupIcon className="absolute left-3 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-teal-500 transition-colors" />
-                                <select 
-                                    value={selectedOrg} 
-                                    onChange={e => setSelectedOrg(e.target.value)} 
-                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none text-sm appearance-none focus:ring-2 focus:ring-teal-500"
-                                >
-                                    {ORGANIZATIONS.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
-                                </select>
-                            </div>
-                        )}
-
                         <button
                             type="submit"
-                            className="w-full py-3 bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold rounded-xl shadow-md hover:from-teal-700 hover:to-emerald-700 transition-all transform active:scale-95 mt-4"
+                            className="w-full py-3 bg-gradient-to-r from-gray-700 to-gray-900 text-white font-bold rounded-xl shadow-md hover:from-black hover:to-gray-800 transition-all transform active:scale-95 mt-4"
                         >
-                            {adminMode === 'login' ? 'เข้าสู่ระบบ' : 'ยืนยันการลงทะเบียน'}
+                            ยืนยันรหัสผ่าน
                         </button>
                     </form>
                 </div>
