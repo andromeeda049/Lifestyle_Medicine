@@ -1,22 +1,8 @@
 
-# การตั้งค่า Google Sheets (v4.1 - Leaderboard Fix)
-
-### วิธีการอัปเดต (สำคัญ!)
-1. ไปที่ **Google Apps Script** ของโปรเจกต์คุณ
-2. **ลบโค้ดเก่าทั้งหมด** ในไฟล์ `Code.gs`
-3. **คัดลอกโค้ดฉบับเต็มด้านล่างนี้ (v4.1)** ไปวางแทนที่
-4. กด **Save**
-5. กด **Run** -> เลือกฟังก์ชัน `setupSheets` (เพื่อสร้างชีตและสูตร Leaderboard อัตโนมัติ)
-6. กด **Deploy** > **New deployment** > กด **Deploy**
-
-### 1. ไฟล์ Code.gs (ฉบับเต็ม v4.1)
-
-```javascript
 /**
- * Smart Lifestyle Wellness - Backend Script (v4.1 Leaderboard Fix)
- * - Auto-generates QUERY formulas for LeaderboardView
- * - Fixes empty sheet crashes
- * - Strict Organization & Role handling
+ * Smart Lifestyle Wellness - Backend Script (v4.6 Leaderboard Fix)
+ * - Uses v4.1 robust logic for Leaderboard fetching (Regex headers + Fallback)
+ * - Auto-repairs View sheets if formula is missing
  */
 
 const SHEET_NAMES = {
@@ -119,12 +105,13 @@ function handleGetLeaderboard() {
     return data.slice(1).map(row => {
       let obj = {};
       headers.forEach((h, i) => {
-        // Clean Query Headers (e.g. "max(xp)" -> "xp")
+        // Clean Query Headers (e.g. "max(xp)" -> "xp") from v4.1 logic
         let key = h.toString().replace(/^(MAX|SUM|COUNT|AVG)\(/i, '').replace(/\)$/, '').trim(); 
-        // Or "MAX displayName" -> "displayName"
         key = key.replace(/^(MAX|SUM|COUNT|AVG)\s+/i, '').trim();
         
+        // Mapping fix
         if (key === 'totalXp') key = 'xp';
+        
         obj[key] = row[i];
       });
       return obj;
@@ -134,7 +121,7 @@ function handleGetLeaderboard() {
   // 1. Try reading from Views (Fastest)
   const leaderboardData = readSheet(SHEET_NAMES.LEADERBOARD_VIEW);
   
-  // If LeaderboardView worked, return it
+  // If LeaderboardView returned valid rows, use it
   if (leaderboardData.length > 0) {
       return createSuccessResponse({
           leaderboard: leaderboardData,
@@ -142,13 +129,12 @@ function handleGetLeaderboard() {
       });
   }
 
-  // 2. Fallback: Calculate from Profile in JS (Slower but reliable if formula fails)
+  // 2. Fallback: Calculate from Profile in JS (Reliable if view fails)
   const profileSheet = ss.getSheetByName(SHEET_NAMES.PROFILE);
   if (!profileSheet || profileSheet.getLastRow() < 2) {
       return createSuccessResponse({ leaderboard: [], trending: [] });
   }
 
-  // Get all data except header
   const data = profileSheet.getRange(2, 1, profileSheet.getLastRow() - 1, profileSheet.getLastColumn()).getValues();
   const userMap = new Map();
   
@@ -156,17 +142,16 @@ function handleGetLeaderboard() {
       const username = row[1]; // Index 1 = username
       const role = String(row[11] || '').toLowerCase(); // Index 11 = role
       
-      // Only process if username exists
       if (username) {
-          // Because we append rows, later rows overwrite earlier ones in the Map
+          // Latest entry overwrites previous due to map
           userMap.set(username, {
               username: username,
               displayName: row[2],
               profilePicture: row[3],
               role: role,
-              xp: Number(row[12] || 0),
-              level: Number(row[13] || 1),
-              organization: row[23] || 'general'
+              xp: Number(row[12] || 0), // XP
+              level: Number(row[13] || 1), // Level
+              organization: row[23] || 'general' // Organization
           });
       }
   });
@@ -178,20 +163,33 @@ function handleGetLeaderboard() {
 
   return createSuccessResponse({
       leaderboard: sortedUsers,
-      trending: [] 
+      trending: [] // Fallback returns empty trending to save calc time
   });
+}
+
+function getXpForUser(username) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAMES.PROFILE);
+    if (!sheet || sheet.getLastRow() < 2) return 0;
+    
+    // Scan from bottom up to get latest XP
+    const data = sheet.getDataRange().getValues();
+    for (let i = data.length - 1; i >= 1; i--) {
+        if (data[i][1] === username) {
+            return Number(data[i][12] || 0); 
+        }
+    }
+    return 0;
 }
 
 function handleSave(type, payload, user) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // Normalize sheet name lookup
   let sheetName = "";
   if (type === 'profile') sheetName = SHEET_NAMES.PROFILE;
   else if (type === 'loginLog') sheetName = SHEET_NAMES.LOGIN_LOGS; 
   else if (Object.values(SHEET_NAMES).includes(type)) sheetName = type;
   else {
-      // Fuzzy match
       const key = Object.keys(SHEET_NAMES).find(k => k.toLowerCase() === type.toLowerCase().replace('history',''));
       if (key) sheetName = SHEET_NAMES[key];
       else sheetName = type.charAt(0).toUpperCase() + type.slice(1);
@@ -207,13 +205,17 @@ function handleSave(type, payload, user) {
 
   switch (sheetName) {
     case SHEET_NAMES.PROFILE:
+      const currentXP = getXpForUser(user.username);
+      const newXP = Number(item.xp || 0);
+      const deltaXp = Math.max(0, newXP - currentXP); // Calculate weekly gain
+
       const badgesJson = JSON.stringify(item.badges || []);
-      // 25 Columns
+      
       newRow = [ 
           timestamp, user.username, item.displayName || user.displayName, item.profilePicture || user.profilePicture,
           item.gender, item.age, item.weight, item.height, item.waist, item.hip, item.activityLevel, 
-          user.role, // Important: Role
-          item.xp || 0, item.level || 1, badgesJson,
+          user.role, 
+          newXP, item.level || 1, badgesJson,
           item.email || user.email || '', '', 
           item.healthCondition || '',
           item.lineUserId || '',
@@ -222,7 +224,7 @@ function handleSave(type, payload, user) {
           item.pdpaAccepted,     
           item.pdpaAcceptedDate,  
           item.organization || 'general',
-          0 
+          deltaXp 
       ];
       break;
     case SHEET_NAMES.LOGIN_LOGS:
@@ -259,14 +261,12 @@ function handleClear(type, user) {
   const data = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
   const rowsToDelete = [];
   
-  // Find rows belonging to user (Assume Col 2 is username)
   for (let i = 1; i < data.length; i++) {
       if (data[i][1] === user.username) {
           rowsToDelete.push(i + 1);
       }
   }
   
-  // Delete from bottom up
   for (let i = rowsToDelete.length - 1; i >= 0; i--) {
       sheet.deleteRow(rowsToDelete[i]);
   }
@@ -316,7 +316,6 @@ function handleSocialAuth(userInfo) {
         };
         sheet.appendRow([userInfo.email, 'SOCIAL_LOGIN', username, JSON.stringify(userData), new Date()]);
         
-        // Initial Profile
         const profileSheet = ss.getSheetByName(SHEET_NAMES.PROFILE);
         if (profileSheet) {
              profileSheet.appendRow([
@@ -357,7 +356,6 @@ function handleRegisterUser(user, password) {
     const safeUser = { ...user, role: user.role || 'user' };
     sheet.appendRow([user.email, password, user.username, JSON.stringify(safeUser), new Date()]);
     
-    // Initial Profile
     const profileSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PROFILE);
     if (profileSheet) {
          profileSheet.appendRow([
@@ -452,7 +450,6 @@ function handleAdminFetch() {
             organization: row[4] || 'general'
         }));
     } else {
-        // Generic fetch for logs
         if (name === SHEET_NAMES.BMI) result['bmiHistory'] = data.slice(1).map(r => ({ timestamp: r[0], username: r[1], bmi: r[4], category: r[5] }));
         else if (name === SHEET_NAMES.TDEE) result['tdeeHistory'] = data.slice(1).map(r => ({ timestamp: r[0], username: r[1], tdee: r[4] }));
         else if (name === SHEET_NAMES.FOOD) result['foodHistory'] = data.slice(1).map(r => ({ timestamp: r[0], username: r[1], calories: r[5] }));
@@ -508,17 +505,25 @@ function setupSheets() {
   ensureSheet(SHEET_NAMES.EVALUATION, ["timestamp", "username", "displayName", "role", "satisfaction_json", "outcome_json"]);
   ensureSheet("QuizHistory", [...common, "score", "totalQuestions", "correctAnswers", "type"]);
 
-  // 3. View Sheets (QUERY Formulas)
+  // 3. View Sheets (QUERY Formulas) - Smart Setup
   // Leaderboard: Select highest XP row per user, only role 'user'
-  // Profile Columns: B=User, C=Name, D=Pic, L=Role, M=XP, N=Level, X=Org
   const leaderboardQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), MAX(M), MAX(N), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' GROUP BY B ORDER BY MAX(M) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', MAX(M) 'xp', MAX(N) 'level', MAX(X) 'organization'", 1)`;
   let lbSheet = ensureSheet(SHEET_NAMES.LEADERBOARD_VIEW, []);
-  if(lbSheet.getRange("A1").getFormula() === "") {
+  // Only update formula if the sheet is empty to prevent overwriting custom fixes (but fix if broken/empty)
+  if(lbSheet.getRange("A1").getFormula() === "" && lbSheet.getLastRow() < 2) {
       lbSheet.clear();
       lbSheet.getRange("A1").setFormula(leaderboardQuery);
   }
 
-  return "Setup Complete (v4.1) - Formulas Injected";
+  // Trending: Calculate sum of weekly deltaXP
+  const trendingQuery = `=QUERY(${SHEET_NAMES.PROFILE}!A:Y, "SELECT B, MAX(C), MAX(D), MAX(L), SUM(Y), MAX(X) WHERE B IS NOT NULL AND lower(L) = 'user' AND Y > 0 GROUP BY B ORDER BY SUM(Y) DESC LABEL B 'username', MAX(C) 'displayName', MAX(D) 'profilePicture', MAX(L) 'role', SUM(Y) 'weeklyXp', MAX(X) 'organization'", 1)`;
+  let trSheet = ensureSheet(SHEET_NAMES.TRENDING_VIEW, []);
+  if(trSheet.getRange("A1").getFormula() === "" && trSheet.getLastRow() < 2) {
+      trSheet.clear();
+      trSheet.getRange("A1").setFormula(trendingQuery);
+  }
+
+  return "Setup Complete (v4.6) - Formulas Checked";
 }
 
 function createSuccessResponse(data) {
@@ -531,7 +536,7 @@ function createErrorResponse(error) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// --- LINE MESSAGING (Legacy) ---
+// --- NOTIFICATION HANDLERS (Legacy) ---
 function handleTestNotification(user) {
     const profile = getLatestProfileForUser(user.username);
     if (profile && profile.lineUserId) {
@@ -561,4 +566,3 @@ function sendLinePush(userId, messages) {
         });
     } catch (e) { Logger.log(e); }
 }
-```
