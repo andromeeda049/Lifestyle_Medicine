@@ -97,10 +97,17 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
 
         const initLiff = async () => {
             try {
-                await liff.init({ 
+                // Race condition to prevent infinite loading if LIFF hangs
+                const initPromise = liff.init({ 
                     liffId: LINE_LIFF_ID,
                     withLoginOnExternalBrowser: false 
                 });
+                
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("LIFF Init Timeout")), 5000)
+                );
+
+                await Promise.race([initPromise, timeoutPromise]);
                 
                 setIsLiffReady(true);
                 
@@ -133,17 +140,15 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         }
                     } catch (err: any) {
                         console.error("Auto-login error:", err);
-                        // Force logout if profile fetch or other steps fail (e.g. invalid token)
                         liff.logout();
-                        setError("การเข้าสู่ระบบอัตโนมัติขัดข้อง กรุณากดปุ่ม Login อีกครั้ง");
+                        // Don't set global error here to avoid scaring user, just let them click login again
                     } finally {
                         setLoading(false);
                     }
                 }
             } catch (err: any) {
                 console.error("LIFF Init Error:", err);
-                // Don't show critical error alert on init fail, just let the button stay available to retry
-                // setError(`LINE Init Failed: ${err.message}`); 
+                // Just log, don't break UI. Button will handle retry.
             } finally {
                 setIsLiffInitializing(false); // Stop loading spinner
             }
@@ -160,30 +165,38 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         }
         
         setLoading(true);
+        setError('');
         try {
             const decoded: any = jwtDecode(credentialResponse.credential);
+            
+            // Log payload for debugging (optional)
+            // console.log("Google Payload:", decoded);
+
+            // Use 'sub' as userId for Google accounts to ensure unique identification
             const result = await socialAuth(scriptUrl, {
                 email: decoded.email,
-                name: decoded.name,
-                picture: decoded.picture,
-                provider: 'google'
+                name: decoded.name || 'Google User',
+                picture: decoded.picture || '',
+                provider: 'google',
+                userId: decoded.sub // Important for new user registration
             });
 
             if (result.success && result.user) {
                 onLogin({ ...result.user, authProvider: 'google' });
             } else {
+                console.error("Google Auth Backend Fail:", result.message);
                 handleAuthError(result.message);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Google Login Process Error:", err);
-            setError('ไม่สามารถประมวลผลข้อมูลการล็อกอินได้');
+            setError(`การเข้าสู่ระบบด้วย Google ล้มเหลว: ${err.message}`);
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleError = () => {
-        setError('การเข้าสู่ระบบด้วย Google ล้มเหลว');
+        setError('การเชื่อมต่อกับ Google ล้มเหลว กรุณาลองใหม่อีกครั้ง');
     };
 
     // Telegram Login Logic
@@ -264,7 +277,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 } catch (err: any) {
                     console.error("Manual login profile fetch error:", err);
                     liff.logout(); // Ensure clean state on API failure
-                    throw err;
+                    setError("ไม่สามารถดึงข้อมูล LINE Profile ได้ กรุณาลองใหม่");
                 } finally {
                     setLoading(false);
                 }
@@ -272,7 +285,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         } catch (err: any) {
             console.error("LINE Login Error:", err);
             setIsLiffInitializing(false);
-            setError(`Login Failed: ${err.message}. ตรวจสอบ LIFF ID ในโค้ด`);
+            setError(`Login Failed: ${err.message}. ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต`);
             setLoading(false);
         }
     };
@@ -336,7 +349,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
         if (msg && msg.includes("Invalid action")) {
             setError("Google Apps Script ของคุณเป็นเวอร์ชันเก่า ไม่รองรับการเข้าสู่ระบบ กรุณาอัปเดต Code.gs ใน Apps Script Editor และ Deploy ใหม่");
         } else {
-            setError(msg || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+            setError(msg || 'ระบบขัดข้อง หรือข้อมูลไม่ถูกต้อง กรุณาลองใหม่');
         }
     };
 
@@ -345,7 +358,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
             <div className="flex flex-col items-center justify-center p-8 space-y-4 animate-fade-in">
                 <div className="w-12 h-12 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
                 <p className="text-gray-600 dark:text-gray-300">กำลังเข้าสู่ระบบ...</p>
-                <button onClick={() => { liff.logout(); setLoading(false); }} className="text-xs text-red-500 underline">ยกเลิกและ Logout</button>
+                <button onClick={() => { try { liff.logout(); } catch(e){} setLoading(false); }} className="text-xs text-red-500 underline">ยกเลิกและ Logout</button>
             </div>
         );
     }
@@ -375,6 +388,7 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                         theme="filled_blue"
                         shape="pill"
                         text="continue_with"
+                        useOneTap={false}
                     />
                  </div>
                  <button 
@@ -517,135 +531,48 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     );
 };
 
-const AdminLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
-    const [adminKey, setAdminKey] = useState('');
-    const [error, setError] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        // Check if key is Super Admin (mapped to 'all') or Org Admin (mapped to specific ID)
-        const assignedOrg = ADMIN_CREDENTIALS[adminKey];
-
-        if (assignedOrg) {
-            setError('');
-            const isSuperAdmin = assignedOrg === 'all';
-            const orgName = isSuperAdmin 
-                ? 'Super Admin' 
-                : (ORGANIZATIONS.find(o => o.id === assignedOrg)?.name || 'Admin');
-
-            onLogin({
-                username: `admin_${Date.now()}`,
-                displayName: `ผู้ดูแล: ${orgName}`,
-                profilePicture: '👑',
-                role: 'admin',
-                organization: assignedOrg // 'all' or specific ID
-            });
-        } else {
-            setError('Admin Key ไม่ถูกต้อง');
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
-            <div className="w-28 h-28 mx-auto rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/50 border-4 border-red-200 dark:border-red-800 shadow-md">
-                <span className="text-6xl">🔑</span>
-            </div>
-            <div>
-                <label htmlFor="adminKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-left">
-                   Admin Key (รหัสหน่วยงาน)
-                </label>
-                <input
-                    type="password"
-                    id="adminKey"
-                    value={adminKey}
-                    onChange={(e) => setAdminKey(e.target.value)}
-                    placeholder="กรอกรหัสสำหรับผู้ดูแลระบบ"
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-                    required
-                />
-            </div>
-
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-
-            <button
-                type="submit"
-                className="w-full bg-red-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 dark:focus:ring-red-800 transition-all duration-300 transform hover:scale-105"
-            >
-                เข้าสู่ระบบในฐานะ Admin
-            </button>
-        </form>
-    );
-};
-
-
 const Auth: React.FC = () => {
     const { login } = useContext(AppContext);
-    const [mode, setMode] = useState<'guest' | 'user' | 'admin'>('user');
-    
-    const getWelcomeMessage = () => {
-        switch(mode) {
-            case 'guest': return 'เข้าสู่ระบบเพื่อทดลองใช้งาน';
-            case 'user': return 'ยินดีต้อนรับกลับสู่สุขภาพที่ดี';
-            case 'admin': return 'ลงชื่อเข้าใช้สำหรับผู้ดูแลระบบ';
-            default: return '';
-        }
-    }
+    const [view, setView] = useState<'main' | 'guest'>('main');
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-sky-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900 p-4">
-            <div className="w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl animate-fade-in-down">
-                <div className="text-center mb-6">
-                    {/* Logo Section */}
-                    <div className="flex justify-center mb-4">
-                        <img 
-                            src={APP_LOGO_URL}
-                            alt="Smart Lifestyle Wellness Logo" 
-                            className="w-32 h-32 object-contain drop-shadow-md rounded-2xl"
-                            onError={(e) => {
-                                // Fallback if image fails
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                            }}
-                        />
-                        {/* Fallback Icon */}
-                        <div className="w-24 h-24 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg hidden">
-                            <span className="text-5xl">🥗</span>
-                        </div>
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 transition-colors">
+            <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden">
+                {/* Header / Logo Area */}
+                <div className="bg-gradient-to-r from-teal-500 to-emerald-500 p-8 text-center text-white relative">
+                    <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-inner">
+                        <span className="text-4xl font-bold">🌿</span>
                     </div>
-                    
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Smart Lifestyle Wellness</h1>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{getWelcomeMessage()}</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Smart Lifestyle</h1>
+                    <p className="text-teal-100 text-sm mt-1">Wellness & NCDs Prevention</p>
                 </div>
-                
-                {mode === 'guest' && <GuestLogin onLogin={login} />}
-                {mode === 'user' && <UserAuth onLogin={login} />}
-                {mode === 'admin' && <AdminLogin onLogin={login} />}
 
-                {/* Footer Links for switching modes */}
-                <div className="mt-8 text-center space-y-2 border-t dark:border-gray-700 pt-4">
-                    {mode === 'user' ? (
-                        <div className="flex flex-col gap-2">
-                            <button 
-                                onClick={() => setMode('guest')} 
-                                className="text-xs text-gray-500 hover:text-teal-600 dark:text-gray-400 dark:hover:text-teal-400 underline transition-colors"
-                            >
-                                ทดลองใช้งาน (Guest Mode)
-                            </button>
-                            <button 
-                                onClick={() => setMode('admin')} 
-                                className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-                            >
-                                สำหรับผู้ดูแลระบบ
-                            </button>
-                        </div>
+                <div className="p-8">
+                    {view === 'main' ? (
+                        <>
+                            <UserAuth onLogin={login} />
+                            <div className="mt-6 text-center">
+                                <p className="text-xs text-gray-400">หรือ</p>
+                                <button 
+                                    onClick={() => setView('guest')}
+                                    className="mt-2 text-sm text-gray-500 hover:text-teal-600 dark:text-gray-400 dark:hover:text-teal-400 font-semibold transition-colors"
+                                >
+                                    เข้าใช้งานแบบไม่ลงทะเบียน (Guest)
+                                </button>
+                            </div>
+                        </>
                     ) : (
-                        <button 
-                            onClick={() => setMode('user')} 
-                            className="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
-                        >
-                            ← กลับไปหน้าเข้าสู่ระบบหลัก
-                        </button>
+                        <>
+                            <div className="mb-4">
+                                <button 
+                                    onClick={() => setView('main')}
+                                    className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1"
+                                >
+                                    ← ย้อนกลับ
+                                </button>
+                            </div>
+                            <GuestLogin onLogin={login} />
+                        </>
                     )}
                 </div>
             </div>
