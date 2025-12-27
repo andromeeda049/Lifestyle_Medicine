@@ -4,6 +4,7 @@ import { Achievement, QuizQuestion } from "./types";
 // --- TELEGRAM CONFIG ---
 // ชื่อ Username ของ Bot ที่สร้างจาก @BotFather (ห้ามใส่ @ และห้ามใส่ URL)
 export const TELEGRAM_BOT_USERNAME = "lifestyle_medicine_bot"; 
+export const APP_LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3774/3774299.png";
 
 // --- ORGANIZATION / AGENCIES ---
 export const ORGANIZATIONS = [
