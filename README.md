@@ -1,40 +1,36 @@
 
-# การตั้งค่า Google Sheets (Final Fixed v3.4)
+# การตั้งค่า Google Sheets (Final Fixed v3.5 - Strict Mode)
 
 ### วิธีการอัปเดต (สำคัญมาก!)
 1. ไปที่ **Google Apps Script** ของโปรเจกต์คุณ
 2. **ลบโค้ดเก่าทั้งหมด** ในไฟล์ `Code.gs`
-3. **คัดลอกโค้ดฉบับเต็มด้านล่างนี้ (v3.4)** ไปวางแทนที่
+3. **คัดลอกโค้ดฉบับเต็มด้านล่างนี้ (v3.5)** ไปวางแทนที่
 4. กด **Save** (รูปแผ่นดิสก์)
 5. กด **Deploy** > **New deployment** > กด **Deploy** อีกครั้ง (เพื่อให้ URL เดิมใช้งานกับโค้ดใหม่ได้)
 
-### 1. ไฟล์ Code.gs (ฉบับเต็ม v3.4 - LoginLogs & Error Handling Fixed)
+### 1. ไฟล์ Code.gs (ฉบับเต็ม v3.5 - Force 'LoginLogs' ONLY)
 
 ```javascript
 /**
- * Smart Lifestyle Wellness - Backend Script (v3.4 Final)
- * - Forces 'LoginLogs' sheet name (LoginLogs)
- * - Improved Error Handling (returns 'message' on error)
+ * Smart Lifestyle Wellness - Backend Script (v3.5 Strict)
+ * - Forces 'LoginLogs' sheet name (Exact Match Only)
+ * - Removes fuzzy matching to prevent using 'loginLog' or 'loginLogs'
  */
 
 const SHEET_NAMES = {
   PROFILE: 'profile',
   USERS: 'users',
-  LOGIN_LOGS: 'LoginLogs', // ชื่อชีตที่ถูกต้อง (ตัว L ใหญ่)
+  LOGIN_LOGS: 'LoginLogs', // บังคับใช้ชื่อนี้เป๊ะๆ (ตัว L ใหญ่ มี s)
   LEADERBOARD_VIEW: 'LeaderboardView', 
   TRENDING_VIEW: 'TrendingView'
 };
 
-// ฟังก์ชันค้นหา Sheet แบบฉลาด (หาตรงตัวก่อน -> หาแบบไม่สนตัวเล็กใหญ่ -> ถ้าไม่มีค่อยสร้าง)
+// ฟังก์ชันค้นหา Sheet แบบแม่นยำ (Exact Match Only)
+// แก้ปัญหาหาชีตผิด หรือไปใช้ชีตเก่าที่ชื่อคล้ายกัน
 function getSheet(ss, name) {
   let sheet = ss.getSheetByName(name);
-  if (sheet) return sheet;
   
-  // Fallback: ลองหาแบบ Case-insensitive (เผื่อชื่อเป็น loginLogs)
-  const sheets = ss.getSheets();
-  sheet = sheets.find(s => s.getName().toLowerCase() === name.toLowerCase());
-  
-  // ถ้ายังไม่เจอ ให้สร้างใหม่ด้วยชื่อที่ถูกต้องเป๊ะๆ
+  // ถ้าไม่เจอ ให้สร้างใหม่ด้วยชื่อที่ถูกต้องเป๊ะๆ ทันที
   if (!sheet) {
     sheet = ss.insertSheet(name);
   }
@@ -62,13 +58,13 @@ function setupSheets() {
   const usersSheet = getSheet(ss, SHEET_NAMES.USERS);
   if (usersSheet.getLastRow() === 0) usersSheet.appendRow(["email", "password", "username", "userDataJson", "timestamp"]);
   
-  // Setup LoginLogs (ใช้ชีต LoginLogs)
+  // Setup LoginLogs (ใช้ชีต LoginLogs เท่านั้น)
   const logSheet = getSheet(ss, SHEET_NAMES.LOGIN_LOGS);
   if (logSheet.getLastRow() === 0) {
     logSheet.appendRow(["timestamp", "username", "displayName", "role", "organization"]);
   }
   
-  return "Setup Complete (v3.4)";
+  return "Setup Complete (v3.5 - LoginLogs Strict)";
 }
 
 function doPost(e) {
@@ -87,7 +83,6 @@ function doPost(e) {
     
     return createResponse('error', 'Invalid action');
   } catch (err) {
-    // ส่ง Error กลับไปที่ frontend ให้เห็นชัดๆ
     return createResponse('error', err.toString());
   }
 }
@@ -281,13 +276,13 @@ function handleSocialAuth(payload) {
     };
     sheet.appendRow([key, 'SOCIAL', userData.username, JSON.stringify(userData), new Date()]);
   }
-  logLogin(userData); // ถ้าบรรทัดนี้ Error มันจะเด้งไป catch block ทันที
+  logLogin(userData); 
   return createResponse('success', userData);
 }
 
 function logLogin(user) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  // ใช้ getSheet เพื่อหา LoginLogs หรือ loginLogs ให้เจอแน่นอน
+  // ใช้ getSheet เพื่อหา LoginLogs ให้เจอแน่นอน (จะไม่หา loginLog ตัวเล็กแล้ว)
   let sheet = getSheet(ss, SHEET_NAMES.LOGIN_LOGS);
   
   sheet.appendRow([
@@ -312,8 +307,8 @@ function handleAdminFetch() {
             headers.forEach((h, i) => obj[h] = row[i]);
             return obj;
         });
-    } else if (name === SHEET_NAMES.LOGIN_LOGS || name.toLowerCase() === 'loginlogs') { 
-        // Handle variations of login logs
+    } else if (name === SHEET_NAMES.LOGIN_LOGS) { 
+        // Strict match: Only read from 'LoginLogs'
         const data = s.getDataRange().getValues();
         result['loginLogs'] = data.slice(1).map(row => {
             return {
@@ -324,7 +319,8 @@ function handleAdminFetch() {
                 organization: row[4]
             };
         });
-    } else if (name !== SHEET_NAMES.LEADERBOARD_VIEW && name !== SHEET_NAMES.TRENDING_VIEW) {
+    } else if (name !== SHEET_NAMES.LEADERBOARD_VIEW && name !== SHEET_NAMES.TRENDING_VIEW && name !== 'loginLog') {
+        // Exclude 'loginLog' explicitly if it exists to avoid duplication
         const data = s.getDataRange().getValues();
         result[name] = data.slice(1).map(r => {
             try { 
@@ -338,15 +334,13 @@ function handleAdminFetch() {
   return createResponse('success', result);
 }
 
-// สร้าง Response ที่เป็นมาตรฐาน
 function createResponse(status, content) {
   const response = { status: status };
   if (status === 'success') {
     response.data = content;
   } else {
-    // กรณี Error ให้ส่ง message ไปด้วย เพื่อให้ frontend แสดงผลได้ถูกต้อง
     response.message = content;
-    response.data = content; // สำรองเผื่อ frontend เวอร์ชั่นเก่า
+    response.data = content; 
   }
   return ContentService.createTextOutput(JSON.stringify(response)).setMimeType(ContentService.MimeType.JSON);
 }
