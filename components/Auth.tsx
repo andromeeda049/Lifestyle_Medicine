@@ -1,79 +1,56 @@
-
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { User } from '../types';
-import { LineIcon, SparklesIcon } from './icons';
+import { LineIcon, UserCircleIcon, UserGroupIcon } from './icons';
 import { registerUser, verifyUser, socialAuth } from '../services/googleSheetService';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import liff from '@line/liff';
-import { ORGANIZATIONS, TELEGRAM_BOT_USERNAME, APP_LOGO_URL } from '../constants';
-import TelegramLoginButton from './TelegramLoginButton';
+import { ORGANIZATIONS, APP_LOGO_URL } from '../constants';
 
-// LINE LIFF ID
-const LINE_LIFF_ID = "2008705690-V5wrjpTX"; 
+// Configuration
+const LINE_LIFF_ID = "2008705690-V5wrjpTX";
 
-const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪', '🧠', '👍', '✨'];
-const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
-
-// --- DEMO USER FOR PRESENTATION ---
-const DEMO_USER: User = {
-    username: 'demo_user_01',
-    displayName: 'ผู้ใช้งานสาธิต (Demo)',
-    profilePicture: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png',
-    role: 'user', // Role user เพื่อให้ใช้ได้ทุกฟีเจอร์
-    organization: 'pho_satun', // ตั้งค่าเริ่มต้นให้ดูสมจริง
-    email: 'demo@smartwellness.com'
+const getRandomEmoji = () => {
+    const emojis = ['😊', '😎', '🎉', '🚀', '🌟', '💡', '🌱', '🍎', '💪'];
+    return emojis[Math.floor(Math.random() * emojis.length)];
 };
 
 const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
     const { scriptUrl } = useContext(AppContext);
-    const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-    const [showEmailForm, setShowEmailForm] = useState(false);
-    
-    // Form States
+
+    // UI State
+    const [mode, setMode] = useState<'login' | 'register'>('login');
+    const [loading, setLoading] = useState(false);
+    const [statusText, setStatusText] = useState('');
+    const [error, setError] = useState('');
+
+    // LINE State
+    const [isLineReady, setIsLineReady] = useState(false);
+
+    // Form State
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [selectedOrg, setSelectedOrg] = useState(ORGANIZATIONS[0].id);
-    
-    // UI States
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [statusMessage, setStatusMessage] = useState(''); // แสดงสถานะให้เห็นชัดๆ
-    const [lineInitialized, setLineInitialized] = useState(false);
-    
-    // Prevent double execution in React Strict Mode
-    const initializingRef = useRef(false);
 
-    // --- 1. ROBUST LINE LOGIN LOGIC ---
+    // --- 1. CLEAN LINE INITIALIZATION ---
     useEffect(() => {
-        if (initializingRef.current) return;
-        initializingRef.current = true;
-
-        const initLiff = async () => {
-            console.log("LIFF: Starting Initialization...");
+        const initLine = async () => {
             try {
                 await liff.init({ liffId: LINE_LIFF_ID });
-                console.log("LIFF: Initialized");
-                setLineInitialized(true);
-                
-                // Auto Login Check
+                setIsLineReady(true);
+
+                // If User already logged in or Redirected back
                 if (liff.isLoggedIn()) {
-                    console.log("LIFF: User is logged in");
                     setLoading(true);
-                    setStatusMessage('เชื่อมต่อ LINE สำเร็จ! กำลังดึงข้อมูล...');
-                    
+                    setStatusText('กำลังยืนยันตัวตนผ่าน LINE...');
+
                     const profile = await liff.getProfile();
-                    console.log("LIFF: Profile fetched", profile);
-                    
-                    const idToken = liff.getDecodedIDToken();
-                    const userEmail = idToken?.email || `${profile.userId}@line.me`;
+                    const userEmail = liff.getDecodedIDToken()?.email || `${profile.userId}@line.me`;
 
                     if (scriptUrl) {
-                        setStatusMessage('กำลังเข้าสู่ระบบฐานข้อมูล...');
-                        const result = await socialAuth(scriptUrl, {
+                        const res = await socialAuth(scriptUrl, {
                             email: userEmail,
                             name: profile.displayName,
                             picture: profile.pictureUrl || '',
@@ -81,59 +58,36 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                             userId: profile.userId
                         });
 
-                        if (result.success && result.user) {
-                            onLogin({ ...result.user, authProvider: 'line' });
+                        if (res.success && res.user) {
+                            onLogin({ ...res.user, authProvider: 'line' });
                         } else {
+                            setError(res.message || 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ');
                             setLoading(false);
-                            setError(result.message || 'Login Failed at Database');
                         }
-                    } else {
-                        setLoading(false);
-                        setError('System Error: No Script URL');
                     }
-                } else {
-                    console.log("LIFF: User NOT logged in");
                 }
-            } catch (err: any) {
-                console.error("LIFF Init Error:", err);
-                // ไม่แสดง Error ใหญ่โต เพื่อให้ผู้ใช้เลือกวิธีอื่นได้
-                setError(`LINE Init Warning: ${err.message}`); 
-                setLoading(false);
+            } catch (err) {
+                console.error("LINE Init Error:", err);
             }
         };
-
-        initLiff();
+        initLine();
     }, [scriptUrl, onLogin]);
 
-    const handleLineLoginClick = () => {
-        setError('');
-        if (!lineInitialized) {
-            setError("ระบบ LINE ยังโหลดไม่เสร็จ กรุณารอสักครู่");
-            return;
-        }
+    const handleLineLogin = () => {
+        if (!isLineReady) return;
         if (!liff.isLoggedIn()) {
-            setStatusMessage('กำลังเปลี่ยนหน้าไปที่ LINE...');
-            // Redirect to LINE Login
-            liff.login(); 
+            liff.login();
         }
     };
 
-    // --- EMERGENCY DEMO LOGIN ---
-    const handleDemoLogin = () => {
-        setLoading(true);
-        setStatusMessage('กำลังเข้าสู่โหมดนำเสนอ...');
-        setTimeout(() => {
-            onLogin(DEMO_USER);
-        }, 1500);
-    };
-
+    // --- 2. GOOGLE LOGIN ---
     const handleGoogleSuccess = async (credentialResponse: any) => {
         if (!scriptUrl) return;
         setLoading(true);
-        setStatusMessage('กำลังยืนยันตัวตนผ่าน Google...');
+        setStatusText('กำลังยืนยันตัวตนผ่าน Google...');
         try {
             const decoded: any = jwtDecode(credentialResponse.credential);
-            const result = await socialAuth(scriptUrl, {
+            const res = await socialAuth(scriptUrl, {
                 email: decoded.email,
                 name: decoded.name || 'Google User',
                 picture: decoded.picture || '',
@@ -141,206 +95,213 @@ const UserAuth: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
                 userId: decoded.sub
             });
 
-            if (result.success && result.user) {
-                onLogin({ ...result.user, authProvider: 'google' });
+            if (res.success && res.user) {
+                onLogin({ ...res.user, authProvider: 'google' });
             } else {
-                setLoading(false);
                 setError('Google Login Failed');
+                setLoading(false);
             }
         } catch (err) {
+            setError('Google Error');
             setLoading(false);
-            setError('Google Login Error');
         }
     };
 
+    // --- 3. EMAIL/PASSWORD LOGIN (ADMIN/GENERAL) ---
     const handleEmailSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!scriptUrl) return;
-        
-        setError('');
         setLoading(true);
-        setStatusMessage('กำลังตรวจสอบข้อมูล...');
+        setStatusText('กำลังตรวจสอบข้อมูล...');
+        setError('');
 
         try {
-            if (authMode === 'register') {
-                if (password !== confirmPassword) {
-                    setError('รหัสผ่านไม่ตรงกัน');
-                    setLoading(false);
-                    return;
-                }
+            if (mode === 'register') {
                 const newUser: User = {
                     username: `user_${Date.now()}`,
-                    displayName: displayName.trim(),
+                    displayName: displayName,
                     profilePicture: getRandomEmoji(),
                     role: 'user',
                     email: email,
                     organization: selectedOrg
                 };
-                const result = await registerUser(scriptUrl, newUser, password);
-                if (result.success) {
+                const res = await registerUser(scriptUrl, newUser, password);
+                if (res.success) {
                     onLogin(newUser);
                 } else {
+                    setError(res.message || 'สมัครสมาชิกไม่สำเร็จ');
                     setLoading(false);
-                    setError(result.message || 'Registration failed');
                 }
             } else {
-                const result = await verifyUser(scriptUrl, email, password);
-                if (result.success && result.user) {
-                    onLogin(result.user);
+                const res = await verifyUser(scriptUrl, email, password);
+                if (res.success && res.user) {
+                    onLogin(res.user);
                 } else {
+                    setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
                     setLoading(false);
-                    setError(result.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
                 }
             }
         } catch (err) {
+            setError('Connection Error');
             setLoading(false);
-            setError("Connection Error");
         }
     };
 
+    // --- LOADING VIEW ---
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 space-y-6 min-h-[300px]">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-xl">⏳</span>
-                    </div>
-                </div>
-                <div className="text-center">
-                    <p className="text-gray-800 dark:text-white font-bold text-lg">กรุณารอสักครู่</p>
-                    <p className="text-gray-500 text-sm mt-1">{statusMessage}</p>
-                </div>
-                <button onClick={() => setLoading(false)} className="text-xs text-red-400 hover:underline mt-4">ยกเลิก (Cancel)</button>
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-gray-600 dark:text-gray-300 font-medium animate-pulse">{statusText}</p>
+                <button onClick={() => setLoading(false)} className="text-xs text-red-400 hover:underline mt-4">ยกเลิก</button>
             </div>
         );
     }
 
     return (
         <div className="space-y-6 animate-fade-in">
-             <div className="flex border-b dark:border-gray-700 mb-4">
-                <button 
-                    onClick={() => { setAuthMode('login'); setError(''); setShowEmailForm(false); }} 
-                    className={`flex-1 pb-2 text-sm font-semibold text-center transition-colors ${authMode === 'login' ? 'border-b-2 border-teal-500 text-teal-600' : 'text-gray-500'}`}
-                >
-                    เข้าสู่ระบบ
-                </button>
-                <button 
-                    onClick={() => { setAuthMode('register'); setError(''); setShowEmailForm(true); }} 
-                    className={`flex-1 pb-2 text-sm font-semibold text-center transition-colors ${authMode === 'register' ? 'border-b-2 border-teal-500 text-teal-600' : 'text-gray-500'}`}
-                >
-                    สมัครสมาชิก
-                </button>
-            </div>
-
+            {/* Error Banner */}
             {error && (
-                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-3 rounded-lg text-center animate-pulse">
-                    <p className="text-red-600 dark:text-red-300 text-sm font-bold">{error}</p>
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center border border-red-200 flex items-center justify-center gap-2">
+                    <span className="font-bold">!</span> {error}
                 </div>
             )}
 
-            <div className="flex flex-col gap-3 justify-center items-center">
-                 {/* Google Login */}
-                 <div className="w-full flex justify-center">
+            {/* --- SOCIAL LOGIN GROUP --- */}
+            <div className="space-y-4">
+                {/* LINE Button */}
+                <button
+                    onClick={handleLineLogin}
+                    disabled={!isLineReady}
+                    className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95 ${isLineReady ? 'bg-[#06C755] hover:bg-[#05b64d]' : 'bg-gray-300 cursor-not-allowed'}`}
+                >
+                    <LineIcon className="w-6 h-6 fill-current" />
+                    <span className="text-sm">เข้าสู่ระบบด้วย LINE</span>
+                </button>
+
+                {/* Google Button */}
+                <div className="flex justify-center w-full">
                     <GoogleLogin
                         onSuccess={handleGoogleSuccess}
-                        onError={() => setError('Google Login Failed')}
+                        onError={() => setError('Google Failed')}
                         theme="filled_blue"
                         shape="pill"
                         text="continue_with"
+                        width="100%"
                     />
-                 </div>
-                 
-                 {/* LINE Login Button */}
-                 <button 
-                    type="button"
-                    onClick={handleLineLoginClick}
-                    className="flex items-center justify-center w-full bg-[#06C755] text-white font-bold py-2 px-4 rounded-full transition-all gap-2 text-sm h-[40px] max-w-[240px] hover:bg-[#05b64d] shadow-md hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!lineInitialized}
-                >
-                    <LineIcon className="w-5 h-5 fill-current text-white" />
-                    <span>{lineInitialized ? 'Log in with LINE' : 'Loading LINE...'}</span>
-                </button>
-
-                {/* --- PRESENTATION DEMO BUTTON (THE LIFESAVER) --- */}
-                <button 
-                    type="button"
-                    onClick={handleDemoLogin}
-                    className="flex items-center justify-center w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-2 px-4 rounded-full transition-all gap-2 text-sm h-[40px] max-w-[240px] shadow-lg hover:scale-105 active:scale-95 ring-2 ring-purple-300 dark:ring-purple-900"
-                >
-                    <SparklesIcon className="w-5 h-5 text-yellow-300" />
-                    <span>เข้าสู่โหมดนำเสนอ (Demo)</span>
-                </button>
-                {/* ----------------------------------------------- */}
-
+                </div>
             </div>
 
             <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-                <button onClick={() => setShowEmailForm(!showEmailForm)} className="mx-4 text-xs text-gray-400 hover:text-teal-500">
-                    Or with Email {showEmailForm ? '▲' : '▼'}
-                </button>
-                <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs bg-white dark:bg-gray-800 px-2">สำหรับเจ้าหน้าที่ / Admin</span>
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
             </div>
 
-            {showEmailForm && (
-                <form onSubmit={handleEmailSubmit} className="space-y-4 animate-fade-in-down">
-                    {authMode === 'register' && (
-                        <div>
-                            <label className="block text-sm text-gray-700 dark:text-gray-300">ชื่อที่แสดง</label>
-                            <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700" required />
-                        </div>
-                    )}
-                    <div>
-                        <label className="block text-sm text-gray-700 dark:text-gray-300">อีเมล</label>
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700" required />
+            {/* --- EMAIL FORM (ADMIN/GENERAL) --- */}
+            <div className="bg-gray-50 dark:bg-gray-700/30 p-1 rounded-xl flex mb-4 border border-gray-200 dark:border-gray-700">
+                <button
+                    type="button"
+                    onClick={() => { setMode('login'); setError(''); }}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${mode === 'login' ? 'bg-white dark:bg-gray-600 shadow-sm text-teal-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                >
+                    เข้าสู่ระบบ
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { setMode('register'); setError(''); }}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${mode === 'register' ? 'bg-white dark:bg-gray-600 shadow-sm text-teal-600 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                >
+                    ลงทะเบียน
+                </button>
+            </div>
+
+            <form onSubmit={handleEmailSubmit} className="space-y-4">
+                {mode === 'register' && (
+                    <div className="relative">
+                        <UserCircleIcon className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="ชื่อที่แสดง (Display Name)"
+                            value={displayName}
+                            onChange={e => setDisplayName(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all text-sm"
+                            required
+                        />
                     </div>
-                    <div>
-                        <label className="block text-sm text-gray-700 dark:text-gray-300">รหัสผ่าน</label>
-                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700" required />
+                )}
+                
+                <div className="relative">
+                    <span className="absolute left-3 top-3.5 text-gray-400">✉️</span>
+                    <input
+                        type="email"
+                        placeholder="อีเมล"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all text-sm"
+                        required
+                    />
+                </div>
+                
+                <div className="relative">
+                    <span className="absolute left-3 top-3.5 text-gray-400">🔒</span>
+                    <input
+                        type="password"
+                        placeholder="รหัสผ่าน"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all text-sm"
+                        required
+                    />
+                </div>
+
+                {mode === 'register' && (
+                    <div className="relative">
+                        <UserGroupIcon className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                        <select 
+                            value={selectedOrg} 
+                            onChange={e => setSelectedOrg(e.target.value)} 
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none text-sm appearance-none"
+                        >
+                            {ORGANIZATIONS.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
+                        </select>
                     </div>
-                    {authMode === 'register' && (
-                        <>
-                            <div>
-                                <label className="block text-sm text-gray-700 dark:text-gray-300">ยืนยันรหัสผ่าน</label>
-                                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700" required />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-teal-700 dark:text-teal-400">หน่วยงาน</label>
-                                <select value={selectedOrg} onChange={e => setSelectedOrg(e.target.value)} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700">
-                                    {ORGANIZATIONS.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
-                                </select>
-                            </div>
-                        </>
-                    )}
-                    
-                    <button type="submit" className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 transition-all">
-                        {authMode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
-                    </button>
-                </form>
-            )}
+                )}
+
+                <button
+                    type="submit"
+                    className="w-full py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-xl shadow-md hover:from-teal-600 hover:to-teal-700 transition-all transform active:scale-95"
+                >
+                    {mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิกใหม่'}
+                </button>
+            </form>
         </div>
     );
 };
 
 const Auth: React.FC = () => {
     const { login } = useContext(AppContext);
-    
-    // Default view
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 transition-colors duration-300">
-            <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border-t-8 border-teal-500">
-                <div className="text-center">
-                    <img src={APP_LOGO_URL} alt="Logo" className="mx-auto h-20 w-auto mb-4" />
-                    <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">Smart Wellness</h2>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">แพลตฟอร์มดูแลสุขภาพวิถีชีวิต</p>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12">
+            <div className="max-w-sm w-full bg-white dark:bg-gray-800 p-8 rounded-[2rem] shadow-2xl border border-white/50 dark:border-gray-700 relative overflow-hidden">
+                {/* Decorative Background Blobs */}
+                <div className="absolute top-0 left-0 w-32 h-32 bg-teal-500 opacity-10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+                <div className="absolute bottom-0 right-0 w-32 h-32 bg-purple-500 opacity-10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+
+                <div className="text-center mb-8 relative z-10">
+                    <img src={APP_LOGO_URL} alt="Logo" className="mx-auto h-20 w-auto mb-4 drop-shadow-md animate-bounce-in" />
+                    <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tight">Smart Wellness</h2>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-widest mt-1">Lifestyle Medicine Innovation</p>
                 </div>
 
-                <UserAuth onLogin={login} />
+                <div className="relative z-10">
+                    <UserAuth onLogin={login} />
+                </div>
                 
-                <div className="mt-4 text-center">
-                    <p className="text-xs text-gray-400">
-                        พัฒนาโดย กลุ่มงานสุขภาพดิจิทัล สำนักงานสาธารณสุขจังหวัดสตูล
+                <div className="mt-8 text-center pt-4 relative z-10">
+                    <p className="text-[10px] text-gray-400">
+                        © 2024 Digital Health Satun
                     </p>
                 </div>
             </div>
