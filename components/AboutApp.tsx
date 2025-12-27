@@ -15,7 +15,7 @@ const AboutApp: React.FC = () => {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">เกี่ยวกับนวัตกรรม & คู่มือการใช้งาน</h2>
                 <p className="text-gray-600 dark:text-gray-300 mt-2">
-                    Smart Lifestyle Wellness: นวัตกรรมสุขภาพวิถีชีวิตเพื่อป้องกันโรค NCDs
+                    Satun Smart Life: นวัตกรรมสุขภาพวิถีชีวิตเพื่อป้องกันโรค NCDs
                 </p>
             </div>
 
@@ -50,7 +50,7 @@ const AboutApp: React.FC = () => {
                     <div className="bg-teal-50 dark:bg-teal-900/20 p-6 rounded-xl border-l-4 border-teal-500">
                         <h3 className="text-lg font-bold text-teal-800 dark:text-teal-300 mb-2">กรอบแนวคิด: Lifestyle Medicine & Smart Wellness</h3>
                         <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                            Smart Lifestyle Wellness ถูกออกแบบโดยยึดหลัก <strong>"เวชศาสตร์วิถีชีวิต (Lifestyle Medicine)"</strong> 
+                            Satun Smart Life (ชีวิตดี ที่สตูล) ถูกออกแบบโดยยึดหลัก <strong>"เวชศาสตร์วิถีชีวิต (Lifestyle Medicine)"</strong> 
                             ซึ่งเชื่อว่าการปรับเปลี่ยนพฤติกรรมสุขภาพเป็นยาที่ทรงพลังที่สุดในการป้องกันและรักษาโรคเรื้อรัง (NCDs) 
                             โดยเราผสานเทคโนโลยีดิจิทัล (AI) เข้ากับศาสตร์การดูแลสุขภาพองค์รวม
                         </p>

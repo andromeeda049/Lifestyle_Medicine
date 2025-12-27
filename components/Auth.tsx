@@ -244,8 +244,8 @@ const Auth: React.FC = () => {
                     <div className="mx-auto w-24 h-24 mb-4 bg-white rounded-3xl shadow-lg flex items-center justify-center animate-bounce-in p-4">
                         <img src={APP_LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
                     </div>
-                    <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tight">Smart Wellness</h2>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-widest mt-1">Lifestyle Medicine Innovation</p>
+                    <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tight">Satun Smart Life</h2>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm font-medium mt-1">ชีวิตดี ที่สตูล</p>
                 </div>
 
                 <div className="relative z-10">

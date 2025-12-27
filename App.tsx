@@ -550,7 +550,7 @@ const AppContent: React.FC = () => {
                 {/* Mobile Logo/Title */}
                 <div className="flex items-center gap-2" onClick={() => navigate('home')}>
                     <div className="w-8 h-8 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow cursor-pointer">SLW</div>
-                    <span className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer">Smart Wellness</span>
+                    <span className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer">Satun Smart Life</span>
                 </div>
              </div>
              

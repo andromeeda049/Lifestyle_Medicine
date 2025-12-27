@@ -40,7 +40,7 @@ const PDPAModal: React.FC<PDPAModalProps> = ({ onAccept, onRevoke, isSettingsMod
                 {/* Content - Scrollable */}
                 <div className="p-6 overflow-y-auto text-gray-700 dark:text-gray-300 text-sm leading-relaxed space-y-4">
                     <p>
-                        ยินดีต้อนรับสู่ <strong>Smart Lifestyle Wellness</strong> เพื่อให้การใช้งานเป็นไปตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) และหลักจริยธรรมการวิจัย กรุณาอ่านและทำความเข้าใจข้อตกลงดังนี้:
+                        ยินดีต้อนรับสู่ <strong>Satun Smart Life (ชีวิตดี ที่สตูล)</strong> เพื่อให้การใช้งานเป็นไปตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) และหลักจริยธรรมการวิจัย กรุณาอ่านและทำความเข้าใจข้อตกลงดังนี้:
                     </p>
 
                     <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
