@@ -3,7 +3,7 @@ import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { PLANNER_ACTIVITY_LEVELS, CARB_PERCENTAGES, CUISINE_TYPES, DIETARY_PREFERENCES, HEALTH_CONDITIONS, LIFESTYLE_GOALS, XP_VALUES } from '../constants';
 import { generateMealPlan } from '../services/geminiService';
 import { PlannerResults, MealPlan, PlannerHistoryEntry } from '../types';
-import { ArrowLeftIcon, SparklesIcon, UserCircleIcon, ScaleIcon, FireIcon, HeartIcon } from './icons';
+import { ArrowLeftIcon, SparklesIcon, UserCircleIcon, ScaleIcon, FireIcon, HeartIcon, ChartBarIcon, TrophyIcon } from './icons';
 import { AppContext } from '../context/AppContext';
 
 const PersonalizedPlanner: React.FC = () => {
@@ -67,7 +67,9 @@ const PersonalizedPlanner: React.FC = () => {
         return {
             bmi: bmi.toFixed(1),
             tdee: Math.round(tdee).toLocaleString(),
-            condition: formData.healthCondition
+            condition: formData.healthCondition,
+            waist: formData.waist ? `${formData.waist} ซม.` : '-',
+            hip: formData.hip ? `${formData.hip} ซม.` : '-'
         };
     }, [formData]);
     
@@ -125,24 +127,56 @@ const PersonalizedPlanner: React.FC = () => {
 
                     {/* Health Data Snapshot */}
                     {previewStats && (
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
-                                <ScaleIcon className="w-5 h-5 text-blue-500 mb-1" />
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">BMI</span>
-                                <span className="font-bold text-gray-800 dark:text-white">{previewStats.bmi}</span>
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                    <ScaleIcon className="w-5 h-5 text-blue-500 mb-1" />
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">BMI</span>
+                                    <span className="font-bold text-gray-800 dark:text-white">{previewStats.bmi}</span>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                    <FireIcon className="w-5 h-5 text-orange-500 mb-1" />
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">TDEE</span>
+                                    <span className="font-bold text-gray-800 dark:text-white">{previewStats.tdee}</span>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                    <HeartIcon className="w-5 h-5 text-rose-500 mb-1" />
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">Condition</span>
+                                    <span className="font-bold text-gray-800 dark:text-white text-xs leading-tight line-clamp-2">{previewStats.condition}</span>
+                                </div>
                             </div>
-                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
-                                <FireIcon className="w-5 h-5 text-orange-500 mb-1" />
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">TDEE</span>
-                                <span className="font-bold text-gray-800 dark:text-white">{previewStats.tdee}</span>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
-                                <HeartIcon className="w-5 h-5 text-rose-500 mb-1" />
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">Condition</span>
-                                <span className="font-bold text-gray-800 dark:text-white text-xs leading-tight line-clamp-2">{previewStats.condition}</span>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                    <ChartBarIcon className="w-5 h-5 text-purple-500 mb-1" />
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">รอบเอว</span>
+                                    <span className="font-bold text-gray-800 dark:text-white">{previewStats.waist}</span>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                    <ChartBarIcon className="w-5 h-5 text-purple-500 mb-1" />
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">รอบสะโพก</span>
+                                    <span className="font-bold text-gray-800 dark:text-white">{previewStats.hip}</span>
+                                </div>
                             </div>
                         </div>
                     )}
+
+                    {/* Goal Selection */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                            <TrophyIcon className="w-4 h-4 text-yellow-500" />
+                            เป้าหมายของแผน (Plan Goal)
+                        </label>
+                        <select
+                            name="lifestyleGoal"
+                            value={formData.lifestyleGoal}
+                            onChange={(e) => setFormData({...formData, lifestyleGoal: e.target.value})}
+                            className="w-full p-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all text-gray-700 dark:text-white font-medium"
+                        >
+                            {LIFESTYLE_GOALS.map(g => (
+                                <option key={g} value={g}>{g}</option>
+                            ))}
+                        </select>
+                    </div>
 
                     <button onClick={handleCalculateAndPlan} className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 rounded-xl hover:from-teal-600 hover:to-emerald-700 shadow-lg transform transition-transform active:scale-95 flex flex-col items-center justify-center gap-1">
                         <span>สร้างแผนสุขภาพส่วนตัว</span>
@@ -168,6 +202,7 @@ const PersonalizedPlanner: React.FC = () => {
                             <div className="mb-4">
                                 <h3 className="text-xl font-bold text-gray-800 dark:text-white">แผนสุขภาพ 7 วันของคุณ</h3>
                                 <p className="text-sm text-gray-500">เป้าหมายพลังงาน: ~{Math.round(results?.tdee || 0)} kcal/วัน</p>
+                                <p className="text-xs text-teal-600 font-bold mt-1">Goal: {formData.lifestyleGoal}</p>
                             </div>
                             <table className="w-full text-sm">
                                 <thead>
