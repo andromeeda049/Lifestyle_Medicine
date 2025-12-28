@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useContext, useMemo, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { fetchLeaderboard } from '../services/googleSheetService';
-import { TrophyIcon, StarIcon, MedalIcon, UserCircleIcon, FireIcon, UserGroupIcon, ChartBarIcon, ShareIcon, CameraIcon } from './icons';
+import { TrophyIcon, StarIcon, MedalIcon, UserCircleIcon, FireIcon, UserGroupIcon, ChartBarIcon, ShareIcon, CameraIcon, ClipboardListIcon } from './icons';
 import { ORGANIZATIONS } from '../constants';
 import html2canvas from 'html2canvas';
 
@@ -33,11 +33,12 @@ const Community: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'trending' | 'orgs'>('users');
-    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'generating'>('idle');
+    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'generating_rank' | 'generating_board'>('idle');
     const [loadingMessage, setLoadingMessage] = useState("กำลังโหลดข้อมูล...");
     
-    // Ref for the element we want to capture
-    const shareCardRef = useRef<HTMLDivElement>(null);
+    // Ref for capturing specific elements
+    const shareCardRef = useRef<HTMLDivElement>(null); // For "My Rank" sticky footer
+    const leaderboardRef = useRef<HTMLDivElement>(null); // For the entire list/podium
 
     const loadData = async () => {
         setLoading(true);
@@ -160,8 +161,10 @@ ${rankText}
         if (navigator.share) {
             try {
                 await navigator.share(shareData);
-            } catch (err) {
-                console.log('Share canceled');
+            } catch (err: any) {
+                if (err.name !== 'AbortError') {
+                    console.error('Share failed:', err);
+                }
             }
         } else {
             try {
@@ -174,46 +177,70 @@ ${rankText}
         }
     };
 
-    const handleShareImage = async () => {
-        if (!shareCardRef.current) return;
-        setCopyStatus('generating');
-
+    const captureAndShare = async (element: HTMLElement, filename: string) => {
         try {
-            // Force light mode colors for consistent screenshot or respect current theme
-            const canvas = await html2canvas(shareCardRef.current, {
-                useCORS: true, // Crucial for profile images
-                scale: 2, // Higher resolution
-                backgroundColor: null, // Transparent background if styled that way
+            // Use html2canvas to capture the element
+            // allowTaint: false is default and safer for toBlob(). 
+            // useCORS: true attempts to load images with CORS headers.
+            const canvas = await html2canvas(element, {
+                useCORS: true, 
+                scale: 2, 
+                backgroundColor: null, 
                 logging: false,
-                allowTaint: true
+                allowTaint: false, 
+                ignoreElements: (el) => el.classList.contains('no-capture') 
             });
 
             const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-            
             if (!blob) throw new Error("Canvas to Blob failed");
 
-            const file = new File([blob], 'satun-smart-life-rank.png', { type: 'image/png' });
+            const file = new File([blob], filename, { type: 'image/png' });
 
-            // Check if Web Share API supports files
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: 'Satun Smart Life Rank',
-                    text: `🏆 อันดับของฉันในชุมชน Satun Smart Life! #SatunSmartLife`
-                });
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Satun Smart Life Rank',
+                        text: `🏆 มาดูอันดับสุขภาพของชุมชน Satun Smart Life! #SatunSmartLife`
+                    });
+                } catch (shareErr: any) {
+                    if (shareErr.name !== 'AbortError') {
+                        throw shareErr;
+                    }
+                }
             } else {
-                // Fallback: Download image
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
-                link.download = 'satun-smart-life-rank.png';
+                link.download = filename;
                 link.click();
             }
         } catch (err) {
             console.error("Screenshot failed:", err);
-            alert("ไม่สามารถสร้างรูปภาพได้ โปรดลองอีกครั้ง");
-        } finally {
-            setCopyStatus('idle');
+            alert("ไม่สามารถสร้างรูปภาพได้ (อาจเกิดจากปัญหาลิขสิทธิ์รูปภาพโปรไฟล์) โปรดลองใช้การแชร์แบบข้อความแทน");
         }
+    };
+
+    const handleShareMyRankImage = async () => {
+        if (!shareCardRef.current) return;
+        setCopyStatus('generating_rank');
+        // Small delay to ensure UI is ready
+        setTimeout(async () => {
+            if (shareCardRef.current) {
+                await captureAndShare(shareCardRef.current, 'my-rank.png');
+                setCopyStatus('idle');
+            }
+        }, 100);
+    };
+
+    const handleShareLeaderboardImage = async () => {
+        if (!leaderboardRef.current) return;
+        setCopyStatus('generating_board');
+        setTimeout(async () => {
+            if (leaderboardRef.current) {
+                await captureAndShare(leaderboardRef.current, 'leaderboard.png');
+                setCopyStatus('idle');
+            }
+        }, 100);
     };
 
     const renderHeader = () => {
@@ -243,30 +270,33 @@ ${rankText}
                 <p className="text-white/90 text-sm relative z-10">{subtitle}</p>
                 
                 {activeTab === 'users' && (
-                    <div className="mt-4 flex flex-wrap justify-center gap-2 relative z-10">
+                    <div className="mt-4 flex flex-col items-center gap-3 relative z-10">
                         {myRankIndex !== -1 && (
                             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-medium border border-white/30">
                                 <StarIcon className="w-4 h-4 text-yellow-300" />
                                 <span>อันดับของคุณ: #{myRankIndex + 1}</span>
                             </div>
                         )}
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap justify-center gap-2">
+                            {/* Share Board Button */}
                             <button 
-                                onClick={handleShareText}
-                                className="inline-flex items-center gap-2 bg-white text-orange-600 px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:bg-orange-50 transition-colors active:scale-95"
+                                onClick={handleShareLeaderboardImage}
+                                disabled={copyStatus.startsWith('generating')}
+                                className="inline-flex items-center gap-2 bg-orange-700/80 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:bg-orange-800 transition-colors active:scale-95 disabled:bg-gray-400"
                             >
-                                <ShareIcon className="w-4 h-4" />
-                                {copyStatus === 'copied' ? 'คัดลอก!' : 'แชร์'}
+                                <ClipboardListIcon className="w-4 h-4" />
+                                {copyStatus === 'generating_board' ? 'กำลังสร้าง...' : 'รูปกระดาน'}
                             </button>
-                            {/* NEW: Share Image Button (Only visible if rank exists) */}
+
+                            {/* Share My Rank Button */}
                             {myRankIndex !== -1 && (
                                 <button 
-                                    onClick={handleShareImage}
-                                    disabled={copyStatus === 'generating'}
+                                    onClick={handleShareMyRankImage}
+                                    disabled={copyStatus.startsWith('generating')}
                                     className="inline-flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:bg-indigo-700 transition-colors active:scale-95 disabled:bg-gray-400"
                                 >
                                     <CameraIcon className="w-4 h-4" />
-                                    {copyStatus === 'generating' ? 'กำลังสร้าง...' : 'รูปภาพ'}
+                                    {copyStatus === 'generating_rank' ? 'กำลังสร้าง...' : 'รูปอันดับฉัน'}
                                 </button>
                             )}
                         </div>
@@ -487,31 +517,34 @@ ${rankText}
                 </button>
             </div>
 
-            {/* Content Switcher */}
-            {activeTab === 'users' && (
-                <>
-                    {renderPodium(leaderboard.slice(0, 3))}
-                    {renderUserList(leaderboard.slice(3), 3, false)}
-                </>
-            )}
+            {/* Wrapper for Capture - Wraps content dynamically based on active tab */}
+            <div ref={leaderboardRef} className="bg-gray-50 dark:bg-gray-900 p-2 rounded-xl">
+                {/* Content Switcher */}
+                {activeTab === 'users' && (
+                    <>
+                        {renderPodium(leaderboard.slice(0, 3))}
+                        {renderUserList(leaderboard.slice(3), 3, false)}
+                    </>
+                )}
 
-            {activeTab === 'trending' && (
-                <>
-                    {trending.length > 0 ? (
-                        <>
-                            <p className="text-center text-xs text-rose-500 font-bold mb-4 animate-pulse">🔥 ผู้ที่มี XP เพิ่มขึ้นสูงสุดในสัปดาห์นี้</p>
-                            {renderUserList(trending, 0, true)}
-                        </>
-                    ) : (
-                        <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl">
-                            <FireIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                            <p className="text-gray-500 text-sm">ยังไม่มีข้อมูล Trending ในขณะนี้</p>
-                        </div>
-                    )}
-                </>
-            )}
+                {activeTab === 'trending' && (
+                    <>
+                        {trending.length > 0 ? (
+                            <>
+                                <p className="text-center text-xs text-rose-500 font-bold mb-4 animate-pulse">🔥 ผู้ที่มี XP เพิ่มขึ้นสูงสุดในสัปดาห์นี้</p>
+                                {renderUserList(trending, 0, true)}
+                            </>
+                        ) : (
+                            <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl">
+                                <FireIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                                <p className="text-gray-500 text-sm">ยังไม่มีข้อมูล Trending ในขณะนี้</p>
+                            </div>
+                        )}
+                    </>
+                )}
 
-            {activeTab === 'orgs' && renderOrgList()}
+                {activeTab === 'orgs' && renderOrgList()}
+            </div>
 
             {/* My Rank Sticky (Users Tab Only) */}
             {activeTab === 'users' && myRankIndex > 2 && (
@@ -530,13 +563,7 @@ ${rankText}
                         </div>
                         <div className="flex gap-2">
                             <button 
-                                onClick={handleShareText}
-                                className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-colors"
-                            >
-                                <ShareIcon className="w-5 h-5 text-white" />
-                            </button>
-                            <button 
-                                onClick={handleShareImage}
+                                onClick={handleShareMyRankImage}
                                 className="bg-indigo-600 p-2 rounded-full hover:bg-indigo-500 transition-colors shadow-lg"
                             >
                                 <CameraIcon className="w-5 h-5 text-white" />
