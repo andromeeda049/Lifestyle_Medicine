@@ -15,6 +15,7 @@ interface LeaderboardUser {
     badges: string | string[];
     organization: string;
     role?: string;
+    weeklyXp?: number;
 }
 
 interface OrgRanking {
@@ -33,12 +34,23 @@ const Community: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'trending' | 'orgs'>('users');
     const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'generating'>('idle');
+    const [loadingMessage, setLoadingMessage] = useState("กำลังโหลดข้อมูล...");
     
     // Ref for the element we want to capture
     const shareCardRef = useRef<HTMLDivElement>(null);
 
     const loadData = async () => {
         setLoading(true);
+        // Randomize loading message
+        const messages = [
+            "กำลังจัดอันดับยอดมนุษย์สุขภาพ...",
+            "ใครจะเป็นที่ 1 ของสตูลวันนี้นะ?",
+            "กำลังรวบรวม XP จากความพยายามของคุณ...",
+            "ดื่มน้ำรอสักครู่ ข้อมูลกำลังมา...",
+            "ความสม่ำเสมอคือกุญแจสู่ความสำเร็จ..."
+        ];
+        setLoadingMessage(messages[Math.floor(Math.random() * messages.length)]);
+
         try {
             if (!scriptUrl) throw new Error("Config Missing");
             const data = await fetchLeaderboard(scriptUrl, currentUser || undefined);
@@ -266,9 +278,43 @@ ${rankText}
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center py-20">
-                <div className="w-12 h-12 border-4 border-t-yellow-500 border-gray-200 rounded-full animate-spin"></div>
-                <p className="mt-4 text-gray-500 font-medium">กำลังโหลดข้อมูล...</p>
+            <div className="space-y-6 p-4 animate-pulse pt-8">
+                {/* Header Skeleton */}
+                <div className="h-40 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-3xl w-full flex flex-col items-center justify-center relative overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700">
+                    <div className="absolute top-4 right-4 opacity-20">
+                        <TrophyIcon className="w-16 h-16 text-gray-400" />
+                    </div>
+                    <div className="w-48 h-8 bg-white/50 dark:bg-gray-600/50 rounded-full mb-3"></div>
+                    <div className="w-32 h-4 bg-white/30 dark:bg-gray-600/30 rounded-full"></div>
+                </div>
+                
+                {/* Tabs Skeleton */}
+                <div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-xl w-full"></div>
+
+                {/* Podium Skeleton */}
+                <div className="flex justify-center items-end h-48 gap-4 px-4 pb-4">
+                    <div className="w-1/3 h-24 bg-gray-200 dark:bg-gray-700 rounded-t-lg"></div>
+                    <div className="w-1/3 h-32 bg-gray-300 dark:bg-gray-600 rounded-t-lg relative">
+                         <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 w-12 h-12 bg-gray-200 dark:bg-gray-500 rounded-full border-4 border-white dark:border-gray-800"></div>
+                    </div>
+                    <div className="w-1/3 h-20 bg-gray-200 dark:bg-gray-700 rounded-t-lg"></div>
+                </div>
+
+                {/* Loading Message & List */}
+                <div className="space-y-4">
+                    <p className="text-center text-sm text-teal-600 dark:text-teal-400 font-bold animate-bounce mt-4">{loadingMessage}</p>
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                            <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg"></div>
+                            <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                            <div className="flex-1 space-y-2">
+                                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                                <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded w-1/4"></div>
+                            </div>
+                            <div className="w-12 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }
@@ -345,19 +391,21 @@ ${rankText}
         );
     };
 
-    const renderUserList = (list: LeaderboardUser[], startIndex: number = 0) => {
+    const renderUserList = (list: LeaderboardUser[], startIndex: number = 0, isTrending: boolean = false) => {
         if (list.length === 0) return <p className="text-center py-8 text-gray-400 text-sm">ไม่มีข้อมูล</p>;
         
         return (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
                     <span className="font-bold text-gray-500 text-sm uppercase">รายชื่อ</span>
-                    <span className="text-xs text-gray-400">Total XP</span>
+                    <span className="text-xs text-gray-400">{isTrending ? 'Weekly XP' : 'Total XP'}</span>
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {list.map((user, index) => {
                         const rank = startIndex + index + 1;
                         const isMe = user.username === currentUser?.username;
+                        const displayScore = isTrending && user.weeklyXp !== undefined ? user.weeklyXp : (user.xp || 0);
+
                         return (
                             <div key={index} className={`flex items-center p-4 ${isMe ? 'bg-yellow-50 dark:bg-yellow-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'} transition-colors`}>
                                 <div className="w-8 font-bold text-gray-400 text-center mr-3">{rank}</div>
@@ -374,7 +422,7 @@ ${rankText}
                                     <p className="text-xs text-gray-400 truncate">{user.organization || 'ทั่วไป'}</p>
                                 </div>
                                 <div className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                                    {(user.xp || 0).toLocaleString()}
+                                    {displayScore.toLocaleString()}
                                 </div>
                             </div>
                         );
@@ -443,7 +491,7 @@ ${rankText}
             {activeTab === 'users' && (
                 <>
                     {renderPodium(leaderboard.slice(0, 3))}
-                    {renderUserList(leaderboard.slice(3), 3)}
+                    {renderUserList(leaderboard.slice(3), 3, false)}
                 </>
             )}
 
@@ -452,7 +500,7 @@ ${rankText}
                     {trending.length > 0 ? (
                         <>
                             <p className="text-center text-xs text-rose-500 font-bold mb-4 animate-pulse">🔥 ผู้ที่มี XP เพิ่มขึ้นสูงสุดในสัปดาห์นี้</p>
-                            {renderUserList(trending)}
+                            {renderUserList(trending, 0, true)}
                         </>
                     ) : (
                         <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl">

@@ -1,9 +1,9 @@
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { PLANNER_ACTIVITY_LEVELS, CARB_PERCENTAGES, CUISINE_TYPES, DIETARY_PREFERENCES, HEALTH_CONDITIONS, LIFESTYLE_GOALS, XP_VALUES } from '../constants';
 import { generateMealPlan } from '../services/geminiService';
 import { PlannerResults, MealPlan, PlannerHistoryEntry } from '../types';
-import { ArrowLeftIcon, SparklesIcon, UserCircleIcon } from './icons';
+import { ArrowLeftIcon, SparklesIcon, UserCircleIcon, ScaleIcon, FireIcon, HeartIcon } from './icons';
 import { AppContext } from '../context/AppContext';
 
 const PersonalizedPlanner: React.FC = () => {
@@ -46,6 +46,30 @@ const PersonalizedPlanner: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showResults, setShowResults] = useState(false);
+
+    // Calculate Preview Stats on the fly
+    const previewStats = useMemo(() => {
+        const weightN = parseFloat(formData.weight);
+        const heightN = parseFloat(formData.height);
+        const ageN = parseInt(formData.age);
+        
+        if (!weightN || !heightN || !ageN) return null;
+
+        const heightM = heightN / 100;
+        const bmi = weightN / (heightM * heightM);
+        
+        let bmr = (formData.gender === 'male') 
+            ? (10 * weightN + 6.25 * heightN - 5 * ageN + 5) 
+            : (10 * weightN + 6.25 * heightN - 5 * ageN - 161);
+        
+        const tdee = bmr * Number(formData.activityLevel);
+
+        return {
+            bmi: bmi.toFixed(1),
+            tdee: Math.round(tdee).toLocaleString(),
+            condition: formData.healthCondition
+        };
+    }, [formData]);
     
     const handleCalculateAndPlan = async () => {
         if (currentUser?.role === 'guest') return;
@@ -83,10 +107,9 @@ const PersonalizedPlanner: React.FC = () => {
                 <div className="max-w-lg mx-auto bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg space-y-6">
                     <div className="text-center">
                         <SparklesIcon className="w-12 h-12 text-teal-500 mx-auto mb-2" />
-                        <h2 className="text-2xl font-bold">Personalized Lifestyle Planner</h2>
-                        <p className="text-sm text-gray-500 mt-2">
-                            AI จะดึงข้อมูลสุขภาพของคุณ (BMI, TDEE, โรคประจำตัว) <br/>
-                            เพื่อสร้างแผนโภชนาการและกิจกรรมที่ "เหมาะสมกับคุณที่สุด"
+                        <h2 className="text-2xl font-bold dark:text-white">Personalized Lifestyle Planner</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            AI จะดึงข้อมูลสุขภาพของคุณเพื่อสร้างแผนโภชนาการและกิจกรรมที่ "เหมาะสมกับคุณที่สุด"
                         </p>
                     </div>
 
@@ -94,15 +117,36 @@ const PersonalizedPlanner: React.FC = () => {
                         <div className="bg-white dark:bg-gray-800 p-2 rounded-full shadow-sm">
                             <UserCircleIcon className="w-8 h-8 text-teal-600" />
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold text-gray-500 uppercase">ออกแบบสำหรับ</p>
-                            <p className="font-bold text-gray-800 dark:text-white text-lg">{currentUser?.displayName}</p>
-                            <p className="text-xs text-gray-500">Condition: {formData.healthCondition}</p>
+                            <p className="font-bold text-gray-800 dark:text-white text-lg truncate">{currentUser?.displayName}</p>
                         </div>
                     </div>
 
-                    <button onClick={handleCalculateAndPlan} className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 rounded-xl hover:from-teal-600 hover:to-emerald-700 shadow-lg transform transition-transform active:scale-95">
-                        สร้างแผนสุขภาพส่วนตัว (Generate Plan)
+                    {/* Health Data Snapshot */}
+                    {previewStats && (
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                <ScaleIcon className="w-5 h-5 text-blue-500 mb-1" />
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">BMI</span>
+                                <span className="font-bold text-gray-800 dark:text-white">{previewStats.bmi}</span>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                <FireIcon className="w-5 h-5 text-orange-500 mb-1" />
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">TDEE</span>
+                                <span className="font-bold text-gray-800 dark:text-white">{previewStats.tdee}</span>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center text-center">
+                                <HeartIcon className="w-5 h-5 text-rose-500 mb-1" />
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold">Condition</span>
+                                <span className="font-bold text-gray-800 dark:text-white text-xs leading-tight line-clamp-2">{previewStats.condition}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <button onClick={handleCalculateAndPlan} className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 rounded-xl hover:from-teal-600 hover:to-emerald-700 shadow-lg transform transition-transform active:scale-95 flex flex-col items-center justify-center gap-1">
+                        <span>สร้างแผนสุขภาพส่วนตัว</span>
+                        <span className="text-[10px] font-normal opacity-90">(Generate Personalized Plan)</span>
                     </button>
                 </div>
             ) : (
