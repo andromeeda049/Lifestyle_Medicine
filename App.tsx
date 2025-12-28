@@ -512,7 +512,7 @@ const AppContent: React.FC = () => {
           <header className="fixed top-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm z-30 px-4 py-3 flex justify-between items-center transition-colors duration-300">
              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2" onClick={() => navigate('home')}>
-                    <div className="w-8 h-8 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow cursor-pointer">SLW</div>
+                    <div className="w-8 h-8 bg-gradient-to-tr from-teal-400 to-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow cursor-pointer">SSL</div>
                     <span className="font-bold text-gray-800 dark:text-white text-sm cursor-pointer">Satun Smart Life</span>
                 </div>
              </div>
