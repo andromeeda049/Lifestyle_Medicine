@@ -26,6 +26,7 @@ import OrganizationModal from './components/OrganizationModal';
 import SOSModal from './components/SOSModal';
 import LevelUpModal from './components/LevelUpModal';
 import Community from './components/Community';
+import XPHistory from './components/XPHistory'; // Import New Component
 import { AppProvider, AppContext } from './context/AppContext';
 import { AppView, User, WaterHistoryEntry } from './types';
 import { HomeIcon, ScaleIcon, FireIcon, CameraIcon, SparklesIcon, ClipboardListIcon, MenuIcon, XIcon, SquaresIcon, UserCircleIcon, BookOpenIcon, SunIcon, MoonIcon, CogIcon, LogoutIcon, WaterDropIcon, ClipboardDocumentCheckIcon, BeakerIcon, BoltIcon, HeartIcon, QuestionMarkCircleIcon, StarIcon, InformationCircleIcon, ClipboardCheckIcon, BellIcon, UserGroupIcon, PhoneIcon, TrophyIcon } from './components/icons';
@@ -280,7 +281,7 @@ const AppContent: React.FC = () => {
                             <CogIcon className="w-5 h-5"/> การตั้งค่า & ความเป็นส่วนตัว
                         </button>
                         <button onClick={() => navigate('about')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-2">
-                            <InformationCircleIcon className="w-5 h-5"/> เกี่ยวกับแอปพลิเคชัน
+                            <InformationCircleIcon className="w-5 h-5"/> บทสรุปนวัตกรรม (About)
                         </button>
                         <button onClick={() => navigate('gamificationRules')} className="w-full p-3 text-left bg-white dark:bg-gray-800 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-2">
                             <TrophyIcon className="w-5 h-5"/> กติกาการสะสมแต้ม
@@ -347,6 +348,8 @@ const AppContent: React.FC = () => {
         return <HealthLiteracyQuiz />;
       case 'settings':
         return <Settings />;
+      case 'xpHistory':
+        return <XPHistory />; // Add XPHistory Component
       case 'adminDashboard':
         return currentUser?.role === 'admin' ? <AdminDashboard /> : <HomeMenu />;
       default:

@@ -1,23 +1,17 @@
 
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { getHealthCoachingTip } from '../services/geminiService';
 import { SparklesIcon } from './icons';
 import { SPECIALIST_TEAM } from '../constants';
 import { SpecialistId } from '../types';
 
-const quickTips = [
-  { category: 'การดื่มน้ำ', tip: 'ดื่มน้ำให้เพียงพอตลอดวัน อย่างน้อย 8 แก้ว เพื่อให้ร่างกายสดชื่น' },
-  { category: 'การเคลื่อนไหว', tip: 'ลุกขึ้นยืดเส้นยืดสายทุกๆ ชั่วโมง เพื่อลดอาการปวดเมื่อยจากการนั่งนานๆ' },
-  { category: 'อาหาร', tip: 'ลองเพิ่มผักหลากสีในมื้ออาหารของคุณ เพื่อให้ได้วิตามินและแร่ธาตุที่หลากหลาย' },
-  { category: 'การพักผ่อน', tip: 'นอนหลับให้ได้ 7-9 ชั่วโมงต่อคืน เพื่อการฟื้นฟูร่างกายและสมองที่ดีที่สุด' },
-];
-
 const AICoach: React.FC = () => {
   const [tip, setTip] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistId>('general');
+  const [canConsult, setCanConsult] = useState(true);
   const { bmiHistory, tdeeHistory, latestFoodAnalysis, currentUser, waterHistory, userProfile } = useContext(AppContext);
 
   const isGuest = currentUser?.role === 'guest';
@@ -29,8 +23,21 @@ const AICoach: React.FC = () => {
         .reduce((sum, entry) => sum + entry.amount, 0);
   }, [waterHistory]);
 
+  // Check Daily Limit on Mount
+  useEffect(() => {
+      if (currentUser && !isGuest) {
+          const todayStr = new Date().toDateString();
+          const lastConsult = localStorage.getItem(`last_coach_consult_${currentUser.username}`);
+          if (lastConsult === todayStr) {
+              setCanConsult(false);
+          }
+      }
+  }, [currentUser, isGuest]);
+
   const handleGetTip = async () => {
     if (isGuest) return;
+    if (!canConsult) return;
+
     setLoading(true);
     setError(null);
     setTip(null);
@@ -44,6 +51,12 @@ const AICoach: React.FC = () => {
         specialistId: selectedSpecialist
       });
       setTip(tipResult);
+      
+      // Save consultation timestamp
+      const todayStr = new Date().toDateString();
+      localStorage.setItem(`last_coach_consult_${currentUser?.username}`, todayStr);
+      setCanConsult(false);
+
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดที่ไม่คาดคิด');
     } finally {
@@ -81,12 +94,21 @@ const AICoach: React.FC = () => {
       <div className="mt-4 relative">
         <button
           onClick={handleGetTip}
-          disabled={loading || isGuest}
-          className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold py-3 rounded-lg hover:from-indigo-600 disabled:opacity-70"
+          disabled={loading || isGuest || !canConsult}
+          className={`w-full font-bold py-3 rounded-lg disabled:opacity-70 transition-colors ${
+              canConsult 
+              ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600'
+              : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
+          }`}
         >
-          {loading ? 'กำลังวิเคราะห์...' : `ขอคำแนะนำจาก ${SPECIALIST_TEAM.find(s => s.id === selectedSpecialist)?.name}`}
+          {loading ? 'กำลังวิเคราะห์...' : !canConsult ? 'ครบโควตาปรึกษาวันนี้แล้ว' : `ขอคำแนะนำจาก ${SPECIALIST_TEAM.find(s => s.id === selectedSpecialist)?.name}`}
         </button>
         {isGuest && <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center rounded-lg text-center p-4"><p className="font-semibold text-gray-700 dark:text-gray-300">🔒 กรุณาสร้างโปรไฟล์เพื่อใช้งาน</p></div>}
+        {!canConsult && !loading && (
+            <p className="text-xs text-center text-gray-400 mt-2">
+                *สามารถปรึกษาได้วันละ 1 ครั้ง เพื่อให้คุณนำคำแนะนำไปปรับใช้จริง
+            </p>
+        )}
       </div>
       
       <div className="mt-8 min-h-[10rem] flex items-center justify-center">

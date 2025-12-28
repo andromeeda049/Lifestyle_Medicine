@@ -2,10 +2,10 @@
 import React, { useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { LEVEL_THRESHOLDS, ACHIEVEMENTS } from '../constants';
-import { StarIcon, TrophyIcon } from './icons';
+import { StarIcon, TrophyIcon, ClipboardListIcon } from './icons';
 
 const GamificationCard: React.FC = () => {
-    const { userProfile, currentUser } = useContext(AppContext);
+    const { userProfile, currentUser, setActiveView } = useContext(AppContext);
     
     if (!currentUser || currentUser.role === 'guest') return null;
 
@@ -41,9 +41,18 @@ const GamificationCard: React.FC = () => {
                     </h2>
                     <p className="text-indigo-200 text-sm">ผู้เชี่ยวชาญสุขภาพ • Level {currentLevel}</p>
                 </div>
-                <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-lg text-sm font-semibold flex items-center gap-1">
-                    <StarIcon className="w-4 h-4 text-yellow-300" />
-                    {currentXP.toLocaleString()} HP
+                <div className="flex flex-col items-end gap-2">
+                    <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-lg text-sm font-semibold flex items-center gap-1">
+                        <StarIcon className="w-4 h-4 text-yellow-300" />
+                        {currentXP.toLocaleString()} HP
+                    </div>
+                    <button 
+                        onClick={() => setActiveView('xpHistory')}
+                        className="text-[10px] bg-black/20 hover:bg-black/30 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                    >
+                        <ClipboardListIcon className="w-3 h-3" />
+                        ประวัติคะแนน
+                    </button>
                 </div>
             </div>
 

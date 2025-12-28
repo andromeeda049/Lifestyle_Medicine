@@ -3,11 +3,11 @@ import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { PLANNER_ACTIVITY_LEVELS, CARB_PERCENTAGES, CUISINE_TYPES, DIETARY_PREFERENCES, HEALTH_CONDITIONS, LIFESTYLE_GOALS, XP_VALUES } from '../constants';
 import { generateMealPlan } from '../services/geminiService';
 import { PlannerResults, MealPlan, PlannerHistoryEntry } from '../types';
-import { ArrowLeftIcon, SparklesIcon, UserCircleIcon, ScaleIcon, FireIcon, HeartIcon, ChartBarIcon, TrophyIcon, ExclamationTriangleIcon } from './icons';
+import { ArrowLeftIcon, SparklesIcon, UserCircleIcon, ScaleIcon, FireIcon, HeartIcon, ChartBarIcon, TrophyIcon, ExclamationTriangleIcon, ClipboardListIcon } from './icons';
 import { AppContext } from '../context/AppContext';
 
 const PersonalizedPlanner: React.FC = () => {
-    const { userProfile, setPlannerHistory, currentUser, foodHistory, gainXP } = useContext(AppContext);
+    const { userProfile, setPlannerHistory, currentUser, foodHistory, gainXP, plannerHistory } = useContext(AppContext);
     
     // Auto-populate from profile
     const [formData, setFormData] = useState({
@@ -47,6 +47,24 @@ const PersonalizedPlanner: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showResults, setShowResults] = useState(false);
 
+    // --- CHECK WEEKLY LIMIT ---
+    const canCreatePlan = useMemo(() => {
+        if (plannerHistory.length === 0) return true;
+        const lastPlanDate = new Date(plannerHistory[0].date).getTime();
+        const now = new Date().getTime();
+        const diffDays = (now - lastPlanDate) / (1000 * 3600 * 24);
+        return diffDays >= 7;
+    }, [plannerHistory]);
+
+    const daysUntilNextPlan = useMemo(() => {
+        if (plannerHistory.length === 0) return 0;
+        const lastPlanDate = new Date(plannerHistory[0].date).getTime();
+        const nextPlanDate = lastPlanDate + (7 * 24 * 3600 * 1000);
+        const now = new Date().getTime();
+        const diff = Math.ceil((nextPlanDate - now) / (1000 * 3600 * 24));
+        return Math.max(0, diff);
+    }, [plannerHistory]);
+
     // Calculate Preview Stats on the fly
     const previewStats = useMemo(() => {
         const weightN = parseFloat(formData.weight);
@@ -75,6 +93,11 @@ const PersonalizedPlanner: React.FC = () => {
     
     const handleCalculateAndPlan = async () => {
         if (currentUser?.role === 'guest') return;
+        if (!canCreatePlan) {
+            alert(`คุณเพิ่งสร้างแผนไป กรุณารออีก ${daysUntilNextPlan} วัน เพื่อประเมินผลลัพธ์ก่อนสร้างแผนใหม่`);
+            return;
+        }
+
         setShowResults(true); setLoading(true); setError(null);
         
         const weightN = parseFloat(formData.weight);
@@ -179,10 +202,26 @@ const PersonalizedPlanner: React.FC = () => {
                         </select>
                     </div>
 
-                    <button onClick={handleCalculateAndPlan} className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 rounded-xl hover:from-teal-600 hover:to-emerald-700 shadow-lg transform transition-transform active:scale-95 flex flex-col items-center justify-center gap-1">
+                    <button 
+                        onClick={handleCalculateAndPlan} 
+                        disabled={!canCreatePlan}
+                        className={`w-full font-bold py-4 rounded-xl shadow-lg transform transition-transform active:scale-95 flex flex-col items-center justify-center gap-1 ${
+                            canCreatePlan 
+                            ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white hover:from-teal-600 hover:to-emerald-700'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                        }`}
+                    >
                         <span>สร้างแผนสุขภาพส่วนตัว</span>
-                        <span className="text-[10px] font-normal opacity-90">(Generate Personalized Plan)</span>
+                        <span className="text-[10px] font-normal opacity-90">
+                            {canCreatePlan ? '(Generate Personalized Plan)' : `(รออีก ${daysUntilNextPlan} วัน)`}
+                        </span>
                     </button>
+                    
+                    {!canCreatePlan && (
+                        <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-xs rounded-lg text-center border border-yellow-200 dark:border-yellow-800">
+                            <strong>Note:</strong> สามารถสร้างแผนได้สัปดาห์ละ 1 ครั้ง เพื่อให้คุณมีเวลาปฏิบัติตามแผนอย่างเต็มที่
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-6">

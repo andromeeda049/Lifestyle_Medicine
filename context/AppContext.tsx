@@ -2,7 +2,7 @@
 import React, { createContext, ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { AppView, BMIHistoryEntry, TDEEHistoryEntry, NutrientInfo, FoodHistoryEntry, UserProfile, Theme, PlannerHistoryEntry, WaterHistoryEntry, CalorieHistoryEntry, ActivityHistoryEntry, SleepEntry, MoodEntry, HabitEntry, SocialEntry, EvaluationEntry, QuizEntry, User, AppContextType, SatisfactionData, OutcomeData, NotificationState } from '../types';
-import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, LEVEL_THRESHOLDS, ACHIEVEMENTS, GAMIFICATION_LIMITS } from '../constants';
+import { PLANNER_ACTIVITY_LEVELS, HEALTH_CONDITIONS, LEVEL_THRESHOLDS, ACHIEVEMENTS, GAMIFICATION_LIMITS, XP_VALUES } from '../constants';
 import { fetchAllDataFromSheet, saveDataToSheet, clearHistoryInSheet } from '../services/googleSheetService';
 
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx6e8zDxmmoZWg2iW_oQHlpfqWZrpS-2Vkq9aFPlnW5MVdGPf8_-yaEJ7iugtdAWvJT/exec';
@@ -20,7 +20,7 @@ const defaultProfile: UserProfile = {
   level: 1,
   badges: ['novice'],
   receiveDailyReminders: true,
-  organization: '', // Modified: Empty by default to trigger selection modal
+  organization: '', 
   streak: 0,
   lastLogDate: '',
   aiSystemInstruction: ''
@@ -38,7 +38,6 @@ const getInitialTheme = (): Theme => {
 export const AppContext = createContext<AppContextType>({} as AppContextType);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Capture initial URL params immediately to preserve deep links even if URL changes later (e.g. by OAuth/LIFF)
   const initialUrlParams = useRef(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
 
   const [activeView, setActiveView] = useState<AppView>('home');
@@ -79,7 +78,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     _setMoodHistory([]); _setHabitHistory([]); _setSocialHistory([]); _setEvaluationHistory([]);
     _setQuizHistory([]); setLatestFoodAnalysis(null); 
     
-    // Check URL params to handle deep links correctly
     const currentParams = new URLSearchParams(window.location.search);
     let viewParam = currentParams.get('view');
 
@@ -98,19 +96,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     const loadAllData = async () => {
-      // FIX: Only fetch if we have a user and script URL.
-      // We use currentUser?.username to prevent re-fetching when other user props change (like displayName or organization)
       if (scriptUrl && currentUser && currentUser.role === 'user') {
         setIsDataSynced(false);
         const fetchedData = await fetchAllDataFromSheet(scriptUrl, currentUser);
         if (fetchedData) {
-          // Merge logic: Preserve local PDPA acceptance if cloud data is outdated
           _setUserProfile(prev => {
               const cloudProfile = fetchedData.profile || defaultProfile;
-              // If cloud profile has empty vital stats but local has them (from recent edit), prefer local if cloud is empty/default
-              // However, usually we trust cloud. But to solve the "reset" issue, we rely on the fact 
-              // that this effect won't trigger on local save anymore.
-              
               return {
                   ...cloudProfile,
                   pdpaAccepted: cloudProfile.pdpaAccepted || prev.pdpaAccepted,
@@ -132,7 +123,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     };
     loadAllData();
-  }, [scriptUrl, currentUser?.username]); // CHANGED DEPENDENCY
+  }, [scriptUrl, currentUser?.username]);
 
   const setUserProfile = useCallback((profileData: UserProfile, accountData: { displayName: string; profilePicture: string; }) => {
     if (!currentUser) return;
@@ -142,16 +133,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         profilePicture: accountData.profilePicture 
     };
     
-    // Sync organization to user object if present
     if (profileData.organization) {
         updatedUser.organization = profileData.organization;
     }
 
-    // Update local state immediately
     setCurrentUser(updatedUser); 
     _setUserProfile(profileData);
     
-    // Sync to backend (Fire and forget, don't wait or reload)
     if (scriptUrl) {
         saveDataToSheet(scriptUrl, 'profile', profileData, updatedUser).catch(err => console.error("Profile sync failed", err));
     }
@@ -206,47 +194,80 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
+  // --- NEW: Check Daily Mission Bonus ---
+  const checkDailyMissionBonus = (updatedProfile: UserProfile, todayStr: string) => {
+      const hasWater = waterHistory.some(h => new Date(h.date).toDateString() === todayStr);
+      const hasFood = calorieHistory.some(h => new Date(h.date).toDateString() === todayStr) || foodHistory.some(h => new Date(h.date).toDateString() === todayStr);
+      const hasActivity = activityHistory.some(h => new Date(h.date).toDateString() === todayStr);
+      const hasMind = moodHistory.some(h => new Date(h.date).toDateString() === todayStr) || sleepHistory.some(h => new Date(h.date).toDateString() === todayStr);
+
+      const bonusKey = `daily_bonus_${todayStr}`;
+      const hasClaimed = localStorage.getItem(bonusKey);
+
+      if (!hasClaimed && hasWater && hasFood && hasActivity && hasMind) {
+          localStorage.setItem(bonusKey, 'true');
+          const bonusXP = XP_VALUES.DAILY_BONUS;
+          
+          showToast(`🎉 ภารกิจครบ! รับโบนัส +${bonusXP} XP`, 'success');
+          
+          // Return updated profile with bonus
+          return {
+              ...updatedProfile,
+              xp: (updatedProfile.xp || 0) + bonusXP
+          };
+      }
+      return updatedProfile;
+  };
+
   const gainXP = useCallback((amount: number, category?: string) => {
     if (!currentUser || currentUser.role === 'guest') return;
 
+    let finalAmount = amount;
+
+    // --- REVISED LOGIC: CAP XP BUT ALLOW ACTION ---
     if (category && GAMIFICATION_LIMITS[category]) {
         const rules = GAMIFICATION_LIMITS[category];
         const history = getHistoryForCategory(category);
-        const now = new Date();
-        const todayStr = now.toDateString();
+        const todayStr = new Date().toDateString();
 
         const todayEntries = history.filter(entry => new Date(entry.date).toDateString() === todayStr);
-        if (todayEntries.length > rules.maxPerDay) {
-            showToast(`คุณบันทึกครบโควตาแล้ววันนี้ (รับคะแนนสูงสุด ${rules.maxPerDay} ครั้ง/วัน)`, 'info');
-            return; 
-        }
-
-        if (history.length > 0) {
-            const lastEntry = history[0];
-            const lastTime = new Date(lastEntry.date).getTime();
-            const diffMinutes = (now.getTime() - lastTime) / (1000 * 60);
-            
-            if (diffMinutes < rules.cooldownMinutes) {
-                const waitTime = Math.ceil(rules.cooldownMinutes - diffMinutes);
-                showToast(`เร็วเกินไป! กรุณารออีก ${waitTime} นาทีเพื่อรับคะแนนสะสม`, 'warning');
-                return;
-            }
+        
+        // Note: The history state hasn't updated yet when this is called in some components (React Batching), 
+        // so we check if todayEntries.length is already >= maxPerDay.
+        // Actually, most trackers call setHistory first, so todayEntries MIGHT include the current one if looking at context.
+        // But to be safe and consistent with "Next Action", we allow the action to proceed (state updated in component)
+        // but here we decide if we award XP.
+        
+        // If user has ALREADY reached the limit before this new action
+        if (todayEntries.length >= rules.maxPerDay) {
+            // Cap XP to 0 for this action, but acknowledge the save
+            finalAmount = 0;
+            showToast(`บันทึกสำเร็จ (ครบโควตา XP ของวันแล้ว)`, 'info');
         }
     }
 
     _setUserProfile(currentProfile => {
-        let currentXP = currentProfile.xp || 0; let currentLevel = currentProfile.level || 1;
-        let currentBadges = currentProfile.badges || ['novice']; let currentStreak = currentProfile.streak || 0;
+        let currentXP = currentProfile.xp || 0; 
+        let currentLevel = currentProfile.level || 1;
+        let currentBadges = currentProfile.badges || ['novice']; 
+        let currentStreak = currentProfile.streak || 0;
         const todayStr = new Date().toDateString();
         
+        // Streak Logic
         if (currentProfile.lastLogDate !== todayStr) {
             const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-            currentStreak = (currentProfile.lastLogDate === yesterday.toDateString()) ? currentStreak + 1 : 1;
+            const isConsecutive = (currentProfile.lastLogDate === yesterday.toDateString());
+            currentStreak = isConsecutive ? currentStreak + 1 : 1;
         }
         
-        const newXP = currentXP + amount; let newLevel = currentLevel;
+        // Add XP
+        let newXP = currentXP + finalAmount; 
+        
+        // Calculate Level
+        let newLevel = currentLevel;
         while (newLevel < LEVEL_THRESHOLDS.length - 1 && newXP >= LEVEL_THRESHOLDS[newLevel]) newLevel++;
         
+        // Unlocks
         const badgesToUnlock = [];
         if (newLevel >= 5 && !currentBadges.includes('level5')) badgesToUnlock.push('level5');
         if (newLevel >= 10 && !currentBadges.includes('master')) badgesToUnlock.push('master');
@@ -254,10 +275,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         if (newLevel > currentLevel) setShowLevelUp({ type: 'level', data: newLevel });
         
-        const updatedProfile = { ...currentProfile, xp: newXP, level: newLevel, badges: newBadges, streak: currentStreak, lastLogDate: todayStr };
+        let updatedProfile: UserProfile = { ...currentProfile, xp: newXP, level: newLevel, badges: newBadges, streak: currentStreak, lastLogDate: todayStr };
+        
+        // Check Daily Bonus (If amount > 0, meaning it's a valid action)
+        if (amount > 0) {
+             updatedProfile = checkDailyMissionBonus(updatedProfile, todayStr);
+        }
+
         if (scriptUrl && currentUser.role !== 'admin') saveDataToSheet(scriptUrl, 'profile', updatedProfile, currentUser);
         
-        showToast(`+${amount} XP! (รวม ${newXP})`, 'success');
+        if (finalAmount > 0) {
+            showToast(`+${finalAmount} XP! (รวม ${updatedProfile.xp})`, 'success');
+        }
+        
         return updatedProfile;
     });
   }, [currentUser, scriptUrl, _setUserProfile, waterHistory, foodHistory, calorieHistory, activityHistory, sleepHistory, moodHistory, habitHistory, socialHistory, plannerHistory, quizHistory]);

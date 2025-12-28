@@ -141,28 +141,31 @@ export const SLEEP_HYGIENE_CHECKLIST = [
 ];
 
 export const XP_VALUES = {
-    WATER: 10,
-    FOOD: 20,
-    EXERCISE: 25,
-    SLEEP: 15,
-    MOOD: 10,
-    WELLNESS: 30,
-    CALORIE: 10,
-    PLANNER: 50,
-    QUIZ: 100
+    WATER: 5,      // Reduced for frequent logging
+    FOOD: 10,      // Reduced to allow 5 logs
+    CALORIE: 5,    // Manual log
+    EXERCISE: 20,  // Higher effort
+    SLEEP: 15,     // Once a day
+    MOOD: 10,      // Once a day
+    WELLNESS: 20,  // Full checkin
+    PLANNER: 100,  // Weekly big task
+    QUIZ: 50,      // Knowledge
+    DAILY_BONUS: 100 // New Daily Mission Bonus
 };
 
-// --- GAMIFICATION ANTI-CHEAT RULES ---
-export const GAMIFICATION_LIMITS: { [key: string]: { maxPerDay: number, cooldownMinutes: number } } = {
-    WATER: { maxPerDay: 8, cooldownMinutes: 15 }, // Max 8 times (glasses), wait 15 mins
-    FOOD: { maxPerDay: 5, cooldownMinutes: 60 }, // AI Food scan
-    CALORIE: { maxPerDay: 5, cooldownMinutes: 5 }, // Manual log
-    EXERCISE: { maxPerDay: 3, cooldownMinutes: 30 }, 
-    SLEEP: { maxPerDay: 1, cooldownMinutes: 0 }, 
-    MOOD: { maxPerDay: 2, cooldownMinutes: 60 }, 
-    WELLNESS: { maxPerDay: 1, cooldownMinutes: 0 }, // Daily Habit/Social
-    PLANNER: { maxPerDay: 1, cooldownMinutes: 0 },
-    QUIZ: { maxPerDay: 1, cooldownMinutes: 0 }
+// --- GAMIFICATION LIMITS (Consistency over Quantity) ---
+export const GAMIFICATION_LIMITS: { [key: string]: { maxPerDay: number, label: string } } = {
+    WATER: { maxPerDay: 8, label: 'แก้ว' },
+    FOOD: { maxPerDay: 5, label: 'มื้อ' }, // AI Food scan
+    CALORIE: { maxPerDay: 5, label: 'รายการ' }, // Manual log (shared quota usually)
+    EXERCISE: { maxPerDay: 3, label: 'กิจกรรม' }, 
+    SLEEP: { maxPerDay: 1, label: 'ครั้ง' }, 
+    MOOD: { maxPerDay: 1, label: 'ครั้ง' }, 
+    WELLNESS: { maxPerDay: 1, label: 'ครั้ง' }, // Daily Habit/Social
+    PLANNER: { maxPerDay: 1, label: 'สัปดาห์ละครั้ง' }, // Logic handled in component to check 7 days
+    COACH: { maxPerDay: 1, label: 'ครั้ง' },
+    SUMMARY: { maxPerDay: 1, label: 'ครั้ง' },
+    QUIZ: { maxPerDay: 1, label: 'ครั้ง' }
 };
 
 export const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500];

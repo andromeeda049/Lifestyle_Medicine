@@ -1,5 +1,5 @@
 
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MOOD_EMOJIS, SLEEP_HYGIENE_CHECKLIST, XP_VALUES } from '../constants';
 import { MoonIcon, FaceSmileIcon, NoSymbolIcon, UserGroupIcon, SparklesIcon, HeartIcon, XIcon, PhoneIcon, ClipboardCheckIcon } from './icons';
@@ -12,13 +12,14 @@ const WellnessCheckin: React.FC = () => {
         moodHistory, setMoodHistory, 
         habitHistory, setHabitHistory, 
         socialHistory, setSocialHistory,
-        gainXP, openSOS, userProfile
+        gainXP, openSOS, userProfile, currentUser
     } = useContext(AppContext);
 
     const [activeTab, setActiveTab] = useState<'sleep' | 'mood' | 'habit' | 'social'>('sleep');
     const [showCrisisModal, setShowCrisisModal] = useState(false);
     const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
     const [analyzing, setAnalyzing] = useState(false);
+    const [canAnalyze, setCanAnalyze] = useState(true);
 
     // --- Check if done today ---
     const isToday = (dateString: string) => {
@@ -33,6 +34,17 @@ const WellnessCheckin: React.FC = () => {
     const isMoodDone = useMemo(() => moodHistory.some(h => isToday(h.date)), [moodHistory]);
     const isHabitDone = useMemo(() => habitHistory.some(h => isToday(h.date)), [habitHistory]);
     const isSocialDone = useMemo(() => socialHistory.some(h => isToday(h.date)), [socialHistory]);
+
+    useEffect(() => {
+        if (currentUser) {
+            const todayStr = new Date().toDateString();
+            const lastAnalyze = localStorage.getItem(`last_wellness_summary_${currentUser.username}`);
+            if (lastAnalyze === todayStr) {
+                setCanAnalyze(false);
+                // Optionally try to load stored analysis if we wanted to persist it
+            }
+        }
+    }, [currentUser]);
 
     // --- State Management ---
     const [sleepData, setSleepData] = useState({ 
@@ -133,6 +145,7 @@ const WellnessCheckin: React.FC = () => {
     };
 
     const handleWellnessAnalyze = async () => {
+        if (!canAnalyze) return;
         setAnalyzing(true);
         try {
             const prompt = `Analyze today's wellness: 
@@ -154,8 +167,11 @@ const WellnessCheckin: React.FC = () => {
               config: config
             });
             setAiAnalysis(response.text || "ไม่สามารถสรุปข้อมูลได้");
-            // Bonus XP for full review
-            gainXP(10);
+            // Save state
+            const todayStr = new Date().toDateString();
+            localStorage.setItem(`last_wellness_summary_${currentUser?.username}`, todayStr);
+            setCanAnalyze(false);
+            
         } catch (e) { console.error(e); }
         finally { setAnalyzing(false); }
     };
@@ -455,8 +471,14 @@ const WellnessCheckin: React.FC = () => {
             <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold flex items-center gap-2"><SparklesIcon className="w-5 h-5" /> AI Health Summary</h3>
-                    <button onClick={handleWellnessAnalyze} disabled={analyzing} className="bg-white/20 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-white/30 backdrop-blur-sm transition-colors">
-                        {analyzing ? 'กำลังวิเคราะห์...' : 'สรุปภาพรวมวันนี้'}
+                    <button 
+                        onClick={handleWellnessAnalyze} 
+                        disabled={analyzing || !canAnalyze} 
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm transition-colors ${
+                            canAnalyze ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-400/50 cursor-not-allowed'
+                        }`}
+                    >
+                        {analyzing ? 'กำลังวิเคราะห์...' : !canAnalyze ? 'สรุปผลแล้ววันนี้' : 'สรุปภาพรวมวันนี้'}
                     </button>
                 </div>
                 {aiAnalysis && (
