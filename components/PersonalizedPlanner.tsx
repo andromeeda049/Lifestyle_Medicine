@@ -3,7 +3,7 @@ import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { PLANNER_ACTIVITY_LEVELS, CARB_PERCENTAGES, CUISINE_TYPES, DIETARY_PREFERENCES, HEALTH_CONDITIONS, LIFESTYLE_GOALS, XP_VALUES } from '../constants';
 import { generateMealPlan } from '../services/geminiService';
 import { PlannerResults, MealPlan, PlannerHistoryEntry } from '../types';
-import { ArrowLeftIcon, SparklesIcon, UserCircleIcon, ScaleIcon, FireIcon, HeartIcon, ChartBarIcon, TrophyIcon } from './icons';
+import { ArrowLeftIcon, SparklesIcon, UserCircleIcon, ScaleIcon, FireIcon, HeartIcon, ChartBarIcon, TrophyIcon, ExclamationTriangleIcon } from './icons';
 import { AppContext } from '../context/AppContext';
 
 const PersonalizedPlanner: React.FC = () => {
@@ -97,7 +97,8 @@ const PersonalizedPlanner: React.FC = () => {
             // Grant XP for generating plan
             gainXP(XP_VALUES.PLANNER, 'PLANNER');
         } catch (e: any) {
-            setError(e.message);
+            console.error("Planner Error:", e);
+            setError(e.message || "เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI");
         } finally {
             setLoading(false);
         }
@@ -191,6 +192,17 @@ const PersonalizedPlanner: React.FC = () => {
                         </button>
                     </div>
                     
+                    {error && (
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-center">
+                            <div className="flex flex-col items-center gap-2">
+                                <ExclamationTriangleIcon className="w-8 h-8 text-red-500" />
+                                <h3 className="font-bold text-red-600 dark:text-red-400">เกิดข้อผิดพลาด</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-300">{error}</p>
+                                <button onClick={handleCalculateAndPlan} className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">ลองใหม่อีกครั้ง</button>
+                            </div>
+                        </div>
+                    )}
+
                     {loading ? (
                         <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
                             <div className="w-16 h-16 border-4 border-t-teal-500 border-gray-200 rounded-full animate-spin mx-auto mb-4"></div>
