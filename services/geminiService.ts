@@ -202,13 +202,14 @@ export const generateMealPlan = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: config
     });
     return JSON.parse(response.text);
   } catch (error) {
-    throw new Error('ไม่สามารถสร้างแผนได้ โปรดลองใหม่อีกครั้ง');
+    console.error("Planner Generation Error:", error);
+    throw new Error('ไม่สามารถสร้างแผนได้ โปรดตรวจสอบการเชื่อมต่อ หรือลองใหม่อีกครั้ง');
   }
 };
 
